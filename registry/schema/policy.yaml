@@ -1,0 +1,9 @@
+id: no-stale-data
+
+name: No Stale Data
+
+description: >
+  Agents must use live discovery.
+
+enforcement:
+  fail
