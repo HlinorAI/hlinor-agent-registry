@@ -1,0 +1,10 @@
+id: fresh-search-validator
+
+name: Fresh Search Validator
+
+description: >
+  Ensures search results are fresh.
+
+rules:
+  - no cached exports
+  - no historical candidate reuse
