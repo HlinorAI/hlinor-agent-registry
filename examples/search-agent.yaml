@@ -1,0 +1,31 @@
+id: search-agent
+
+name: Search Agent
+
+department: search
+
+description: >
+  Discovers and evaluates candidates.
+
+skills:
+  - google-maps-search
+  - business-evaluation
+
+validators:
+  - fresh-search-validator
+  - dedupe-validator
+
+policies:
+  - no-stale-data
+  - no-hardcoded-locations
+
+allowed_actions:
+  - search
+  - classify
+  - score
+
+blocked_actions:
+  - send_email
+  - modify_crm
+
+approval_level: automatic
