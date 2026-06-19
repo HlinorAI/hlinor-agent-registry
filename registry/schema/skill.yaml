@@ -1,0 +1,15 @@
+id: google-maps-search
+
+name: Google Maps Search
+
+description: >
+  Searches for businesses.
+
+inputs:
+  - query
+
+outputs:
+  - candidates
+
+required_permissions:
+  - internet-access
