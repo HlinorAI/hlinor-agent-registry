@@ -1,0 +1,17 @@
+id: search
+
+name: Search Department
+
+description: >
+  Discovers and evaluates candidates.
+
+agents:
+  - search-agent
+  - contact-discovery-agent
+
+shared_policies:
+  - no-stale-data
+  - no-hardcoded-locations
+
+shared_validators:
+  - fresh-search-validator
