@@ -1,0 +1,94 @@
+id: handoff
+
+name: Department Handoff
+
+description: >
+  Defines a controlled transfer of responsibility from one department to another.
+
+purpose: >
+  Makes multi-department work explicit, inspectable, resumable, and auditable.
+
+belongs_to:
+  - project
+  - task_workspace
+  - source_department
+  - target_department
+
+required_fields:
+  - handoff_id
+  - project_id
+  - workspace_id
+  - task_id
+  - source_department
+  - target_department
+  - status
+  - handoff_reason
+  - next_expected_action
+
+recommended_fields:
+  - created_at
+  - created_by
+  - task_objective
+  - current_status
+  - input_references
+  - output_references
+  - evidence_references
+  - validation_references
+  - approval_references
+  - policy_references
+  - known_risks
+  - blocked_items
+
+status_values:
+  - draft
+  - ready
+  - accepted
+  - rejected
+  - blocked
+  - superseded
+  - completed
+
+source_department_responsibilities:
+  - provide_clear_output
+  - reference_evidence
+  - report_validation_state
+  - disclose_known_limitations
+  - report_approval_state
+  - recommend_next_action
+
+target_department_responsibilities:
+  - verify_project_boundary
+  - verify_task_identity
+  - verify_policy_set
+  - verify_approval_state
+  - verify_input_references
+  - verify_validation_results
+  - verify_department_scope
+
+approval_states:
+  - allowed
+  - blocked
+  - requires_human_approval
+  - requires_owner_approval
+  - already_approved
+  - rejected
+  - out_of_scope
+
+rejection_reasons:
+  - missing_required_input
+  - failed_validation
+  - unclear_task_objective
+  - missing_approval
+  - wrong_project_boundary
+  - stale_artifact
+  - superseded_artifact
+  - outside_department_scope
+  - policy_conflict
+  - insufficient_evidence
+
+blocked_actions:
+  - proceed_without_required_input
+  - proceed_without_required_approval
+  - ignore_failed_validation
+  - infer_missing_context_from_chat
+  - cross_project_handoff_without_approval
