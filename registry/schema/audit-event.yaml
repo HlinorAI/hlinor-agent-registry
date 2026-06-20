@@ -1,0 +1,89 @@
+id: audit-event
+
+name: Audit Event
+
+description: >
+  Defines a structured record for important agent, department, policy, validation, approval, and handoff events.
+
+purpose: >
+  Makes agentic work inspectable, attributable, explainable, and resumable.
+
+belongs_to:
+  - project
+  - task_workspace
+  - audit_trail
+
+required_fields:
+  - event_id
+  - project_id
+  - workspace_id
+  - timestamp
+  - actor
+  - action
+  - decision
+  - reason
+
+recommended_fields:
+  - task_id
+  - department_id
+  - agent_id
+  - skill_id
+  - validator_id
+  - policy_id
+  - approval_id
+  - handoff_id
+  - input_reference
+  - output_reference
+  - evidence_reference
+  - status_before
+  - status_after
+
+event_types:
+  - task_created
+  - workspace_created
+  - department_started
+  - skill_used
+  - validator_run
+  - policy_checked
+  - approval_requested
+  - approval_granted
+  - approval_rejected
+  - artifact_created
+  - handoff_created
+  - handoff_accepted
+  - handoff_rejected
+  - task_blocked
+  - task_completed
+  - task_failed
+  - task_superseded
+
+decision_values:
+  - allowed
+  - blocked
+  - passed
+  - failed
+  - approved
+  - rejected
+  - created
+  - updated
+  - skipped
+  - superseded
+
+audit_requirements:
+  - append_only
+  - inspectable
+  - attributable
+  - explainable
+  - linked_to_project
+  - linked_to_workspace
+  - linked_to_policy_when_applicable
+  - linked_to_approval_when_applicable
+  - linked_to_evidence_when_applicable
+
+blocked_patterns:
+  - claim_without_evidence
+  - action_without_actor
+  - approval_without_scope
+  - validation_without_result
+  - cross_project_event_without_project_id
+  - overwrite_existing_audit_event
