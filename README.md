@@ -37,6 +37,10 @@ Hlinor Agent Registry focuses on governance:
 - Audit-friendly metadata
 - YAML and JSON configuration support
 
+## Documentation
+
+- [Control Layer architecture overview](docs/architecture/control-layer-overview.md)
+
 ## Status
 
 Early public release.
