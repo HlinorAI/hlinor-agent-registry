@@ -1,0 +1,79 @@
+id: task-workspace
+
+name: Task Workspace
+
+description: >
+  Defines a bounded working area for one task inside one project.
+
+purpose: >
+  Keeps agentic work scoped, inspectable, resumable, and auditable.
+
+belongs_to:
+  - project
+  - task
+
+required_fields:
+  - project_id
+  - workspace_id
+  - task_id
+  - task_type
+  - department_id
+  - agent_id
+  - policy_set
+  - approval_state
+  - status
+
+recommended_fields:
+  - owner_request_reference
+  - input_references
+  - output_references
+  - evidence_references
+  - validation_references
+  - approval_references
+  - created_at
+  - updated_at
+
+status_values:
+  - created
+  - in_progress
+  - blocked
+  - awaiting_approval
+  - ready_for_review
+  - completed
+  - failed
+  - superseded
+  - cancelled
+
+approval_states:
+  - not_required
+  - required
+  - requested
+  - approved
+  - rejected
+  - expired
+  - superseded
+
+contains:
+  - task_specification
+  - context_snapshot
+  - execution_notes
+  - evidence_records
+  - generated_artifacts
+  - validation_results
+  - approval_records
+  - review_packet
+  - handoff_record
+  - final_status_report
+
+boundaries:
+  - one_project_per_workspace
+  - one_primary_task_objective
+  - explicit_policy_set
+  - explicit_approval_state
+  - no_hidden_cross_project_memory
+
+blocked_actions:
+  - read_other_project_state
+  - write_other_project_state
+  - reuse_unapproved_cross_project_artifacts
+  - execute_sensitive_action_without_approval
