@@ -39,7 +39,11 @@ Hlinor Agent Registry focuses on governance:
 
 ## Documentation
 
+- [Execution model](docs/execution-model.md)
+- [Approval model](docs/approval-model.md)
+- [Audit trail](docs/audit-trail.md)
 - [Control Layer architecture overview](docs/architecture/control-layer-overview.md)
+- [Project isolation architecture](docs/architecture/project-isolation.md)
 
 ## Status
 
