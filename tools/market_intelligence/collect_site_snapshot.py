@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse, json, re, sys
+from pathlib import Path
 from datetime import datetime, timezone
 from html import unescape
 from urllib.parse import urlparse
@@ -49,6 +50,7 @@ def main():
     ap.add_argument("--project", required=True)
     ap.add_argument("--vertical", required=True)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--output-root", help="Optional private output root for JSONL records, e.g. knowledge")
     args = ap.parse_args()
 
     html, final_url, headers = fetch_html(args.url)
@@ -125,6 +127,14 @@ def main():
             "no_viewport_meta": not has(r'<meta[^>]+name=["\']viewport["\']', html),
         }
     }
+
+    if args.output_root:
+        out_dir = Path(args.output_root) / args.project / args.vertical
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_file = out_dir / "sites.jsonl"
+        with out_file.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+        record["written_to"] = str(out_file)
 
     print(json.dumps(record, ensure_ascii=False, indent=2))
 
