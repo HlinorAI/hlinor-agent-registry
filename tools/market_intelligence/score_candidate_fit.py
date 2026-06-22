@@ -14,8 +14,32 @@ def get(record, *path):
 
 def score_record(r):
     domain = r.get("domain", "")
+    source_url = r.get("source_url", "")
     title = get(r, "page", "title") or ""
     h1 = get(r, "page", "h1") or []
+
+    identity_text = " ".join([
+        domain,
+        source_url,
+        title,
+        " ".join(h1) if isinstance(h1, list) else str(h1),
+    ]).lower()
+
+    reject_terms = [
+        "chamber", "alliance", "association", "directory", "marketplace",
+        "business broker", "broker", "city of", ".gov", "government",
+        "region", "regional", "economic development", "visitor bureau",
+        "tourism", "classifieds", "franchise", "national", "corporate",
+        "business services", "business directory", "local business",
+    ]
+
+    matched_reject_terms = [term for term in reject_terms if term in identity_text]
+
+    if domain.endswith(".org") and any(term in identity_text for term in ["buy", "local", "region", "alliance", "association", "chamber"]):
+        matched_reject_terms.append("org/regional-business-portal-risk")
+
+    if matched_reject_terms:
+        return "REJECT", 0, ["K16 excluded business type: " + ", ".join(matched_reject_terms)]
 
     phone = bool(get(r, "conversion_signals", "phone_visible"))
     email = bool(get(r, "conversion_signals", "email_visible"))
