@@ -42,18 +42,20 @@ def score_record(r):
         return "REJECT", 0, ["example/test domain"]
 
     if not title and not h1:
-        return "REJECT", 0, ["missing title and h1"]
+        return "NEEDS_BROWSER_CHECK", weakness_count, ["missing title and h1; simple HTML fetch may be incomplete"]
 
     if not contact:
         reasons.append("no visible contact signal")
 
     if links < 3 and images == 0 and forms == 0:
-        reasons.append("too little business/page structure")
+        reasons.append("too little business/page structure; may need browser rendering")
 
     if weakness_count == 0:
         reasons.append("no clear weak-site indicators")
 
-    if not contact or links < 3:
+    if title and links < 3 and images == 0 and forms == 0:
+        verdict = "NEEDS_BROWSER_CHECK"
+    elif not contact or links < 3:
         verdict = "LOW"
     elif 2 <= weakness_count <= 6:
         verdict = "HIGH"
