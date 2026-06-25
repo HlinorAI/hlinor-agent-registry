@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hlinor-registry"
+version = "0.1.0"
+description = "Validator and CLI tooling for Hlinor Agent Registry."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = [
+    "PyYAML>=6.0.0"
+]
+
+[project.scripts]
+hlinor-registry = "hlinor_registry.cli:main"
+
+[tool.setuptools]
+packages = ["hlinor_registry"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
