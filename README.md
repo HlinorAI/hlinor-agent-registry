@@ -52,3 +52,8 @@ Early public release.
 ## License
 
 Apache License 2.0
+## Patterns
+
+- [Autonomous production control loop pattern](docs/patterns/autonomous-production-control-loop.md)
+- [Autonomous production control loop YAML example](examples/control-loops/autonomous-production-control-loop.yaml)
+
