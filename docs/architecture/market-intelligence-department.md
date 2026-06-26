@@ -6,13 +6,13 @@ It is not a scraping pipeline by default. It defines safe storage, provenance, f
 
 ## Purpose
 
-The department maintains structured knowledge by vertical/category: roofing, HVAC, dentistry, landscaping, pest control, powersports, ecommerce.
+The department maintains structured knowledge by vertical/category: roofing, HVAC, dentistry, landscaping, pest control, specialty retail, ecommerce.
 
 It may later support competitor benchmarking, weak-site pattern discovery, CTA analysis, visual pattern tracking, review/reputation analysis, repair-pattern reuse, and category-specific outreach reasoning.
 
 ## Boundaries
 
-Market Intelligence must not send outreach, create drafts, write to CRM, write to Zoho, trigger Telegram notifications, modify production queues, reuse data across projects without explicit project binding, or treat old exports as fresh discovery.
+Market Intelligence must not send outreach, create drafts, write to CRM, write to external CRM/mailbox provider, trigger Telegram notifications, modify production queues, reuse data across projects without explicit project binding, or treat old exports as fresh discovery.
 
 ## Required controls
 

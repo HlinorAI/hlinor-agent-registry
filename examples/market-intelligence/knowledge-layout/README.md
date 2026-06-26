@@ -26,8 +26,8 @@ knowledge/
     dentistry/
     landscaping/
     pest-control/
-  atvbox/
-    powersports-retailers/
+  example-project/
+    vertical-retailers/
     parts-distributors/
     accessory-manufacturers/
 ```
