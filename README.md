@@ -57,3 +57,7 @@ Apache License 2.0
 
 - [Autonomous production control loop pattern](docs/patterns/autonomous-production-control-loop.md)
 - [Autonomous production control loop YAML example](examples/control-loops/autonomous-production-control-loop.yaml)
+
+## Engineering Policies
+
+- [Dependency Reuse Policy](docs/policies/dependency-reuse-policy.md)

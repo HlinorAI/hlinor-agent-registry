@@ -36,3 +36,9 @@ Runtime rule:
 
 <!-- END k16_email_gate_before_acceptance_invariant_20260625 -->
 
+
+## Dependency Reuse
+
+Before implementing non-trivial code, follow `docs/policies/dependency-reuse-policy.md`.
+
+Agents must first check existing project code and dependencies before writing new infrastructure logic or adding new packages.
