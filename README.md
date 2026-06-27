@@ -41,6 +41,7 @@ Hlinor Agent Registry focuses on governance:
 
 - [Execution model](docs/execution-model.md)
 - [Approval model](docs/approval-model.md)
+- [Runtime bindings and execution receipts](docs/runtime-receipts.md)
 - [Audit trail](docs/audit-trail.md)
 - [Control Layer architecture overview](docs/architecture/control-layer-overview.md)
 - [Project isolation architecture](docs/architecture/project-isolation.md)
@@ -56,4 +57,3 @@ Apache License 2.0
 
 - [Autonomous production control loop pattern](docs/patterns/autonomous-production-control-loop.md)
 - [Autonomous production control loop YAML example](examples/control-loops/autonomous-production-control-loop.yaml)
-

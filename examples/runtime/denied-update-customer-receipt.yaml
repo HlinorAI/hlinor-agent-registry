@@ -1,0 +1,73 @@
+binding:
+  binding_id: binding_read_customer_002
+  session_id: session_customer_ops_002
+  project_id: project_customer_ops
+  workspace_id: workspace_customer_review_002
+  agent_id: customer-read-agent
+  registry_version: registry@2026-06-27.issue-12
+  policy_bundle_digest: sha256:policybundle222222222222222222222222222222222222222222222222222222
+  tool_name: read_customer
+  tool_descriptor_digest: sha256:tooldescriptor22222222222222222222222222222222222222222222222222
+  normalized_argument_digest: sha256:args222222222222222222222222222222222222222222222222222222222222
+  target_resource_scope:
+    resource_type: customer
+    resource_id: cust_456
+    operations:
+      - read
+  approval_id_or_lease_id: lease_read_customer_002
+  status: active
+  issued_at: "2026-06-27T13:00:00Z"
+  expires_at: "2026-06-27T13:30:00Z"
+
+pre_dispatch_authorization_check:
+  check_id: check_update_customer_001
+  session_id: session_customer_ops_002
+  binding_id: binding_read_customer_002
+  requested_tool_name: update_customer
+  observed_registry_version: registry@2026-06-27.issue-12
+  observed_policy_bundle_digest: sha256:policybundle222222222222222222222222222222222222222222222222222222
+  observed_tool_descriptor_digest: sha256:tooldescriptor_update2222222222222222222222222222222222222222222222
+  observed_normalized_argument_digest: sha256:args_update2222222222222222222222222222222222222222222222222222
+  observed_target_resource_scope:
+    resource_type: customer
+    resource_id: cust_456
+    operations:
+      - update
+  matched_approved_binding: false
+  decision: denied
+  mismatch_fields:
+    - requested_tool_name
+    - observed_tool_descriptor_digest
+    - observed_normalized_argument_digest
+    - observed_target_resource_scope
+  checked_at: "2026-06-27T13:05:00Z"
+  approval_id_or_lease_id: lease_read_customer_002
+  reason: Session was approved for read_customer only; update_customer was denied.
+
+execution_receipt:
+  receipt_id: receipt_update_customer_denied_001
+  session_id: session_customer_ops_002
+  binding_id: binding_read_customer_002
+  check_id: check_update_customer_001
+  timestamp: "2026-06-27T13:05:01Z"
+  actor: customer-read-agent
+  requested_tool_name: update_customer
+  authorization_result: denied
+  side_effect_state: blocked_before_side_effect
+  matched_approved_binding: false
+  registry_version: registry@2026-06-27.issue-12
+  policy_bundle_digest: sha256:policybundle222222222222222222222222222222222222222222222222222222
+  tool_descriptor_digest: sha256:tooldescriptor_update2222222222222222222222222222222222222222222222
+  normalized_argument_digest: sha256:args_update2222222222222222222222222222222222222222222222222222
+  target_resource_scope:
+    resource_type: customer
+    resource_id: cust_456
+    operations:
+      - update
+  approval_id_or_lease_id: lease_read_customer_002
+  mismatch_fields:
+    - requested_tool_name
+    - tool_descriptor_digest
+    - normalized_argument_digest
+    - target_resource_scope
+  reason: The approved binding did not authorize update_customer.

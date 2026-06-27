@@ -1,0 +1,63 @@
+id: runtime-policy-session-binding
+
+name: Runtime Policy Session Binding
+
+description: >
+  Defines the runtime binding between a session, an approved policy context,
+  a specific tool descriptor, normalized arguments, and a target resource scope.
+
+purpose: >
+  Captures the exact authority that may be exercised during a runtime session
+  without making the registry itself the source of truth for executed authority.
+
+belongs_to:
+  - session
+  - task_workspace
+  - policy_bundle
+  - approval_or_lease
+
+required_fields:
+  - binding_id
+  - session_id
+  - project_id
+  - workspace_id
+  - agent_id
+  - registry_version
+  - policy_bundle_digest
+  - tool_name
+  - tool_descriptor_digest
+  - normalized_argument_digest
+  - target_resource_scope
+  - approval_id_or_lease_id
+  - status
+  - issued_at
+  - expires_at
+
+recommended_fields:
+  - policy_ids
+  - approval_level
+  - approved_by
+  - reason
+  - source_registry_reference
+
+status_values:
+  - active
+  - expired
+  - superseded
+  - revoked
+
+binding_requirements:
+  - scoped_to_one_session
+  - scoped_to_one_tool_descriptor_digest
+  - scoped_to_one_normalized_argument_digest
+  - scoped_to_one_target_resource_scope
+  - references_registry_version
+  - references_policy_bundle_digest
+  - references_approval_or_lease
+
+blocked_patterns:
+  - reuse_binding_after_registry_change
+  - reuse_binding_after_policy_bundle_change
+  - reuse_binding_after_tool_descriptor_change
+  - reuse_binding_after_argument_change
+  - reuse_binding_for_different_target_scope

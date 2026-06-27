@@ -1,0 +1,79 @@
+id: execution-receipt
+
+name: Execution Receipt
+
+description: >
+  Defines the append-only runtime record of whether requested authority was
+  exercised, denied, expired, or required fresh approval.
+
+purpose: >
+  Makes the runtime receipt the source of truth for exercised authority while
+  the registry remains the source of declared intent and governance.
+
+belongs_to:
+  - session
+  - task_workspace
+  - runtime_policy_session_binding
+  - pre_dispatch_authorization_check
+  - audit_trail
+
+required_fields:
+  - receipt_id
+  - session_id
+  - binding_id
+  - check_id
+  - timestamp
+  - actor
+  - requested_tool_name
+  - authorization_result
+  - side_effect_state
+  - matched_approved_binding
+  - registry_version
+  - policy_bundle_digest
+  - tool_descriptor_digest
+  - normalized_argument_digest
+  - target_resource_scope
+  - approval_id_or_lease_id
+
+recommended_fields:
+  - project_id
+  - workspace_id
+  - agent_id
+  - reason
+  - mismatch_fields
+  - output_reference
+  - evidence_reference
+  - error_reference
+
+authorization_result_values:
+  - allowed
+  - denied
+  - expired
+  - reapproval_required
+
+side_effect_state_values:
+  - blocked_before_side_effect
+  - side_effect_attempted
+
+field_types:
+  matched_approved_binding: boolean
+
+receipt_requirements:
+  - append_only
+  - emitted_for_allowed_denied_expired_and_reapproval_required_results
+  - records_whether_side_effect_was_blocked_or_attempted
+  - records_matched_approved_binding_boolean
+  - records_registry_version
+  - records_policy_bundle_digest
+  - records_tool_descriptor_digest
+  - records_normalized_argument_digest
+  - records_target_resource_scope
+  - records_approval_or_lease_id
+
+blocked_patterns:
+  - overwrite_existing_receipt
+  - omit_denied_receipt
+  - omit_expired_receipt
+  - omit_reapproval_required_receipt
+  - record_allowed_after_binding_mismatch
+  - record_side_effect_attempted_after_denial

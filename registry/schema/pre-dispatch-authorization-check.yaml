@@ -1,0 +1,61 @@
+id: pre-dispatch-authorization-check
+
+name: Pre-dispatch Authorization Check
+
+description: >
+  Defines the authorization decision made immediately before a tool or action is
+  dispatched against the observed runtime request.
+
+purpose: >
+  Prevents stale or over-broad approvals from being reused when the registry,
+  policy bundle, tool descriptor, normalized arguments, or target scope has
+  changed since approval.
+
+belongs_to:
+  - runtime_policy_session_binding
+  - execution_receipt
+  - audit_trail
+
+required_fields:
+  - check_id
+  - session_id
+  - binding_id
+  - requested_tool_name
+  - observed_registry_version
+  - observed_policy_bundle_digest
+  - observed_tool_descriptor_digest
+  - observed_normalized_argument_digest
+  - observed_target_resource_scope
+  - matched_approved_binding
+  - decision
+  - checked_at
+
+recommended_fields:
+  - mismatch_fields
+  - approval_id_or_lease_id
+  - reason
+  - actor
+  - workspace_id
+  - project_id
+
+decision_values:
+  - allowed
+  - denied
+  - expired
+  - reapproval_required
+
+check_requirements:
+  - compare_registry_version
+  - compare_policy_bundle_digest
+  - compare_tool_descriptor_digest
+  - compare_normalized_argument_digest
+  - compare_target_resource_scope
+  - verify_approval_or_lease_is_current
+  - block_before_dispatch_on_mismatch
+
+blocked_patterns:
+  - dispatch_without_pre_dispatch_check
+  - dispatch_after_digest_mismatch
+  - dispatch_after_scope_mismatch
+  - silently_reuse_expired_approval
+  - silently_reuse_superseded_binding
