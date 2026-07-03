@@ -57,6 +57,7 @@ Apache License 2.0
 
 - [Autonomous production control loop pattern](docs/patterns/autonomous-production-control-loop.md)
 - [Autonomous production control loop YAML example](examples/control-loops/autonomous-production-control-loop.yaml)
+- [Production action boundary pattern](docs/patterns/production-action-boundary.md)
 
 ## Engineering Policies
 

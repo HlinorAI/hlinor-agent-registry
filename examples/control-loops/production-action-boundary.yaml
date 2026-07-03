@@ -1,0 +1,66 @@
+id: example_message_send_boundary
+kind: production_action_boundary
+version: 0.1.0
+
+description: Generic boundary for a review-only workflow that may later send an external message.
+
+privacy:
+  contains_customer_data: false
+  contains_recipients: false
+  contains_secrets: false
+  contains_provider_specific_identifiers: false
+  contains_production_paths: false
+
+boundary:
+  boundary_id: boundary_example_message_send_001
+  project_id: example_project
+  workspace_id: workspace_example_outreach_review_001
+  requested_action: send_external_message
+  target_resource_scope:
+    resource_type: message_recipient_group
+    resource_id: example_review_batch
+    operations:
+      - send
+  approval_level: owner_approval
+  pre_dispatch_check_required: true
+  execution_receipt_required: true
+
+side_effect_allowed_only_when:
+  - project_boundary_matches
+  - action_allowed_by_policy
+  - target_scope_matches_approval
+  - required_validations_passed
+  - required_approval_present
+  - cap_available_when_applicable
+  - suppression_checked_when_applicable
+  - input_freshness_checked_when_applicable
+  - pre_dispatch_check_passed
+
+review_only_mode:
+  allowed_actions:
+    - classify_inputs
+    - generate_review_drafts
+    - build_owner_review_packet
+    - emit_audit_event
+  blocked_actions:
+    - send_external_message
+    - modify_external_record
+    - change_scheduler_state
+  ready_for_action_may_be_counted: true
+  side_effect_must_remain_blocked: true
+
+blocked_outcomes:
+  - blocked_missing_approval
+  - blocked_policy_denied
+  - blocked_scope_mismatch
+  - blocked_validation_failed
+  - blocked_cap_unavailable
+  - blocked_suppression_match
+  - blocked_stale_input
+
+audit_requirements:
+  - record_policy_decision
+  - record_validation_results
+  - record_pre_dispatch_check
+  - record_execution_receipt_for_allowed_and_blocked_results
+  - record_side_effect_state

@@ -1,0 +1,78 @@
+id: production-action-boundary
+
+name: Production Action Boundary
+
+description: >
+  Defines the required controls before an agent-initiated request may perform
+  an external or production side effect.
+
+purpose: >
+  Separates safe internal preparation from production actions that require
+  policy evaluation, validation, scoped approval, and runtime receipts.
+
+belongs_to:
+  - project
+  - task_workspace
+  - policy
+  - approval_model
+  - execution_receipt
+
+required_fields:
+  - boundary_id
+  - project_id
+  - workspace_id
+  - requested_action
+  - target_resource_scope
+  - approval_level
+  - pre_dispatch_check_required
+  - execution_receipt_required
+  - side_effect_allowed_only_when
+  - blocked_outcomes
+
+recommended_fields:
+  - policy_ids
+  - validator_ids
+  - cap_policy
+  - suppression_policy
+  - freshness_policy
+  - dedupe_policy
+  - owner_review_reference
+  - audit_event_reference
+
+approval_level_values:
+  - automatic
+  - human_approval
+  - owner_approval
+  - denied_by_default
+
+side_effect_states:
+  - blocked_before_side_effect
+  - side_effect_attempted
+
+side_effect_allowed_only_when:
+  - project_boundary_matches
+  - action_allowed_by_policy
+  - target_scope_matches_approval
+  - required_validations_passed
+  - required_approval_present
+  - cap_available_when_applicable
+  - suppression_checked_when_applicable
+  - input_freshness_checked_when_applicable
+  - pre_dispatch_check_passed
+
+blocked_outcomes:
+  - blocked_missing_approval
+  - blocked_policy_denied
+  - blocked_scope_mismatch
+  - blocked_validation_failed
+  - blocked_cap_unavailable
+  - blocked_suppression_match
+  - blocked_stale_input
+
+blocked_patterns:
+  - execute_without_pre_dispatch_check
+  - execute_without_execution_receipt
+  - reuse_approval_for_different_target_scope
+  - treat_dry_run_ready_as_executed
+  - perform_side_effect_after_denial
+  - skip_audit_event_for_blocked_action
