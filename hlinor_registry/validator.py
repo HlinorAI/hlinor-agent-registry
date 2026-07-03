@@ -13,6 +13,38 @@ REQUIRED_AGENT_FIELDS = [
     "blocked_actions",
 ]
 
+REQUIRED_DEPARTMENT_FIELDS = [
+    "id",
+    "name",
+    "description",
+    "agents",
+    "shared_policies",
+    "shared_validators",
+]
+
+REQUIRED_POLICY_FIELDS = [
+    "id",
+    "name",
+    "description",
+    "enforcement",
+]
+
+REQUIRED_SKILL_FIELDS = [
+    "id",
+    "name",
+    "description",
+    "inputs",
+    "outputs",
+    "required_permissions",
+]
+
+REQUIRED_VALIDATOR_FIELDS = [
+    "id",
+    "name",
+    "description",
+    "rules",
+]
+
 REQUIRED_RUNTIME_BINDING_FIELDS = [
     "binding_id",
     "session_id",
@@ -131,6 +163,75 @@ def _validate_required_fields(data: dict, required_fields: list[str], prefix: st
 
     return errors
 
+def _validate_list_fields(data: dict, list_fields: list[str], prefix: str) -> list[str]:
+    errors: list[str] = []
+
+    for list_field in list_fields:
+        if list_field in data and not isinstance(data[list_field], list):
+            errors.append(f"{prefix}: Field must be a list: {list_field}")
+
+    return errors
+
+def validate_department(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(
+        data,
+        REQUIRED_DEPARTMENT_FIELDS,
+        "department",
+    )
+    errors.extend(_validate_list_fields(
+        data,
+        ["agents", "shared_policies", "shared_validators"],
+        "department",
+    ))
+
+    return errors
+
+def validate_policy(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(
+        data,
+        REQUIRED_POLICY_FIELDS,
+        "policy",
+    )
+
+    if "enforcement" in data and (
+        not isinstance(data["enforcement"], str) or not data["enforcement"].strip()
+    ):
+        errors.append("policy: Field must be a non-empty string: enforcement")
+
+    return errors
+
+def validate_skill(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(
+        data,
+        REQUIRED_SKILL_FIELDS,
+        "skill",
+    )
+    errors.extend(_validate_list_fields(
+        data,
+        ["inputs", "outputs", "required_permissions"],
+        "skill",
+    ))
+
+    return errors
+
+def validate_validator(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(
+        data,
+        REQUIRED_VALIDATOR_FIELDS,
+        "validator",
+    )
+    errors.extend(_validate_list_fields(
+        data,
+        ["rules"],
+        "validator",
+    ))
+
+    return errors
+
 def validate_runtime_binding(data: dict) -> list[str]:
     errors = _validate_required_fields(
         data,
@@ -160,6 +261,24 @@ def validate_pre_dispatch_authorization_check(data: dict) -> list[str]:
         errors.append("pre_dispatch_authorization_check: Field must be an object: observed_target_resource_scope")
 
     return errors
+
+
+def validate_registry_file(entity_type: str, path: str | Path) -> list[str]:
+    validators = {
+        "agent": validate_agent,
+        "department": validate_department,
+        "policy": validate_policy,
+        "skill": validate_skill,
+        "validator": validate_validator,
+        "runtime-example": validate_runtime_example,
+        "production-action-boundary-example": validate_production_action_boundary_example,
+    }
+
+    validator = validators.get(entity_type)
+    if validator is None:
+        return [f"Unsupported entity type: {entity_type}"]
+
+    return validator(path)
 
 def validate_execution_receipt(data: dict) -> list[str]:
     errors = _validate_required_fields(

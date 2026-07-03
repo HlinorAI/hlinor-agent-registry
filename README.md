@@ -46,6 +46,18 @@ Hlinor Agent Registry focuses on governance:
 - [Control Layer architecture overview](docs/architecture/control-layer-overview.md)
 - [Project isolation architecture](docs/architecture/project-isolation.md)
 
+## CLI Usage
+
+- `hlinor-registry validate <path>`
+- `hlinor-registry validate-agent <path>`
+- `hlinor-registry validate-department <path>`
+- `hlinor-registry validate-policy <path>`
+- `hlinor-registry validate-skill <path>`
+- `hlinor-registry validate-validator <path>`
+- `hlinor-registry validate-runtime-example <path>`
+- `hlinor-registry validate-production-action-boundary-example <path>`
+- `hlinor-registry inspect <path>`
+
 ## Status
 
 Early public release.
