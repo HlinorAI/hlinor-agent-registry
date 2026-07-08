@@ -375,3 +375,187 @@ def validate_production_action_boundary_example(path: str | Path) -> list[str]:
             errors.append(f"Field must be a list: {list_field}")
 
     return errors
+
+
+LIFECYCLE_MODES = {
+    "prototyper",
+    "builder",
+    "sweeper",
+    "grower",
+    "maintainer",
+}
+
+REQUIRED_LIFECYCLE_MODE_FIELDS = [
+    "mode",
+    "role_name",
+    "mission",
+    "allowed_inputs",
+    "required_outputs",
+    "hard_rules",
+    "failure_conditions",
+    "evidence_requirements",
+    "never_do",
+    "valid_handoff_targets",
+]
+
+REQUIRED_LIFECYCLE_RECEIPT_FIELDS = [
+    "task_id",
+    "lifecycle_mode",
+    "input_refs",
+    "output_refs",
+    "changed_files",
+    "checks_run",
+    "risks_detected",
+    "next_recommended_mode",
+    "stop_reason",
+    "secrets_touched",
+    "production_behavior_changed",
+    "external_messages_sent",
+    "services_restarted",
+]
+
+LIFECYCLE_RECEIPT_STOP_REASONS = {
+    "completed",
+    "blocked",
+    "failed",
+    "needs_approval",
+    "handed_off",
+}
+
+REQUIRED_LIFECYCLE_SCHEMA_FIELDS = [
+    "$schema",
+    "title",
+    "type",
+    "required",
+    "properties",
+]
+
+
+def _validate_string_list_values(data: dict, fields: list[str], prefix: str) -> list[str]:
+    errors: list[str] = []
+
+    for field in fields:
+        if field not in data:
+            continue
+        value = data[field]
+        if not isinstance(value, list):
+            errors.append(f"{prefix}: Field must be a list: {field}")
+            continue
+        for index, item in enumerate(value):
+            if not isinstance(item, str) or not item.strip():
+                errors.append(f"{prefix}: List item must be a non-empty string: {field}[{index}]")
+
+    return errors
+
+
+def _validate_lifecycle_mode_object(data: dict, prefix: str) -> list[str]:
+    errors = _validate_required_fields(data, REQUIRED_LIFECYCLE_MODE_FIELDS, prefix)
+
+    list_fields = [
+        "allowed_inputs",
+        "required_outputs",
+        "hard_rules",
+        "failure_conditions",
+        "evidence_requirements",
+        "never_do",
+        "valid_handoff_targets",
+    ]
+    errors.extend(_validate_string_list_values(data, list_fields, prefix))
+
+    mode = data.get("mode")
+    if mode is not None and mode not in LIFECYCLE_MODES:
+        errors.append(f"{prefix}: Invalid lifecycle mode: {mode}")
+
+    for target in data.get("valid_handoff_targets", []) if isinstance(data.get("valid_handoff_targets"), list) else []:
+        if target not in LIFECYCLE_MODES:
+            errors.append(f"{prefix}: Invalid handoff target: {target}")
+
+    for field in ["role_name", "mission"]:
+        if field in data and (not isinstance(data[field], str) or not data[field].strip()):
+            errors.append(f"{prefix}: Field must be a non-empty string: {field}")
+
+    return errors
+
+
+def validate_lifecycle_map(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors: list[str] = []
+
+    lifecycle_modes = data.get("lifecycle_modes")
+    if not isinstance(lifecycle_modes, list) or not lifecycle_modes:
+        return ["lifecycle_map: Missing or invalid required section: lifecycle_modes"]
+
+    seen_modes: set[str] = set()
+    for index, mode_contract in enumerate(lifecycle_modes):
+        prefix = f"lifecycle_modes[{index}]"
+        if not isinstance(mode_contract, dict):
+            errors.append(f"{prefix}: Mode contract must be an object")
+            continue
+        errors.extend(_validate_lifecycle_mode_object(mode_contract, prefix))
+
+        mode = mode_contract.get("mode")
+        if mode in seen_modes:
+            errors.append(f"{prefix}: Duplicate lifecycle mode: {mode}")
+        if isinstance(mode, str):
+            seen_modes.add(mode)
+
+    missing_modes = sorted(LIFECYCLE_MODES - seen_modes)
+    if missing_modes:
+        errors.append("lifecycle_map: Missing lifecycle modes: " + ", ".join(missing_modes))
+
+    return errors
+
+
+def validate_lifecycle_receipt(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(data, REQUIRED_LIFECYCLE_RECEIPT_FIELDS, "lifecycle_receipt")
+
+    lifecycle_mode = data.get("lifecycle_mode")
+    if lifecycle_mode is not None and lifecycle_mode not in LIFECYCLE_MODES:
+        errors.append(f"lifecycle_receipt: Invalid lifecycle_mode: {lifecycle_mode}")
+
+    next_mode = data.get("next_recommended_mode")
+    if next_mode is not None and next_mode not in LIFECYCLE_MODES:
+        errors.append(f"lifecycle_receipt: Invalid next_recommended_mode: {next_mode}")
+
+    stop_reason = data.get("stop_reason")
+    if stop_reason is not None and stop_reason not in LIFECYCLE_RECEIPT_STOP_REASONS:
+        errors.append(f"lifecycle_receipt: Invalid stop_reason: {stop_reason}")
+
+    errors.extend(_validate_list_fields(
+        data,
+        ["input_refs", "output_refs", "changed_files", "checks_run", "risks_detected"],
+        "lifecycle_receipt",
+    ))
+
+    for bool_field in [
+        "secrets_touched",
+        "production_behavior_changed",
+        "external_messages_sent",
+        "services_restarted",
+    ]:
+        if bool_field in data and not isinstance(data[bool_field], bool):
+            errors.append(f"lifecycle_receipt: Field must be a boolean: {bool_field}")
+
+    return errors
+
+
+def validate_lifecycle_schema(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(data, REQUIRED_LIFECYCLE_SCHEMA_FIELDS, "lifecycle_schema")
+
+    if "$defs" not in data:
+        errors.append("lifecycle_schema: Missing required field: $defs")
+
+    if "type" in data and data["type"] != "object":
+        errors.append("lifecycle_schema: Field must equal object: type")
+
+    for list_field in ["required"]:
+        if list_field in data and not isinstance(data[list_field], list):
+            errors.append(f"lifecycle_schema: Field must be a list: {list_field}")
+
+    for object_field in ["properties", "$defs"]:
+        if object_field in data and not isinstance(data[object_field], dict):
+            errors.append(f"lifecycle_schema: Field must be an object: {object_field}")
+
+    return errors

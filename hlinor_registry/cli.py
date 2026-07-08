@@ -10,6 +10,9 @@ from hlinor_registry.validator import (
     validate_runtime_example,
     validate_skill,
     validate_validator,
+    validate_lifecycle_map,
+    validate_lifecycle_receipt,
+    validate_lifecycle_schema,
 )
 
 
@@ -24,6 +27,9 @@ VALIDATION_COMMANDS = {
         "Production action boundary example",
         validate_production_action_boundary_example,
     ),
+    "validate-lifecycle-map": ("Lifecycle map", validate_lifecycle_map),
+    "validate-lifecycle-receipt": ("Lifecycle receipt", validate_lifecycle_receipt),
+    "validate-lifecycle-schema": ("Lifecycle schema", validate_lifecycle_schema),
 }
 
 

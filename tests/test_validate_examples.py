@@ -11,6 +11,9 @@ from hlinor_registry.validator import (
     validate_runtime_example,
     validate_skill,
     validate_validator,
+    validate_lifecycle_map,
+    validate_lifecycle_receipt,
+    validate_lifecycle_schema,
 )
 
 def test_search_agent_example_is_valid():
@@ -106,3 +109,63 @@ def test_production_action_boundary_example_is_valid():
         "examples/control-loops/production-action-boundary.yaml"
     )
     assert errors == []
+
+
+
+def test_lifecycle_map_example_is_valid():
+    errors = validate_lifecycle_map("examples/lifecycle/generic-agent-lifecycle-map.yaml")
+    assert errors == []
+
+
+def test_lifecycle_receipt_example_is_valid():
+    errors = validate_lifecycle_receipt("examples/lifecycle/generic-lifecycle-receipt.yaml")
+    assert errors == []
+
+
+def test_lifecycle_schema_files_are_valid():
+    paths = sorted(Path("registry/schema").glob("lifecycle-*.schema.yaml"))
+    assert paths
+
+    for path in paths:
+        errors = validate_lifecycle_schema(path)
+        assert errors == []
+
+
+def test_lifecycle_receipt_invalid_mode_produces_error(tmp_path):
+    path = tmp_path / "receipt.yaml"
+    path.write_text(
+        "\n".join([
+            "task_id: test-task",
+            "lifecycle_mode: wrong",
+            "input_refs: []",
+            "output_refs: []",
+            "changed_files: []",
+            "checks_run: []",
+            "risks_detected: []",
+            "next_recommended_mode: sweeper",
+            "stop_reason: completed",
+            "secrets_touched: false",
+            "production_behavior_changed: false",
+            "external_messages_sent: false",
+            "services_restarted: false",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    errors = validate_lifecycle_receipt(path)
+
+    assert "lifecycle_receipt: Invalid lifecycle_mode: wrong" in errors
+
+
+def test_validate_lifecycle_map_cli_command(capsys, monkeypatch):
+    monkeypatch.setattr(sys, "argv", [
+        "hlinor-registry",
+        "validate-lifecycle-map",
+        "examples/lifecycle/generic-agent-lifecycle-map.yaml",
+    ])
+
+    exit_code = main()
+
+    assert exit_code == 0
+    assert capsys.readouterr().out == "Lifecycle map is valid.\n"
