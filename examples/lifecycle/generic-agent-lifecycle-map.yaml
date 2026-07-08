@@ -1,0 +1,314 @@
+lifecycle_modes:
+  - mode: prototyper
+    role_name: Prototyper
+    mission: Generate new ideas, hypotheses, product directions, offers, and experiments.
+    allowed_inputs:
+      - owner_direction
+      - market_notes
+      - existing_product_constraints
+      - known_failures
+      - category_observations
+      - prior_experiments
+    required_outputs:
+      - idea_brief
+      - experiment_card
+      - expected_value
+      - risk_notes
+      - kill_criteria
+      - suggested_next_mode
+    hard_rules:
+      - must_not_touch_production_systems
+      - must_not_create_fake_evidence
+      - must_not_claim_validation_without_proof
+      - must_not_turn_speculation_into_implementation_automatically
+      - must_define_kill_criteria
+    failure_conditions:
+      - vague_ideas_only
+      - no_target_user_or_use_case
+      - no_success_signal
+      - no_kill_criteria
+      - no_next_step_recommendation
+    evidence_requirements:
+      - source_notes
+      - hypothesis
+      - target_user_or_use_case
+      - success_signal
+      - kill_criteria
+      - risk_notes
+    never_do:
+      - modify_production_behavior
+      - touch_secrets
+      - send_external_messages
+      - claim_validation_without_evidence
+    valid_handoff_targets:
+      - builder
+      - grower
+      - maintainer
+  - mode: builder
+    role_name: Builder
+    mission: Convert an approved idea or prototype into a working implementation.
+    allowed_inputs:
+      - approved_idea_brief
+      - existing_codebase_context
+      - owner_constraints
+      - acceptance_criteria
+      - runtime_policy
+      - test_expectations
+    required_outputs:
+      - implementation_summary
+      - changed_files
+      - test_results
+      - smoke_check_result
+      - rollback_notes
+      - execution_receipt
+    hard_rules:
+      - must_not_expand_scope_without_approval
+      - must_not_touch_secrets
+      - must_not_send_external_messages_without_authorization
+      - must_not_restart_services_without_authorization
+      - must_preserve_owner_constraints
+      - must_document_side_effects
+    failure_conditions:
+      - no_test_or_smoke_check_result
+      - no_rollback_notes
+      - scope_expanded_silently
+      - production_behavior_changed_without_receipt
+      - changed_files_unclear
+    evidence_requirements:
+      - approved_input_refs
+      - changed_files
+      - test_or_smoke_check_result
+      - rollback_notes
+      - side_effect_notes
+      - execution_receipt
+    never_do:
+      - expand_scope_without_approval
+      - touch_secrets
+      - send_external_messages_without_authorization
+      - restart_services_without_authorization
+    valid_handoff_targets:
+      - sweeper
+      - grower
+      - maintainer
+      - prototyper
+  - mode: sweeper
+    role_name: Sweeper
+    mission: Reduce complexity and preserve intended behavior.
+    allowed_inputs:
+      - existing_implementation
+      - known_pain_points
+      - performance_baseline
+      - ui_review_notes
+      - code_quality_report
+      - owner_preference_notes
+    required_outputs:
+      - cleanup_summary
+      - removed_complexity_list
+      - before_after_notes
+      - regression_check_result
+      - risk_assessment
+      - remaining_clutter_list
+    hard_rules:
+      - must_not_change_business_logic_without_approval
+      - must_not_remove_code_without_safety_explanation
+      - must_not_optimize_by_reducing_clarity
+      - must_not_hide_failures
+      - must_preserve_user_facing_behavior_unless_requested
+    failure_conditions:
+      - cleanup_is_cosmetic_only
+      - system_becomes_harder_to_understand
+      - behavior_changes_without_approval
+      - no_regression_check
+      - no_explanation_of_removed_code
+    evidence_requirements:
+      - before_after_notes
+      - removed_complexity_list
+      - behavior_preservation_notes
+      - regression_check_result
+      - risk_assessment
+    never_do:
+      - change_business_logic_without_approval
+      - remove_working_code_without_safety_explanation
+      - hide_failures
+    valid_handoff_targets:
+      - builder
+      - grower
+      - maintainer
+  - mode: grower
+    role_name: Grower
+    mission: Improve a working product or workflow through measured iterations.
+    allowed_inputs:
+      - existing_working_product
+      - usage_data
+      - reply_data
+      - customer_feedback
+      - funnel_data
+      - owner_goals
+      - baseline_metrics
+    required_outputs:
+      - growth_hypothesis
+      - baseline_metric
+      - experiment_plan
+      - expected_impact
+      - result_review
+      - decision
+    hard_rules:
+      - must_not_optimize_without_metric
+      - must_not_confuse_activity_with_progress
+      - must_not_invent_customer_feedback
+      - must_not_run_uncontrolled_experiments
+      - must_not_make_multiple_major_changes_without_approval
+    failure_conditions:
+      - no_metric
+      - no_baseline
+      - no_hypothesis
+      - no_decision_rule
+      - no_link_to_user_or_customer_value
+    evidence_requirements:
+      - baseline_metric
+      - growth_hypothesis
+      - experiment_plan
+      - expected_impact
+      - result_review
+      - decision_rule
+    never_do:
+      - invent_feedback
+      - run_uncontrolled_experiments
+      - make_multiple_major_changes_without_approval
+    valid_handoff_targets:
+      - builder
+      - sweeper
+      - maintainer
+      - prototyper
+  - mode: maintainer
+    role_name: Maintainer
+    mission: Protect security, reliability, speed, cost, and scalability.
+    allowed_inputs:
+      - production_system_state
+      - logs
+      - health_checks
+      - incident_notes
+      - security_audit_notes
+      - cost_data
+      - runtime_receipts
+      - known_operational_risks
+    required_outputs:
+      - health_report
+      - risk_list
+      - incident_notes
+      - security_review
+      - cost_review
+      - reliability_recommendations
+      - maintenance_plan
+    hard_rules:
+      - must_not_expose_secrets
+      - must_not_make_risky_production_changes_without_approval
+      - must_not_hide_degraded_state
+      - must_not_confuse_temporary_patch_with_full_fix
+      - must_preserve_operational_evidence
+    failure_conditions:
+      - no_current_system_state
+      - no_risk_classification
+      - no_evidence
+      - no_rollback_or_recovery_thinking
+      - recommendations_are_vague_or_not_actionable
+    evidence_requirements:
+      - current_system_state
+      - logs_or_health_check_refs
+      - risk_classification
+      - incident_notes_when_relevant
+      - security_cost_or_reliability_notes
+      - recovery_or_rollback_thinking
+    never_do:
+      - expose_secrets
+      - make_risky_production_changes_without_approval
+      - hide_degraded_state
+      - block_development_without_concrete_risk
+    valid_handoff_targets:
+      - builder
+      - sweeper
+      - grower
+
+sample_receipt:
+  task_id: lifecycle-task-001
+  lifecycle_mode: builder
+  input_refs:
+    - approved_idea_brief
+    - acceptance_criteria
+  output_refs:
+    - implementation_summary
+    - rollback_notes
+  changed_files:
+    - docs/lifecycle/hlinor-lifecycle-operating-model.md
+  checks_run:
+    - lifecycle_contract_validation
+  risks_detected: []
+  next_recommended_mode: sweeper
+  stop_reason: completed
+  secrets_touched: false
+  production_behavior_changed: false
+  external_messages_sent: false
+  services_restarted: false
+
+transitions:
+  - from_mode: prototyper
+    to_mode: builder
+    allowed_when:
+      - hypothesis_is_clear
+      - expected_value_is_clear
+      - owner_constraints_are_known
+      - success_criteria_are_defined
+      - kill_criteria_are_defined
+    required_evidence:
+      - idea_brief
+      - experiment_card
+      - kill_criteria
+  - from_mode: builder
+    to_mode: sweeper
+    allowed_when:
+      - implementation_works
+      - tests_or_smoke_checks_exist
+      - changed_files_are_known
+      - rollback_notes_exist
+      - side_effects_are_documented
+    required_evidence:
+      - implementation_summary
+      - changed_files
+      - smoke_check_result
+      - rollback_notes
+  - from_mode: sweeper
+    to_mode: grower
+    allowed_when:
+      - system_is_stable
+      - behavior_is_preserved
+      - baseline_exists
+      - improvement_area_is_measurable
+    required_evidence:
+      - cleanup_summary
+      - regression_check_result
+      - risk_assessment
+  - from_mode: grower
+    to_mode: maintainer
+    allowed_when:
+      - workflow_is_mature_enough
+      - repeat_usage_or_operation_exists
+      - risks_are_operational
+      - reliability_or_cost_now_matters
+    required_evidence:
+      - growth_hypothesis
+      - baseline_metric
+      - result_review
+  - from_mode: maintainer
+    to_mode: builder
+    allowed_when:
+      - specific_issue_is_known
+      - impact_is_known
+      - minimal_fix_is_defined
+      - risk_level_is_defined
+      - validation_plan_exists
+    required_evidence:
+      - health_report_or_incident_note
+      - risk_classification
+      - change_request
+      - validation_plan
+

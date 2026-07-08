@@ -39,6 +39,8 @@ Hlinor Agent Registry focuses on governance:
 
 ## Documentation
 
+- [Agent lifecycle operating modes](docs/patterns/agent-lifecycle-operating-modes.md) — classify agent work as Prototyper, Builder, Sweeper, Grower, or Maintainer to prevent scope drift.
+
 - [Execution model](docs/execution-model.md)
 - [Approval model](docs/approval-model.md)
 - [Runtime bindings and execution receipts](docs/runtime-receipts.md)

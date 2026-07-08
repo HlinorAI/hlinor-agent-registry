@@ -1,0 +1,32 @@
+task_id: generic-task-001
+agent_id: generic_product_workflow_agent
+lifecycle_mode: builder
+
+input_refs:
+  - approved_idea_brief
+  - acceptance_criteria
+
+output_refs:
+  - implementation_summary
+  - smoke_check_result
+  - rollback_notes
+
+changed_files:
+  - docs/example-output.md
+
+checks_run:
+  - schema_validation
+  - smoke_check
+
+policy_result: allowed
+
+risks_detected:
+  - scope_expansion_risk
+
+next_recommended_mode: sweeper
+stop_reason: completed
+
+secrets_touched: false
+production_behavior_changed: false
+external_messages_sent: false
+services_restarted: false

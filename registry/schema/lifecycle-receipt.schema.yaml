@@ -1,0 +1,72 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: Lifecycle Receipt
+type: object
+required:
+  - task_id
+  - lifecycle_mode
+  - input_refs
+  - output_refs
+  - changed_files
+  - checks_run
+  - risks_detected
+  - next_recommended_mode
+  - stop_reason
+  - secrets_touched
+  - production_behavior_changed
+  - external_messages_sent
+  - services_restarted
+properties:
+  task_id:
+    type: string
+    minLength: 1
+  lifecycle_mode:
+    $ref: "#/$defs/lifecycle_mode"
+  input_refs:
+    type: array
+    items:
+      type: string
+  output_refs:
+    type: array
+    items:
+      type: string
+  changed_files:
+    type: array
+    items:
+      type: string
+  checks_run:
+    type: array
+    items:
+      type: string
+  risks_detected:
+    type: array
+    items:
+      type: string
+  next_recommended_mode:
+    $ref: "#/$defs/lifecycle_mode"
+  stop_reason:
+    type: string
+    enum:
+      - completed
+      - blocked
+      - failed
+      - needs_approval
+      - handed_off
+  secrets_touched:
+    type: boolean
+  production_behavior_changed:
+    type: boolean
+  external_messages_sent:
+    type: boolean
+  services_restarted:
+    type: boolean
+additionalProperties: true
+$defs:
+  lifecycle_mode:
+    type: string
+    enum:
+      - prototyper
+      - builder
+      - sweeper
+      - grower
+      - maintainer
+
