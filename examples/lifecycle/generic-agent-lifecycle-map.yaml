@@ -152,6 +152,7 @@ lifecycle_modes:
       - expected_impact
       - result_review
       - decision
+      - operational_risk_notes
     hard_rules:
       - must_not_optimize_without_metric
       - must_not_confuse_activity_with_progress
@@ -171,6 +172,7 @@ lifecycle_modes:
       - expected_impact
       - result_review
       - decision_rule
+      - operational_risk_notes
     never_do:
       - invent_feedback
       - run_uncontrolled_experiments
@@ -239,7 +241,7 @@ sample_receipt:
     - implementation_summary
     - rollback_notes
   changed_files:
-    - docs/lifecycle/hlinor-lifecycle-operating-model.md
+    - docs/example-output.md
   checks_run:
     - lifecycle_contract_validation
   risks_detected: []
@@ -259,10 +261,13 @@ transitions:
       - owner_constraints_are_known
       - success_criteria_are_defined
       - kill_criteria_are_defined
+      - implementation_scope_is_bounded
     required_evidence:
       - idea_brief
       - experiment_card
+      - risk_notes
       - kill_criteria
+      - suggested_next_mode
   - from_mode: builder
     to_mode: sweeper
     allowed_when:
@@ -276,6 +281,7 @@ transitions:
       - changed_files
       - smoke_check_result
       - rollback_notes
+      - execution_receipt
   - from_mode: sweeper
     to_mode: grower
     allowed_when:
@@ -285,19 +291,23 @@ transitions:
       - improvement_area_is_measurable
     required_evidence:
       - cleanup_summary
+      - removed_complexity_list
       - regression_check_result
       - risk_assessment
+      - remaining_clutter_list
   - from_mode: grower
     to_mode: maintainer
     allowed_when:
       - workflow_is_mature_enough
       - repeat_usage_or_operation_exists
       - risks_are_operational
-      - reliability_or_cost_now_matters
+      - reliability_cost_security_or_scalability_now_matters
     required_evidence:
       - growth_hypothesis
       - baseline_metric
       - result_review
+      - decision
+      - operational_risk_notes
   - from_mode: maintainer
     to_mode: builder
     allowed_when:
@@ -306,9 +316,10 @@ transitions:
       - minimal_fix_is_defined
       - risk_level_is_defined
       - validation_plan_exists
+      - rollback_or_recovery_path_exists
     required_evidence:
       - health_report_or_incident_note
       - risk_classification
       - change_request
       - validation_plan
-
+      - rollback_or_recovery_path

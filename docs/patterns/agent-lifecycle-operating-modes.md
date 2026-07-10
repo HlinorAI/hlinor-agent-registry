@@ -31,15 +31,16 @@ Examples:
 ## Lifecycle Flow
 
 ```text
-IDEA
-  -> PROTOTYPE
-  -> BUILD
-  -> SWEEP
-  -> GROW
-  -> MAINTAIN
+PROTOTYPER
+  -> BUILDER
+  -> SWEEPER
+  -> GROWER
+  -> MAINTAINER
 ```
 
-Transitions are gated. A task may not move to the next mode merely because prior work exists. It must meet the transition evidence requirements in [lifecycle-mode-transition-gates.md](./lifecycle-mode-transition-gates.md).
+This is the canonical maturity path, not an automatic runtime sequence. Transitions are gated: a task may not move to the next mode merely because prior work exists. It must meet the transition evidence requirements in [lifecycle-mode-transition-gates.md](./lifecycle-mode-transition-gates.md).
+
+For any other target declared in `valid_handoff_targets`, define transition-specific `allowed_when` and `required_evidence` entries before handoff.
 
 ## Mode Summary
 
@@ -68,10 +69,13 @@ Every lifecycle task should produce a receipt with:
 - `risks_detected`
 - `next_recommended_mode`
 - `stop_reason`
+- `secrets_touched`
+- `production_behavior_changed`
+- `external_messages_sent`
+- `services_restarted`
 
 The receipt records what actually happened. It must not claim checks, evidence, or side-effect status that cannot be verified.
 
 ## Safety Boundary
 
 This lifecycle model is a documentation, schema, and control layer. It must not change runtime behavior by itself. It must not touch secrets, send external messages, modify CRM or messaging systems, restart services, or expose private commercial logic in public files.
-
