@@ -29,10 +29,9 @@ A department owns a functional area of work.
 Examples:
 
 - Search
-- Contact review
+- Data review
 - Content review
-- Outreach
-- Customer operations
+- Records operations
 
 A department may define:
 

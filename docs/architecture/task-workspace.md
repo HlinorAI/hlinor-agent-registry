@@ -269,7 +269,7 @@ inputs:
 outputs:
   - evidence-summary.md
   - validation-results.json
-  - owner-review-packet.md
+  - review-packet.md
 
 next_action:
   - wait for owner approval

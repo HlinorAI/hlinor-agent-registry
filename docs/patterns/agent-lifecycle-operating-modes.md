@@ -78,4 +78,4 @@ The receipt records what actually happened. It must not claim checks, evidence, 
 
 ## Safety Boundary
 
-This lifecycle model is a documentation, schema, and control layer. It must not change runtime behavior by itself. It must not touch secrets, send external messages, modify CRM or messaging systems, restart services, or expose private commercial logic in public files.
+This lifecycle model is a documentation, schema, and control layer. It must not change runtime behavior by itself. It must not touch secrets, send external messages, modify external records or messaging systems, restart services, or expose private commercial logic in public files.

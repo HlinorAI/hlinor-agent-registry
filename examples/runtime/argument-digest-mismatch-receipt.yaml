@@ -1,36 +1,36 @@
 binding:
-  binding_id: binding_read_customer_003
-  session_id: session_customer_ops_003
-  project_id: project_customer_ops
-  workspace_id: workspace_customer_review_003
-  agent_id: customer-read-agent
+  binding_id: binding_read_account_003
+  session_id: session_account_ops_003
+  project_id: project_account_ops
+  workspace_id: workspace_account_review_003
+  agent_id: account-read-agent
   registry_version: registry@2026-06-27.issue-12
   policy_bundle_digest: sha256:policybundle333333333333333333333333333333333333333333333333333333
-  tool_name: read_customer
+  tool_name: read_account
   tool_descriptor_digest: sha256:tooldescriptor33333333333333333333333333333333333333333333333333
   normalized_argument_digest: sha256:args_approved333333333333333333333333333333333333333333333333333
   target_resource_scope:
-    resource_type: customer
-    resource_id: cust_789
+    resource_type: account
+    resource_id: acct_789
     operations:
       - read
-  approval_id_or_lease_id: approval_read_customer_003
+  approval_id_or_lease_id: approval_read_account_003
   status: active
   issued_at: "2026-06-27T14:00:00Z"
   expires_at: "2026-06-27T14:30:00Z"
 
 pre_dispatch_authorization_check:
-  check_id: check_read_customer_digest_mismatch_001
-  session_id: session_customer_ops_003
-  binding_id: binding_read_customer_003
-  requested_tool_name: read_customer
+  check_id: check_read_account_digest_mismatch_001
+  session_id: session_account_ops_003
+  binding_id: binding_read_account_003
+  requested_tool_name: read_account
   observed_registry_version: registry@2026-06-27.issue-12
   observed_policy_bundle_digest: sha256:policybundle333333333333333333333333333333333333333333333333333333
   observed_tool_descriptor_digest: sha256:tooldescriptor33333333333333333333333333333333333333333333333333
   observed_normalized_argument_digest: sha256:args_observed3333333333333333333333333333333333333333333333333333
   observed_target_resource_scope:
-    resource_type: customer
-    resource_id: cust_789
+    resource_type: account
+    resource_id: acct_789
     operations:
       - read
   matched_approved_binding: false
@@ -38,17 +38,17 @@ pre_dispatch_authorization_check:
   mismatch_fields:
     - observed_normalized_argument_digest
   checked_at: "2026-06-27T14:05:00Z"
-  approval_id_or_lease_id: approval_read_customer_003
+  approval_id_or_lease_id: approval_read_account_003
   reason: The observed normalized argument digest no longer matched the approved digest.
 
 execution_receipt:
-  receipt_id: receipt_read_customer_reapproval_required_001
-  session_id: session_customer_ops_003
-  binding_id: binding_read_customer_003
-  check_id: check_read_customer_digest_mismatch_001
+  receipt_id: receipt_read_account_reapproval_required_001
+  session_id: session_account_ops_003
+  binding_id: binding_read_account_003
+  check_id: check_read_account_digest_mismatch_001
   timestamp: "2026-06-27T14:05:01Z"
-  actor: customer-read-agent
-  requested_tool_name: read_customer
+  actor: account-read-agent
+  requested_tool_name: read_account
   authorization_result: reapproval_required
   side_effect_state: blocked_before_side_effect
   matched_approved_binding: false
@@ -57,11 +57,11 @@ execution_receipt:
   tool_descriptor_digest: sha256:tooldescriptor33333333333333333333333333333333333333333333333333
   normalized_argument_digest: sha256:args_observed3333333333333333333333333333333333333333333333333333
   target_resource_scope:
-    resource_type: customer
-    resource_id: cust_789
+    resource_type: account
+    resource_id: acct_789
     operations:
       - read
-  approval_id_or_lease_id: approval_read_customer_003
+  approval_id_or_lease_id: approval_read_account_003
   mismatch_fields:
     - normalized_argument_digest
   reason: Runtime blocked dispatch because the approved argument digest did not match the observed payload.

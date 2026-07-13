@@ -14,7 +14,7 @@ privacy:
 boundary:
   boundary_id: boundary_example_message_send_001
   project_id: example_project
-  workspace_id: workspace_example_outreach_review_001
+  workspace_id: workspace_example_message_review_001
   requested_action: send_external_message
   target_resource_scope:
     resource_type: message_recipient_group
@@ -40,7 +40,7 @@ review_only_mode:
   allowed_actions:
     - classify_inputs
     - generate_review_drafts
-    - build_owner_review_packet
+    - build_review_packet
     - emit_audit_event
   blocked_actions:
     - send_external_message

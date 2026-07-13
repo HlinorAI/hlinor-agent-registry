@@ -7,7 +7,7 @@ description: >
 
 agents:
   - search-agent
-  - contact-discovery-agent
+  - candidate-evaluation-agent
 
 shared_policies:
   - no-stale-data

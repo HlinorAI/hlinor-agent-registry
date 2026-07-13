@@ -1,6 +1,6 @@
-id: google-maps-search
+id: web-search
 
-name: Google Maps Search
+name: Web Search
 
 description: >
   Searches for businesses.

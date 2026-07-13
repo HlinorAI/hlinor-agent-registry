@@ -140,8 +140,7 @@ lifecycle_modes:
     allowed_inputs:
       - existing_working_product
       - usage_data
-      - reply_data
-      - customer_feedback
+      - user_feedback
       - funnel_data
       - owner_goals
       - baseline_metrics
@@ -156,7 +155,7 @@ lifecycle_modes:
     hard_rules:
       - must_not_optimize_without_metric
       - must_not_confuse_activity_with_progress
-      - must_not_invent_customer_feedback
+      - must_not_invent_user_feedback
       - must_not_run_uncontrolled_experiments
       - must_not_make_multiple_major_changes_without_approval
     failure_conditions:
@@ -164,7 +163,7 @@ lifecycle_modes:
       - no_baseline
       - no_hypothesis
       - no_decision_rule
-      - no_link_to_user_or_customer_value
+      - no_link_to_user_value
     evidence_requirements:
       - baseline_metric
       - growth_hypothesis

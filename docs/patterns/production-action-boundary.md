@@ -32,7 +32,7 @@ The following work is usually safe to run without production-action approval whe
 - generate review-only drafts;
 - prepare reports;
 - validate structured artifacts;
-- produce owner-review packets;
+- produce review packets;
 - emit audit events.
 
 ## Production Actions
@@ -41,11 +41,11 @@ The following actions should be approval-gated or denied by default:
 
 - sending external messages;
 - publishing or updating public content;
-- creating, updating, or deleting external CRM records;
+- creating, updating, or deleting records in an external system of record;
 - modifying production configuration;
 - changing scheduler or service manager state;
 - spending money or consuming a paid quota beyond an approved cap;
-- notifying a customer, lead, partner, or owner through a live channel.
+- notifying a real user through a live channel.
 
 ## No-Send / Dry-Run Mode
 

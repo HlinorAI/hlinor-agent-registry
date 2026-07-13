@@ -36,7 +36,7 @@ recommended_fields:
   - suppression_policy
   - freshness_policy
   - dedupe_policy
-  - owner_review_reference
+  - review_packet_reference
   - audit_event_reference
 
 approval_level_values:

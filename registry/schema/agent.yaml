@@ -8,7 +8,7 @@ description: >
   Discovers and evaluates candidates.
 
 skills:
-  - google-maps-search
+  - web-search
   - business-evaluation
 
 validators:
@@ -26,4 +26,4 @@ allowed_actions:
 
 blocked_actions:
   - send_email
-  - modify_crm
+  - modify_external_records

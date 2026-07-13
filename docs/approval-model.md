@@ -52,8 +52,7 @@ Actions require explicit owner authorization.
 Examples:
 
 - financial operations
-- customer communications
-- external outreach
+- external messaging to real users
 - production deployment
 
 ## Policy Integration

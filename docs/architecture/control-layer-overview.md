@@ -15,11 +15,11 @@ Brain Layer
   ↓
 Departments
   ├── Search / Discovery
-  ├── Contact QA
-  ├── Website / Fit QA
+  ├── Data QA
+  ├── Fit QA
   ├── Drafting
   ├── Review
-  └── CRM / Operations
+  └── Records / Operations
 ```
 
 ## Core components
@@ -84,9 +84,9 @@ Hlinor is intended for real business operations where AI agents need to work acr
 
 Examples include:
 
-* outreach workflows
 * research workflows
-* CRM support workflows
+* content production workflows
+* records operations workflows
 * website analysis workflows
 * internal operational automation
 

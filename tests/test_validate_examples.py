@@ -52,8 +52,8 @@ def test_wrong_type_for_list_field_produces_error(tmp_path):
     path = tmp_path / "skill.yaml"
     path.write_text(
         "\n".join([
-            "id: google-maps-search",
-            "name: Google Maps Search",
+            "id: web-search",
+            "name: Web Search",
             "description: Searches for businesses.",
             "inputs: query",
             "outputs:",

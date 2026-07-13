@@ -10,7 +10,7 @@ AI agent systems often fail operationally when work from different projects is m
 
 Common failure modes include:
 
-* using the wrong customer, lead, or account context
+* using the wrong account or record context
 * writing artifacts into another project's workspace
 * applying one project's policies to another project
 * reusing stale decisions from a previous run
@@ -45,7 +45,7 @@ Examples:
 * approval records
 * review packets
 * generated artifacts
-* contact records
+* account records
 * draft records
 * suppression records
 * run reports
@@ -86,7 +86,7 @@ An approval granted in one project does not authorize action in another project.
 Examples:
 
 * approval to prepare a draft does not authorize sending it
-* approval to contact one account does not authorize contacting another account
+* approval to act on one account does not authorize acting on another account
 * approval to use one workspace does not authorize reading another workspace
 * approval to operate in one project does not authorize cross-project enrichment
 
@@ -140,9 +140,9 @@ Allowed examples:
 Not allowed by default:
 
 * copying private project state
-* reusing contact lists
+* reusing account record lists
 * reusing approval decisions
-* mixing customer records
+* mixing account records
 * writing reports into another project
 * sending from another project's identity
 * treating old project output as current evidence
@@ -193,7 +193,7 @@ Project Beta
   draft: beta/draft-001
 ```
 
-An agent working on Project Alpha may use the shared agent registry schema, but it may not read Project Beta's drafts, approvals, ledgers, or contact records.
+An agent working on Project Alpha may use the shared agent registry schema, but it may not read Project Beta's drafts, approvals, ledgers, or account records.
 
 ## Design outcome
 

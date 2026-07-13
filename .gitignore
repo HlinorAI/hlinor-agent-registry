@@ -217,3 +217,24 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 knowledge/
+
+# Generated reports and runtime output
+/reports/
+/runtime-output/
+/artifacts/runtime/
+*.runtime.jsonl
+
+# Credentials and secrets
+.env
+.env.*
+*.pem
+*.key
+credentials*.json
+service-account*.json
+secrets.*
+
+# Local agent scratch files
+/skills/
+.claude/settings.local.json
+scratchpad/
+*.scratch.*

@@ -41,8 +41,8 @@ digest, normalized argument digest, target/resource scope, and approval or lease
 id.
 
 It does not grant broad authority to perform nearby work. A binding approved for
-`read_customer` does not authorize `update_customer`. A binding approved for one
-customer record does not authorize another customer record.
+`read_account` does not authorize `update_account`. A binding approved for one
+account record does not authorize another account record.
 
 ## Pre-dispatch Check
 
@@ -90,7 +90,7 @@ Drift examples:
 - the effective policy bundle changed after approval
 - the tool descriptor or schema changed after approval
 - normalized arguments changed after approval
-- the target customer, workspace, account, file, or operation changed after
+- the target account, workspace, record, file, or operation changed after
   approval
 - the approval or lease expired, was revoked, or was superseded
 

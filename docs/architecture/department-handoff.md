@@ -163,11 +163,11 @@ Validators should run before a handoff when the downstream department depends on
 Examples:
 
 ```text
-Discovery → Contact QA
+Discovery → Data QA
   requires: candidate record exists
 
-Contact QA → Drafting
-  requires: contact channel validated
+Data QA → Drafting
+  requires: required record fields validated
 
 Drafting → Review
   requires: draft artifact exists
