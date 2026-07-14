@@ -169,3 +169,73 @@ def test_validate_lifecycle_map_cli_command(capsys, monkeypatch):
 
     assert exit_code == 0
     assert capsys.readouterr().out == "Lifecycle map is valid.\n"
+
+
+def test_verified_host_native_execution_context_is_valid():
+    from hlinor_registry.validator import validate_execution_context
+
+    errors = validate_execution_context(
+        "examples/execution-context/verified-host-native-execution-context.yaml"
+    )
+    assert errors == []
+
+
+def test_sandbox_cannot_declare_production_access(tmp_path):
+    from hlinor_registry.validator import validate_execution_context
+
+    path = tmp_path / "invalid-context.yaml"
+    path.write_text(
+        """
+context_id: ctx-invalid
+context_type: sandbox
+status: verified
+network_access: false
+production_access: true
+verification_method:
+  - environment_classification
+allowed_operations: []
+blocked_operations:
+  - production_write
+verified_at: "2026-01-01T00:00:00Z"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_execution_context(path)
+
+    assert (
+        "execution_context: Sandbox or restricted context cannot declare production_access"
+        in errors
+    )
+
+
+def test_host_native_marker_alone_is_not_verification(tmp_path):
+    from hlinor_registry.validator import validate_execution_context
+
+    path = tmp_path / "marker-only.yaml"
+    path.write_text(
+        """
+context_id: ctx-marker-only
+context_type: host_native
+status: verified
+network_access: true
+production_access: false
+verification_method:
+  - environment_marker
+allowed_operations:
+  - live_public_discovery
+blocked_operations:
+  - production_write
+verified_at: "2026-01-01T00:00:00Z"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_execution_context(path)
+
+    assert (
+        "execution_context: Environment marker alone does not verify host_native context"
+        in errors
+    )

@@ -74,3 +74,13 @@ Early public release.
 ## License
 
 Apache License 2.0
+
+### Execution context validation
+
+```bash
+hlinor-registry validate-execution-context \
+  examples/execution-context/verified-host-native-execution-context.yaml
+
+The execution-context contract distinguishes declared runtime markers from verified
+capabilities and blocks live or production-sensitive operations when the current
+environment is unverified or restricted.

@@ -1,6 +1,31 @@
 from pathlib import Path
 import yaml
 
+REQUIRED_EXECUTION_CONTEXT_FIELDS = [
+    "context_id",
+    "context_type",
+    "status",
+    "network_access",
+    "production_access",
+    "verification_method",
+    "allowed_operations",
+    "blocked_operations",
+    "verified_at",
+]
+
+EXECUTION_CONTEXT_TYPES = {
+    "sandbox",
+    "restricted",
+    "host_native",
+    "remote_approved",
+}
+
+EXECUTION_CONTEXT_STATUSES = {
+    "verified",
+    "unverified",
+    "invalid",
+}
+
 REQUIRED_AGENT_FIELDS = [
     "id",
     "name",
@@ -140,6 +165,53 @@ def load_yaml(path: str | Path) -> dict:
 
     return data
 
+def validate_execution_context(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(
+        data,
+        REQUIRED_EXECUTION_CONTEXT_FIELDS,
+        "execution_context",
+    )
+
+    if "context_type" in data and data["context_type"] not in EXECUTION_CONTEXT_TYPES:
+        errors.append("execution_context: Invalid context_type")
+
+    if "status" in data and data["status"] not in EXECUTION_CONTEXT_STATUSES:
+        errors.append("execution_context: Invalid status")
+
+    for bool_field in ["network_access", "production_access"]:
+        if bool_field in data and not isinstance(data[bool_field], bool):
+            errors.append(f"execution_context: Field must be a boolean: {bool_field}")
+
+    for list_field in [
+        "verification_method",
+        "allowed_operations",
+        "blocked_operations",
+    ]:
+        if list_field in data and not isinstance(data[list_field], list):
+            errors.append(f"execution_context: Field must be a list: {list_field}")
+
+    if data.get("status") == "verified" and not data.get("verification_method"):
+        errors.append(
+            "execution_context: Verified context requires verification_method"
+        )
+
+    if data.get("context_type") in {"sandbox", "restricted"}:
+        if data.get("production_access") is True:
+            errors.append(
+                "execution_context: Sandbox or restricted context cannot declare production_access"
+            )
+
+    if data.get("context_type") == "host_native":
+        methods = data.get("verification_method")
+        if isinstance(methods, list) and methods == ["environment_marker"]:
+            errors.append(
+                "execution_context: Environment marker alone does not verify host_native context"
+            )
+
+    return errors
+
+
 def validate_agent(path: str | Path) -> list[str]:
     data = load_yaml(path)
     errors: list[str] = []
@@ -266,6 +338,7 @@ def validate_pre_dispatch_authorization_check(data: dict) -> list[str]:
 def validate_registry_file(entity_type: str, path: str | Path) -> list[str]:
     validators = {
         "agent": validate_agent,
+        "execution-context": validate_execution_context,
         "department": validate_department,
         "policy": validate_policy,
         "skill": validate_skill,

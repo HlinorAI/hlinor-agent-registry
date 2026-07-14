@@ -2,6 +2,7 @@ import argparse
 import sys
 import yaml
 from hlinor_registry.validator import (
+    validate_execution_context,
     load_yaml,
     validate_agent,
     validate_department,
@@ -93,6 +94,12 @@ def main() -> int:
     inspect_parser = subparsers.add_parser("inspect", help="Inspect a YAML registry file")
     inspect_parser.add_argument("path", help="Path to YAML file")
 
+    execution_context_parser = subparsers.add_parser(
+        "validate-execution-context",
+        help="Validate an execution context YAML file",
+    )
+    execution_context_parser.add_argument("path", help="Path to YAML file")
+
     args = parser.parse_args()
 
     if args.command == "validate":
@@ -113,6 +120,22 @@ def main() -> int:
 
     if args.command == "inspect":
         return _inspect(args.path)
+
+    if args.command == "validate-execution-context":
+        try:
+            errors = validate_execution_context(args.path)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Invalid execution context: {exc}")
+            return 1
+
+        if errors:
+            print("Invalid execution context:")
+            for error in errors:
+                print(f"- {error}")
+            return 1
+
+        print("Execution context is valid.")
+        return 0
 
     return 1
 

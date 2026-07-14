@@ -1,0 +1,31 @@
+id: verified-host-native-execution-context
+name: Verified Host-Native Execution Context
+
+context_id: ctx-example-host-native-001
+context_type: host_native
+status: verified
+
+network_access: true
+production_access: false
+
+verification_method:
+  - environment_classification
+  - external_network_probe
+  - required_tool_probe
+
+allowed_operations:
+  - live_public_discovery
+  - read_only_provider_access
+  - local_artifact_generation
+
+blocked_operations:
+  - production_write
+  - external_message_send
+  - credential_rotation
+
+verified_at: "2026-01-01T00:00:00Z"
+
+evidence:
+  network_probe: passed
+  required_tools: passed
+  production_boundary: read_only
