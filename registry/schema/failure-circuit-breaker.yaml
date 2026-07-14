@@ -1,0 +1,32 @@
+id: failure-circuit-breaker
+
+name: Failure Circuit Breaker
+
+description: >
+  Defines when repeated failures must stop a series before additional cost or side effects occur.
+
+required_fields:
+  - breaker_id
+  - failure_fingerprint
+  - threshold
+  - current_count
+  - state
+  - next_action
+  - updated_at
+
+state_values:
+  - closed
+  - open
+  - half_open
+
+next_action_values:
+  - continue
+  - stop
+  - retry_probe
+  - require_review
+
+blocked_patterns:
+  - continue_after_threshold
+  - reset_without_evidence
+  - count_unrelated_failures_as_identical
+  - spend_after_breaker_opened

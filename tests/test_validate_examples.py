@@ -239,3 +239,75 @@ verified_at: "2026-01-01T00:00:00Z"
         "execution_context: Environment marker alone does not verify host_native context"
         in errors
     )
+
+
+def test_runtime_governance_examples_are_valid():
+    from hlinor_registry.validator import (
+        validate_action_preflight,
+        validate_capability_verification,
+        validate_protected_resource_boundary,
+        validate_evidence_claim_binding,
+        validate_failure_circuit_breaker,
+    )
+
+    assert validate_action_preflight(
+        "examples/runtime-governance/cost-bounded-action-preflight.yaml"
+    ) == []
+    assert validate_capability_verification(
+        "examples/runtime-governance/verified-capability.yaml"
+    ) == []
+    assert validate_protected_resource_boundary(
+        "examples/runtime-governance/protected-resource-boundary.yaml"
+    ) == []
+    assert validate_evidence_claim_binding(
+        "examples/evidence/evidence-claim-check.yaml"
+    ) == []
+    assert validate_failure_circuit_breaker(
+        "examples/control-loops/repeated-failure-stop.yaml"
+    ) == []
+
+
+def test_passed_evidence_claim_requires_fresh_same_object(tmp_path):
+    from hlinor_registry.validator import validate_evidence_claim_binding
+
+    path = tmp_path / "invalid-evidence.yaml"
+    path.write_text(
+        """
+binding_id: evidence-invalid
+claim: unsupported claim
+evidence_reference: evidence://example/other-object
+evidence_type: screenshot
+observation_time: "2026-01-01T00:00:00Z"
+freshness_status: stale
+same_object_verified: false
+validator_result: passed
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_evidence_claim_binding(path)
+    assert "evidence_claim_binding: Passed claim requires fresh evidence" in errors
+    assert "evidence_claim_binding: Passed claim requires same-object verification" in errors
+
+
+def test_open_circuit_breaker_cannot_continue(tmp_path):
+    from hlinor_registry.validator import validate_failure_circuit_breaker
+
+    path = tmp_path / "invalid-breaker.yaml"
+    path.write_text(
+        """
+breaker_id: breaker-invalid
+failure_fingerprint: repeated.failure
+threshold: 2
+current_count: 2
+state: open
+next_action: continue
+updated_at: "2026-01-01T00:00:00Z"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_failure_circuit_breaker(path)
+    assert "failure_circuit_breaker: Open breaker cannot continue" in errors

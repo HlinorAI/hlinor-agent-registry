@@ -1,0 +1,10 @@
+verification_id: capability-example-001
+requested_capability: live_public_discovery
+observed_capabilities:
+  - external_network
+  - browser_runtime
+required_permissions:
+  - public_network_read
+matched: true
+status: verified
+verified_at: "2026-01-01T00:00:00Z"

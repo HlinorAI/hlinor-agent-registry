@@ -1,0 +1,7 @@
+preflight_id: preflight-example-001
+execution_context_status: passed
+dependency_status: passed
+capability_status: passed
+budget_status: passed
+decision: allowed
+checked_at: "2026-01-01T00:00:00Z"

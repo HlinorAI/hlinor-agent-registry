@@ -212,6 +212,134 @@ def validate_execution_context(path: str | Path) -> list[str]:
     return errors
 
 
+
+ACTION_PREFLIGHT_REQUIRED_FIELDS = [
+    "preflight_id",
+    "execution_context_status",
+    "dependency_status",
+    "capability_status",
+    "budget_status",
+    "decision",
+    "checked_at",
+]
+
+CAPABILITY_VERIFICATION_REQUIRED_FIELDS = [
+    "verification_id",
+    "requested_capability",
+    "observed_capabilities",
+    "required_permissions",
+    "matched",
+    "status",
+    "verified_at",
+]
+
+PROTECTED_RESOURCE_BOUNDARY_REQUIRED_FIELDS = [
+    "boundary_id",
+    "resource_class",
+    "resource_scope",
+    "allowed_operations",
+    "blocked_operations",
+    "approval_level",
+    "audit_required",
+]
+
+EVIDENCE_CLAIM_BINDING_REQUIRED_FIELDS = [
+    "binding_id",
+    "claim",
+    "evidence_reference",
+    "evidence_type",
+    "observation_time",
+    "freshness_status",
+    "same_object_verified",
+    "validator_result",
+]
+
+FAILURE_CIRCUIT_BREAKER_REQUIRED_FIELDS = [
+    "breaker_id",
+    "failure_fingerprint",
+    "threshold",
+    "current_count",
+    "state",
+    "next_action",
+    "updated_at",
+]
+
+def validate_action_preflight(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(data, ACTION_PREFLIGHT_REQUIRED_FIELDS, "action_preflight")
+    if data.get("decision") not in {"allowed", "blocked", "reapproval_required"}:
+        errors.append("action_preflight: Invalid decision")
+    for field in ["execution_context_status", "dependency_status", "capability_status", "budget_status"]:
+        if field in data and data[field] not in {"passed", "failed", "not_required", "unknown"}:
+            errors.append(f"action_preflight: Invalid status: {field}")
+    return errors
+
+def validate_capability_verification(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(data, CAPABILITY_VERIFICATION_REQUIRED_FIELDS, "capability_verification")
+    for field in ["observed_capabilities", "required_permissions"]:
+        if field in data and not isinstance(data[field], list):
+            errors.append(f"capability_verification: Field must be a list: {field}")
+    if "matched" in data and not isinstance(data["matched"], bool):
+        errors.append("capability_verification: Field must be a boolean: matched")
+    if data.get("status") not in {"verified", "unverified", "invalid"}:
+        errors.append("capability_verification: Invalid status")
+    if data.get("status") == "verified" and data.get("matched") is not True:
+        errors.append("capability_verification: Verified capability must match")
+    return errors
+
+def validate_protected_resource_boundary(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(data, PROTECTED_RESOURCE_BOUNDARY_REQUIRED_FIELDS, "protected_resource_boundary")
+    if "resource_scope" in data and not isinstance(data["resource_scope"], dict):
+        errors.append("protected_resource_boundary: Field must be an object: resource_scope")
+    for field in ["allowed_operations", "blocked_operations"]:
+        if field in data and not isinstance(data[field], list):
+            errors.append(f"protected_resource_boundary: Field must be a list: {field}")
+    if "audit_required" in data and not isinstance(data["audit_required"], bool):
+        errors.append("protected_resource_boundary: Field must be a boolean: audit_required")
+    if data.get("approval_level") not in PRODUCTION_APPROVAL_LEVELS:
+        errors.append("protected_resource_boundary: Invalid approval_level")
+    return errors
+
+def validate_evidence_claim_binding(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(data, EVIDENCE_CLAIM_BINDING_REQUIRED_FIELDS, "evidence_claim_binding")
+    if data.get("freshness_status") not in {"fresh", "stale", "unknown"}:
+        errors.append("evidence_claim_binding: Invalid freshness_status")
+    if data.get("validator_result") not in {"passed", "failed", "insufficient_evidence"}:
+        errors.append("evidence_claim_binding: Invalid validator_result")
+    if "same_object_verified" in data and not isinstance(data["same_object_verified"], bool):
+        errors.append("evidence_claim_binding: Field must be a boolean: same_object_verified")
+    if data.get("validator_result") == "passed":
+        if data.get("freshness_status") != "fresh":
+            errors.append("evidence_claim_binding: Passed claim requires fresh evidence")
+        if data.get("same_object_verified") is not True:
+            errors.append("evidence_claim_binding: Passed claim requires same-object verification")
+    return errors
+
+def validate_failure_circuit_breaker(path: str | Path) -> list[str]:
+    data = load_yaml(path)
+    errors = _validate_required_fields(data, FAILURE_CIRCUIT_BREAKER_REQUIRED_FIELDS, "failure_circuit_breaker")
+    if data.get("state") not in {"closed", "open", "half_open"}:
+        errors.append("failure_circuit_breaker: Invalid state")
+    if data.get("next_action") not in {"continue", "stop", "retry_probe", "require_review"}:
+        errors.append("failure_circuit_breaker: Invalid next_action")
+    for field in ["threshold", "current_count"]:
+        if field in data and (not isinstance(data[field], int) or data[field] < 0):
+            errors.append(f"failure_circuit_breaker: Field must be a non-negative integer: {field}")
+    if (
+        isinstance(data.get("threshold"), int)
+        and isinstance(data.get("current_count"), int)
+        and data["current_count"] >= data["threshold"]
+        and data.get("state") != "open"
+    ):
+        errors.append("failure_circuit_breaker: Threshold reached requires open state")
+    if data.get("state") == "open" and data.get("next_action") == "continue":
+        errors.append("failure_circuit_breaker: Open breaker cannot continue")
+    return errors
+
+
 def validate_agent(path: str | Path) -> list[str]:
     data = load_yaml(path)
     errors: list[str] = []

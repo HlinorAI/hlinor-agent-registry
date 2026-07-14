@@ -2,6 +2,11 @@ import argparse
 import sys
 import yaml
 from hlinor_registry.validator import (
+    validate_failure_circuit_breaker,
+    validate_evidence_claim_binding,
+    validate_protected_resource_boundary,
+    validate_capability_verification,
+    validate_action_preflight,
     validate_execution_context,
     load_yaml,
     validate_agent,
@@ -100,6 +105,36 @@ def main() -> int:
     )
     execution_context_parser.add_argument("path", help="Path to YAML file")
 
+    validate_action_preflight_parser = subparsers.add_parser(
+        "validate-action-preflight",
+        help="Validate action preflight YAML",
+    )
+    validate_action_preflight_parser.add_argument("path", help="Path to YAML file")
+
+    validate_capability_parser = subparsers.add_parser(
+        "validate-capability",
+        help="Validate capability verification YAML",
+    )
+    validate_capability_parser.add_argument("path", help="Path to YAML file")
+
+    validate_protected_resource_boundary_parser = subparsers.add_parser(
+        "validate-protected-resource-boundary",
+        help="Validate protected resource boundary YAML",
+    )
+    validate_protected_resource_boundary_parser.add_argument("path", help="Path to YAML file")
+
+    validate_evidence_claim_parser = subparsers.add_parser(
+        "validate-evidence-claim",
+        help="Validate evidence claim binding YAML",
+    )
+    validate_evidence_claim_parser.add_argument("path", help="Path to YAML file")
+
+    validate_circuit_breaker_parser = subparsers.add_parser(
+        "validate-circuit-breaker",
+        help="Validate failure circuit breaker YAML",
+    )
+    validate_circuit_breaker_parser.add_argument("path", help="Path to YAML file")
+
     args = parser.parse_args()
 
     if args.command == "validate":
@@ -135,6 +170,86 @@ def main() -> int:
             return 1
 
         print("Execution context is valid.")
+        return 0
+
+    if args.command == "validate-action-preflight":
+        try:
+            errors = validate_action_preflight(args.path)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Invalid action preflight: {exc}")
+            return 1
+
+        if errors:
+            print("Invalid action preflight:")
+            for error in errors:
+                print(f"- {error}")
+            return 1
+
+        print("Action preflight is valid.")
+        return 0
+
+    if args.command == "validate-capability":
+        try:
+            errors = validate_capability_verification(args.path)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Invalid capability verification: {exc}")
+            return 1
+
+        if errors:
+            print("Invalid capability verification:")
+            for error in errors:
+                print(f"- {error}")
+            return 1
+
+        print("Capability verification is valid.")
+        return 0
+
+    if args.command == "validate-protected-resource-boundary":
+        try:
+            errors = validate_protected_resource_boundary(args.path)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Invalid protected resource boundary: {exc}")
+            return 1
+
+        if errors:
+            print("Invalid protected resource boundary:")
+            for error in errors:
+                print(f"- {error}")
+            return 1
+
+        print("Protected resource boundary is valid.")
+        return 0
+
+    if args.command == "validate-evidence-claim":
+        try:
+            errors = validate_evidence_claim_binding(args.path)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Invalid evidence claim binding: {exc}")
+            return 1
+
+        if errors:
+            print("Invalid evidence claim binding:")
+            for error in errors:
+                print(f"- {error}")
+            return 1
+
+        print("Evidence claim binding is valid.")
+        return 0
+
+    if args.command == "validate-circuit-breaker":
+        try:
+            errors = validate_failure_circuit_breaker(args.path)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Invalid failure circuit breaker: {exc}")
+            return 1
+
+        if errors:
+            print("Invalid failure circuit breaker:")
+            for error in errors:
+                print(f"- {error}")
+            return 1
+
+        print("Failure circuit breaker is valid.")
         return 0
 
     return 1

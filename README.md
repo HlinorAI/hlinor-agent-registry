@@ -84,3 +84,21 @@ hlinor-registry validate-execution-context \
 The execution-context contract distinguishes declared runtime markers from verified
 capabilities and blocks live or production-sensitive operations when the current
 environment is unverified or restricted.
+
+### Runtime governance validation
+
+```bash
+hlinor-registry validate-action-preflight \
+  examples/runtime-governance/cost-bounded-action-preflight.yaml
+
+hlinor-registry validate-capability \
+  examples/runtime-governance/verified-capability.yaml
+
+hlinor-registry validate-protected-resource-boundary \
+  examples/runtime-governance/protected-resource-boundary.yaml
+
+hlinor-registry validate-evidence-claim \
+  examples/evidence/evidence-claim-check.yaml
+
+hlinor-registry validate-circuit-breaker \
+  examples/control-loops/repeated-failure-stop.yaml

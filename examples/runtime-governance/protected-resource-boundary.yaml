@@ -1,0 +1,12 @@
+boundary_id: resource-boundary-example-001
+resource_class: production_configuration
+resource_scope:
+  project_id: example-project
+  workspace_id: example-workspace
+allowed_operations:
+  - read_metadata
+blocked_operations:
+  - read_secret_value
+  - modify_configuration
+approval_level: owner_approval
+audit_required: true

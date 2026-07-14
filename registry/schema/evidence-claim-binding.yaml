@@ -1,0 +1,36 @@
+id: evidence-claim-binding
+
+name: Evidence Claim Binding
+
+description: >
+  Defines how an assertion must be grounded in observed evidence.
+
+required_fields:
+  - binding_id
+  - claim
+  - evidence_reference
+  - evidence_type
+  - observation_time
+  - freshness_status
+  - same_object_verified
+  - validator_result
+
+freshness_status_values:
+  - fresh
+  - stale
+  - unknown
+
+validator_result_values:
+  - passed
+  - failed
+  - insufficient_evidence
+
+field_types:
+  same_object_verified: boolean
+
+blocked_patterns:
+  - claim_without_evidence
+  - claim_from_stale_evidence
+  - validator_cannot_access_generator_evidence
+  - evidence_from_different_object
+  - synthetic_content_presented_as_observation
