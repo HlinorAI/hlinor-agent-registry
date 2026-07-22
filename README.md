@@ -1,5 +1,13 @@
 # Hlinor Agent Registry
 
+## 🚀 Quickstart (5 minutes)
+
+Hlinor Agent Registry is a governance and security layer for AI agent systems. Unlike execution frameworks, it focuses on declaratively defining what agents are **allowed** and **blocked** from doing, ensuring safe, auditable, and compliant multi-agent operations.
+
+### 1. Installation
+```bash
+pip install hlinor-registry
+# or clone the repository: git clone https://github.com/HlinorAI/hlinor-agent-registry.git
 Open-source registry layer for auditable AI agent systems.
 
 ## Overview
