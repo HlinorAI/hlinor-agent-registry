@@ -1,0 +1,37 @@
+# Example: Financial Audit Agent
+# Goal: Strict control over financial data and Personally Identifiable Information (PII).
+
+id: financial-audit-agent
+name: Financial Audit Agent
+department: finance
+description: "Internal financial report auditing agent with zero fund-transfer capabilities."
+
+skills:
+  - read_database
+  - generate_report
+  - anomaly_detection
+
+validators:
+  - financial-data-validator
+
+allowed_actions:
+  - read
+  - analyze
+  - summarize
+  - generate_pdf_report
+
+blocked_actions:
+  - send_external_email
+  - initiate_transfer
+  - delete_records
+  - modify_user_permissions
+
+policies:
+  - require_human_approval_for_high_value
+  - no_pii_in_logs
+  - read_only_database_access
+
+metadata:
+  owner: "security-team@company.com"
+  compliance_level: "SOC2-Type2"
+  last_reviewed: "2026-07-22"

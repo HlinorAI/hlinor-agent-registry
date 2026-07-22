@@ -1,0 +1,35 @@
+# Example: Web Research Agent
+# Goal: Prevent runaway API costs and enforce rate limiting during web research.
+
+id: web-research-agent
+name: Web Research Agent
+department: marketing
+description: "Competitor data gathering agent with strict API budget and rate limits."
+
+skills:
+  - web_search
+  - scrape_public_website
+  - summarize_text
+
+validators:
+  - public-source-validator
+
+allowed_actions:
+  - search
+  - read_public_url
+  - extract_keywords
+
+blocked_actions:
+  - login_to_website
+  - submit_forms
+  - call_premium_paid_api
+
+policies:
+  - max_10_searches_per_hour
+  - block_known_malicious_domains
+  - require_budget_check
+
+metadata:
+  owner: "marketing-ops@company.com"
+  api_budget_limit_usd: 5.00
+  environment: "production"
