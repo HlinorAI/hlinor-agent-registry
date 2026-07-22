@@ -240,6 +240,7 @@ Validate runtime governance contracts:
 hlinor-registry validate-execution-context <path>
 hlinor-registry validate-action-preflight <path>
 hlinor-registry validate-capability <path>
+hlinor-registry validate-capability-registration examples/funding_intelligence.yaml
 hlinor-registry validate-protected-resource-boundary <path>
 hlinor-registry validate-evidence-claim <path>
 hlinor-registry validate-circuit-breaker <path>

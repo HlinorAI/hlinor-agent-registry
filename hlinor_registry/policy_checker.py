@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional
 
 import yaml
+
+from .decision import PolicyDecision
 
 logger = logging.getLogger(__name__)
 
@@ -14,22 +16,22 @@ logger = logging.getLogger(__name__)
 class PolicyChecker:
     """Load agent YAML files and check whether actions are permitted.
 
-    An explicit blocklist always wins. When ``allowed_actions`` is non-empty,
-    it acts as an allowlist and every other action is denied. If neither list
-    is present, the checker preserves the permissive behavior of the registry
-    proposal and allows the action.
+    Enforces a fail-closed security model by default.
     """
 
     def __init__(self, registry_dir: str = "./") -> None:
-        self.registry_dir = Path(registry_dir)
+        self.registry_dir = Path(registry_dir).resolve()
         self.agents: Dict[str, Dict[str, Any]] = {}
         self._load_registry()
 
     def _candidate_paths(self) -> Iterable[Path]:
-        """Yield YAML files from the root, examples, and agents directories."""
+        """Yield YAML files from the root and agents directories.
+        
+        Note: 'examples/' is intentionally excluded from runtime loading 
+        to prevent accidental or malicious configuration overrides.
+        """
         search_paths = (
             self.registry_dir,
-            self.registry_dir / "examples",
             self.registry_dir / "agents",
         )
         seen = set()
@@ -43,53 +45,84 @@ class PolicyChecker:
                     yield yaml_file
 
     def _load_registry(self) -> None:
-        """Load valid agent configurations, logging malformed files."""
+        """Load valid agent configurations, failing fast on errors."""
         for yaml_file in self._candidate_paths():
             try:
                 with yaml_file.open("r", encoding="utf-8") as stream:
                     config = yaml.safe_load(stream)
-                if not isinstance(config, dict) or not config.get("id"):
-                    logger.warning("Skipping %s: expected a mapping with an id", yaml_file)
+                
+                if not isinstance(config, dict):
+                    logger.warning("Skipping %s: expected a mapping", yaml_file)
                     continue
-                agent_id = config["id"]
-                if not isinstance(agent_id, str):
-                    logger.warning("Skipping %s: id must be a string", yaml_file)
+                    
+                agent_id = config.get("id")
+                if not isinstance(agent_id, str) or not agent_id:
+                    logger.warning("Skipping %s: 'id' must be a non-empty string", yaml_file)
                     continue
+                    
+                # FAIL-CLOSED: Reject duplicates to prevent silent overrides
                 if agent_id in self.agents:
-                    logger.warning("Replacing duplicate agent id %r from %s", agent_id, yaml_file)
-                self.agents[agent_id] = config
+                    raise ValueError(
+                        f"Duplicate agent ID '{agent_id}' found in {yaml_file}. "
+                        "Aborting load to prevent silent override."
+                    )
+                
+                # Default to strict enforcement
+                enforcement_mode = config.get("enforcement_mode", "strict")
+                if enforcement_mode not in ("strict", "permissive"):
+                    logger.warning(
+                        "Unknown enforcement_mode '%s' for agent '%s'. Defaulting to 'strict'.",
+                        enforcement_mode, agent_id
+                    )
+                    enforcement_mode = "strict"
+
+                self.agents[agent_id] = {
+                    "data": config,
+                    "enforcement_mode": enforcement_mode,
+                    "filepath": str(yaml_file),
+                }
+            except ValueError:
+                # Re-raise ValueError (like duplicate ID) to fail fast
+                raise
             except (OSError, yaml.YAMLError) as exc:
                 logger.warning("Failed to load %s: %s", yaml_file, exc)
 
         logger.info("Loaded %d agent configurations", len(self.agents))
 
-    def check_action(self, agent_id: str, action: str) -> Tuple[bool, str]:
-        """Return ``(allowed, reason)`` for an agent/action pair."""
+    def check_action(self, agent_id: str, action: str) -> PolicyDecision:
+        """Evaluate policy and return an immutable decision.
+        
+        Fails closed: unknown agents and actions are denied by default in strict mode.
+        """
         agent_config = self.agents.get(agent_id)
+        
+        # FAIL-CLOSED: unknown agent = deny
         if agent_config is None:
-            return False, f"Agent '{agent_id}' not found in the registry."
-
-        blocked_actions = agent_config.get("blocked_actions") or []
-        allowed_actions = agent_config.get("allowed_actions") or []
-
-        if action in blocked_actions:
+            return PolicyDecision.deny(agent_id, action, "UNKNOWN_AGENT")
+        
+        mode = agent_config.get("enforcement_mode", "strict")
+        allowed = agent_config["data"].get("allowed_actions") or []
+        blocked = agent_config["data"].get("blocked_actions") or []
+        
+        # Blocklist always wins
+        if action in blocked:
             policy_name = self._find_triggered_policy(agent_config, action)
-            reason = f"Action '{action}' is explicitly blocked for agent '{agent_id}' (Blocklist)."
+            reason = "ACTION_BLOCKLISTED"
             if policy_name:
-                reason += f" Violated policy: {policy_name}."
-            return False, reason
-
-        if allowed_actions:
-            if action in allowed_actions:
-                return True, "Action allowed (Allowlist)."
-            return False, f"Action '{action}' is not in the allowed_actions list for agent '{agent_id}'."
-
-        return True, "Action allowed (no explicit restrictions defined)."
+                reason += f"_VIOLATED_POLICY_{policy_name.upper()}"
+            return PolicyDecision.deny(agent_id, action, reason)
+        
+        # In strict mode (default), only explicitly allowed actions pass
+        if mode == "strict":
+            if action not in allowed:
+                return PolicyDecision.deny(agent_id, action, "ACTION_NOT_ALLOWLISTED")
+        
+        return PolicyDecision.allow(agent_id, action)
 
     @staticmethod
     def _find_triggered_policy(agent_config: Dict[str, Any], action: str) -> Optional[str]:
         """Map known sensitive actions to explanatory policy names."""
-        policies = agent_config.get("policies") or []
+        policies = agent_config.get("data", {}).get("policies") or []
         policy_by_action = {
             "send_external_email": "no_pii_in_logs",
             "send_email": "no_pii_in_logs",
@@ -99,5 +132,15 @@ class PolicyChecker:
         return policy_name if policy_name in policies else None
 
     def get_agent_info(self, agent_id: str) -> Optional[Dict[str, Any]]:
-        """Return the loaded configuration for an agent, if it exists."""
-        return self.agents.get(agent_id)
+        """Return a copy of the loaded configuration for an agent, if it exists.
+        
+        Returns a copy to prevent external mutation of the registry state.
+        """
+        config = self.agents.get(agent_id)
+        if config:
+            return {
+                "data": config["data"].copy(),
+                "enforcement_mode": config["enforcement_mode"],
+                "filepath": config["filepath"],
+            }
+        return None

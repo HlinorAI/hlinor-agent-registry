@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#15120f" />
+    <meta
+      name="description"
+      content="Governance and security layer for AI agent systems. Define what agents can and cannot do before they act."
+    />
+    <meta name="author" content="HlinorAI" />
+    <link rel="canonical" href="https://registry.hlinor.com/" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2315120f'/%3E%3Cpath d='M7 8h8v8h6M7 24h8v-8h10' fill='none' stroke='%23d2ad68' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E"
+    />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://registry.hlinor.com/" />
+    <meta property="og:title" content="Hlinor Agent Registry" />
+    <meta
+      property="og:description"
+      content="Governance and security layer for AI agent systems."
+    />
+    <meta property="og:site_name" content="Hlinor Agent Registry" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Hlinor Agent Registry" />
+    <meta
+      name="twitter:description"
+      content="Define what your AI agents can and cannot do before they act."
+    />
+    <title>Hlinor Agent Registry | Declarative AI Governance</title>
+
+    <script>
+      tailwind = window.tailwind || {};
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["ui-sans-serif", "system-ui", "sans-serif"],
+              mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+            },
+          },
+        },
+      };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"
+    />
+    <style>
+      :root {
+        --ink: #15120f;
+        --ink-soft: #1d1915;
+        --paper: #f2ede2;
+        --paper-muted: #bdb5a6;
+        --amber: #d2ad68;
+        --amber-soft: #ead6a8;
+        --rust: #c87956;
+        --sage: #9eaf91;
+        --line: rgba(242, 237, 226, 0.16);
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        background: var(--ink);
+        color: var(--paper);
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        text-rendering: optimizeLegibility;
+      }
+
+      ::selection {
+        background: var(--amber);
+        color: var(--ink);
+      }
+
+      .skip-link {
+        position: fixed;
+        left: 1rem;
+        top: -4rem;
+        z-index: 100;
+        background: var(--amber);
+        color: var(--ink);
+        padding: 0.7rem 1rem;
+        transition: top 160ms ease;
+      }
+
+      .skip-link:focus {
+        top: 1rem;
+      }
+
+      .focus-ring:focus-visible,
+      a:focus-visible {
+        outline: 2px solid var(--amber-soft);
+        outline-offset: 4px;
+      }
+
+      .hero-surface {
+        background:
+          linear-gradient(112deg, rgba(210, 173, 104, 0.08), transparent 34%),
+          var(--ink);
+      }
+
+      .artifact-line {
+        stroke: var(--amber);
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .artifact-muted {
+        stroke: rgba(242, 237, 226, 0.22);
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .artifact-label {
+        fill: var(--paper-muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .artifact-title {
+        fill: var(--paper);
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .artifact-node {
+        fill: var(--ink-soft);
+        stroke: rgba(242, 237, 226, 0.28);
+        stroke-width: 1;
+      }
+
+      .artifact-node-hot {
+        fill: rgba(210, 173, 104, 0.12);
+        stroke: var(--amber);
+        stroke-width: 1;
+      }
+
+      .surface-rule {
+        border-color: var(--line);
+      }
+
+      .architecture-mobile {
+        display: none;
+      }
+
+      .prism-code {
+        background: transparent !important;
+        color: var(--paper) !important;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.82rem;
+        line-height: 1.85;
+        margin: 0;
+        padding: 1.5rem;
+        white-space: pre-wrap;
+      }
+
+      code[class*="language-"],
+      pre[class*="language-"] {
+        text-shadow: none;
+      }
+
+      .token.comment {
+        color: #81796c;
+      }
+
+      .token.key,
+      .token.atrule,
+      .token.property {
+        color: var(--amber-soft);
+      }
+
+      .token.string,
+      .token.scalar {
+        color: #b8c89d;
+      }
+
+      .token.boolean,
+      .token.number,
+      .token.important {
+        color: #e0a07d;
+      }
+
+      .token.punctuation {
+        color: #a49a8b;
+      }
+
+      .trace-dash {
+        stroke-dasharray: 3 7;
+        animation: trace 8s linear infinite;
+      }
+
+      .trace-pulse {
+        animation: pulse 3.5s ease-in-out infinite;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+
+      @keyframes trace {
+        to {
+          stroke-dashoffset: -80;
+        }
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.45;
+          transform: scale(0.88);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .architecture-wide {
+          display: none;
+        }
+
+        .architecture-mobile {
+          display: block;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <div class="min-h-screen overflow-x-hidden bg-[#15120f] text-[#f2ede2]">
+      <header class="relative z-20 border-b border-white/10">
+        <div
+          class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-8 gap-y-4 px-5 py-5 sm:px-8 lg:px-12"
+        >
+          <a
+            href="#top"
+            class="focus-ring flex items-center gap-3 text-sm font-semibold tracking-[-0.01em] text-[#f2ede2] transition-colors duration-200 hover:text-[#ead6a8]"
+            aria-label="Hlinor Registry home"
+          >
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M4 6.5h6.5V12H16m-12 5.5h6.5V12H20"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <circle cx="4" cy="6.5" r="1.5" fill="#d2ad68" />
+              <circle cx="20" cy="17.5" r="1.5" fill="#d2ad68" />
+            </svg>
+            <span>Hlinor Registry</span>
+          </a>
+
+          <nav aria-label="Primary navigation" class="flex items-center gap-5 text-sm text-[#bdb5a6] sm:gap-7">
+            <a
+              class="focus-ring transition-colors duration-200 hover:text-[#f2ede2]"
+              href="https://github.com/HlinorAI/hlinor-agent-registry"
+              target="_blank"
+              rel="noreferrer"
+              >GitHub</a
+            >
+            <a
+              class="focus-ring transition-colors duration-200 hover:text-[#f2ede2]"
+              href="https://github.com/HlinorAI/hlinor-agent-registry/tree/main/docs"
+              target="_blank"
+              rel="noreferrer"
+              >Docs</a
+            >
+            <a
+              class="focus-ring border border-[#d2ad68]/70 px-4 py-2 text-[#ead6a8] transition-colors duration-200 hover:bg-[#d2ad68] hover:text-[#15120f]"
+              href="mailto:team@hlinor.ai?subject=Hlinor%20Registry%20early%20access"
+              >Get Early Access</a
+            >
+          </nav>
+        </div>
+      </header>
+
+      <main id="main-content">
+        <section id="top" class="hero-surface relative min-h-[calc(100vh-77px)] overflow-hidden">
+          <div class="mx-auto max-w-7xl px-5 pb-16 pt-16 sm:px-8 sm:pt-24 lg:px-12 lg:pt-28">
+            <div class="grid items-end gap-14 lg:grid-cols-[minmax(0,1.06fr)_minmax(360px,0.94fr)] lg:gap-20">
+              <div>
+                <p class="mb-8 max-w-xl text-xs font-medium tracking-[0.18em] text-[#d2ad68]">
+                  OPEN-SOURCE CONTROL LAYER / PYTHON 3.10+
+                </p>
+                <h1 class="max-w-4xl text-[clamp(3.2rem,6.3vw,6.3rem)] font-semibold leading-[0.94] tracking-[-0.075em] text-[#f2ede2]">
+                  Govern AI agents<br class="hidden sm:block" />
+                  <span class="text-[#d2ad68]">before they act.</span>
+                </h1>
+                <div class="mt-10 max-w-xl border-l border-[#d2ad68]/70 pl-5 sm:pl-6">
+                  <p class="text-lg leading-8 text-[#c9c0b1] sm:text-xl">
+                    Define what your AI agents can and cannot do before they
+                    act. Lightweight, open-source, and production-ready.
+                  </p>
+                </div>
+                <div class="mt-10 flex flex-wrap items-center gap-x-7 gap-y-4">
+                  <a
+                    class="focus-ring inline-flex items-center gap-3 bg-[#d2ad68] px-5 py-3 text-sm font-semibold text-[#15120f] transition-colors duration-200 hover:bg-[#ead6a8]"
+                    href="https://github.com/HlinorAI/hlinor-agent-registry"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    View on GitHub
+                    <span aria-hidden="true" class="text-base">↗</span>
+                  </a>
+                  <a
+                    class="focus-ring inline-flex items-center gap-3 text-sm font-semibold text-[#ead6a8] transition-colors duration-200 hover:text-[#f2ede2]"
+                    href="https://github.com/HlinorAI/hlinor-agent-registry/tree/main/docs"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Read Documentation
+                    <span aria-hidden="true" class="text-base">↗</span>
+                  </a>
+                </div>
+              </div>
+
+              <div class="relative pb-1" aria-label="A policy decision trace from registry to action">
+                <div class="mb-5 flex items-center justify-between border-b border-white/10 pb-4 text-xs text-[#8d8476]">
+                  <span>policy trace / 001</span>
+                  <span class="text-[#9eaf91]">runtime ready</span>
+                </div>
+                <svg
+                  class="h-auto w-full"
+                  viewBox="0 0 560 360"
+                  role="img"
+                  aria-labelledby="trace-title trace-description"
+                >
+                  <title id="trace-title">Hlinor policy decision trace</title>
+                  <desc id="trace-description">
+                    A policy file flows through validation and an action check
+                    before an allowed or blocked result is recorded.
+                  </desc>
+                  <path d="M54 80H218V157H320" class="artifact-muted" fill="none" stroke-width="1" />
+                  <path d="M54 80H218V157H320" class="artifact-line trace-dash" fill="none" stroke-width="1.5" />
+                  <path d="M320 157H430V245H504" class="artifact-muted" fill="none" stroke-width="1" />
+                  <path d="M320 157H430V245H504" class="artifact-line trace-dash" fill="none" stroke-width="1.5" />
+                  <path d="M320 157V308H170" class="artifact-muted" fill="none" stroke-width="1" />
+                  <path d="M320 157V308H170" class="artifact-line trace-dash" fill="none" stroke-width="1.5" />
+
+                  <rect x="24" y="48" width="132" height="64" rx="2" class="artifact-node" />
+                  <text x="42" y="73" class="artifact-label">source</text>
+                  <text x="42" y="94" class="artifact-title">agent.yaml</text>
+
+                  <rect x="218" y="125" width="102" height="64" rx="2" class="artifact-node-hot" />
+                  <text x="236" y="150" class="artifact-label">check</text>
+                  <text x="236" y="171" class="artifact-title">policy</text>
+                  <circle cx="320" cy="157" r="5" fill="#d2ad68" class="trace-pulse" />
+
+                  <rect x="430" y="213" width="106" height="64" rx="2" class="artifact-node" />
+                  <text x="448" y="238" class="artifact-label">result</text>
+                  <text x="448" y="259" class="artifact-title">allowed</text>
+
+                  <rect x="72" y="276" width="98" height="64" rx="2" class="artifact-node" />
+                  <text x="90" y="301" class="artifact-label">result</text>
+                  <text x="90" y="322" class="artifact-title">blocked</text>
+
+                  <text x="172" y="73" class="artifact-label">declarative</text>
+                  <text x="356" y="146" class="artifact-label">pre-dispatch</text>
+                  <text x="346" y="299" class="artifact-label">audit signal</text>
+                </svg>
+                <p class="mt-1 max-w-sm text-sm leading-6 text-[#8d8476]">
+                  One reviewable contract. One decision before side effects.
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-20 grid max-w-4xl grid-cols-1 gap-6 border-t border-white/10 pt-6 text-sm text-[#9f9688] sm:grid-cols-3 sm:gap-8">
+              <div>
+                <p class="mb-1 text-2xl font-semibold tracking-[-0.04em] text-[#f2ede2]">31+</p>
+                <p>automated tests</p>
+              </div>
+              <div>
+                <p class="mb-1 text-2xl font-semibold tracking-[-0.04em] text-[#f2ede2]">3.10–3.13</p>
+                <p>Python CI matrix</p>
+              </div>
+              <div>
+                <p class="mb-1 text-2xl font-semibold tracking-[-0.04em] text-[#f2ede2]">Apache 2.0</p>
+                <p>open-source license</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="demo" class="bg-[#1d1915] py-24 sm:py-32">
+          <div class="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
+            <div class="mb-12 flex flex-col gap-6 border-b border-white/10 pb-8 lg:flex-row lg:items-end lg:justify-between">
+              <h2 class="max-w-2xl text-4xl font-semibold leading-tight tracking-[-0.055em] text-[#f2ede2] sm:text-5xl">
+                A policy is a file.<br />
+                A decision is a line.
+              </h2>
+              <p class="max-w-sm text-base leading-7 text-[#aaa091]">
+                Keep governance close to the code, readable in a pull request,
+                and enforceable at runtime.
+              </p>
+            </div>
+
+            <div class="grid overflow-hidden border border-white/10 lg:grid-cols-2">
+              <div class="min-w-0 border-b border-white/10 lg:border-b-0 lg:border-r">
+                <div class="flex items-center justify-between border-b border-white/10 px-5 py-4 text-xs text-[#9f9688]">
+                  <span class="font-mono">examples/agent.yaml</span>
+                  <span>YAML / registry</span>
+                </div>
+                <pre class="prism-code"><code class="language-yaml">id: web-research-agent
+name: Web Research Agent
+department: marketing
+skills:
+  - web_search
+  - summarize_text
+policies:
+  - max_10_searches_per_hour
+  - require_budget_check
+allowed_actions:
+  - search
+  - read_public_url
+  - extract_keywords
+blocked_actions:
+  - login_to_website
+  - call_premium_paid_api</code></pre>
+              </div>
+
+              <div class="min-w-0 bg-[#14110e]">
+                <div class="flex items-center justify-between border-b border-white/10 px-5 py-4 text-xs text-[#9f9688]">
+                  <span class="font-mono">runtime / policy decision</span>
+                  <span class="text-[#9eaf91]">pre-dispatch</span>
+                </div>
+                <div class="space-y-8 p-6 font-mono text-sm leading-7 sm:p-8">
+                  <div>
+                    <div class="mb-2 text-[#81796c]">$ hlinor-registry check web-research-agent search</div>
+                    <div class="flex gap-3 text-[#b8c89d]"><span>OK</span><span>Action allowed</span></div>
+                    <div class="pl-8 text-[#81796c]">allowlist: search</div>
+                  </div>
+                  <div>
+                    <div class="mb-2 text-[#81796c]">$ hlinor-registry check web-research-agent call_premium_paid_api</div>
+                    <div class="flex gap-3 text-[#e0a07d]"><span>DENY</span><span>Action blocked by policy</span></div>
+                    <div class="pl-8 text-[#81796c]">blocked_actions: call_premium_paid_api</div>
+                  </div>
+                  <div class="border-t border-white/10 pt-5 text-[#aaa091]">
+                    <span class="text-[#d2ad68]">receipt</span> decision recorded before execution
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="use-cases" class="bg-[#f2ede2] py-24 text-[#15120f] sm:py-32">
+          <div class="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
+            <div class="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:gap-20">
+              <div>
+                <p class="max-w-xs text-3xl font-semibold leading-tight tracking-[-0.05em] sm:text-4xl">
+                  Governance that answers the hard questions early.
+                </p>
+              </div>
+              <div class="grid gap-8 md:grid-cols-3">
+                <article class="border-t-2 border-[#c87956] pt-5">
+                  <p class="mb-12 font-mono text-xs text-[#8b6250]">01 / PRIVACY</p>
+                  <h3 class="text-2xl font-semibold tracking-[-0.04em]">Prevent PII leaks</h3>
+                  <p class="mt-4 text-sm leading-6 text-[#655e54]">
+                    Block external email, record mutation, or other exfiltration
+                    paths for agents handling sensitive data.
+                  </p>
+                </article>
+                <article class="border-t-2 border-[#9eaf91] pt-5">
+                  <p class="mb-12 font-mono text-xs text-[#66765d]">02 / COST</p>
+                  <h3 class="text-2xl font-semibold tracking-[-0.04em]">Control API costs</h3>
+                  <p class="mt-4 text-sm leading-6 text-[#655e54]">
+                    Keep search counts, premium calls, budget checks, and rate
+                    limits visible beside the agent definition.
+                  </p>
+                </article>
+                <article class="border-t-2 border-[#b08d48] pt-5">
+                  <p class="mb-12 font-mono text-xs text-[#806b3d]">03 / EVIDENCE</p>
+                  <h3 class="text-2xl font-semibold tracking-[-0.04em]">Ensure compliance</h3>
+                  <p class="mt-4 text-sm leading-6 text-[#655e54]">
+                    Build an audit trail around approvals, execution receipts,
+                    policy decisions, and evidence-bound claims.
+                  </p>
+                </article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="architecture" class="bg-[#15120f] py-24 sm:py-32">
+          <div class="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
+            <div class="mb-14 max-w-2xl">
+              <h2 class="text-4xl font-semibold leading-tight tracking-[-0.055em] text-[#f2ede2] sm:text-5xl">
+                A clear path from intent to action.
+              </h2>
+              <p class="mt-6 text-lg leading-8 text-[#aaa091]">
+                Registry files become a shared contract between the people who
+                design agent capabilities and the systems that execute them.
+              </p>
+            </div>
+
+            <div class="border-y border-white/10 py-10 sm:py-14">
+              <svg
+                class="architecture-wide h-auto w-full"
+                viewBox="0 0 1200 280"
+                role="img"
+                aria-labelledby="architecture-title architecture-description"
+              >
+                <title id="architecture-title">Hlinor registry architecture</title>
+                <desc id="architecture-description">
+                  Developer writes a YAML registry, the policy engine validates
+                  an action, and the agent receives an allowed or blocked result.
+                </desc>
+                <path d="M168 128H332M468 128H632M768 128H932" class="artifact-muted" fill="none" stroke-width="1.5" />
+                <path d="M168 128H332M468 128H632M768 128H932" class="artifact-line trace-dash" fill="none" stroke-width="2" />
+                <path d="M700 162V230H610" class="artifact-muted" fill="none" stroke-width="1" />
+                <path d="M700 162V230H610" class="artifact-line trace-dash" fill="none" stroke-width="1.5" />
+
+                <rect x="40" y="84" width="128" height="88" rx="2" class="artifact-node" />
+                <text x="104" y="113" text-anchor="middle" class="artifact-label">01</text>
+                <text x="104" y="141" text-anchor="middle" class="artifact-title">Developer</text>
+                <text x="104" y="158" text-anchor="middle" class="artifact-label">intent</text>
+
+                <rect x="332" y="84" width="136" height="88" rx="2" class="artifact-node" />
+                <text x="400" y="113" text-anchor="middle" class="artifact-label">02</text>
+                <text x="400" y="141" text-anchor="middle" class="artifact-title">YAML registry</text>
+                <text x="400" y="158" text-anchor="middle" class="artifact-label">contract</text>
+
+                <rect x="632" y="84" width="136" height="88" rx="2" class="artifact-node-hot" />
+                <text x="700" y="113" text-anchor="middle" class="artifact-label">03</text>
+                <text x="700" y="141" text-anchor="middle" class="artifact-title">Policy engine</text>
+                <text x="700" y="158" text-anchor="middle" class="artifact-label">decision</text>
+
+                <rect x="932" y="84" width="128" height="88" rx="2" class="artifact-node" />
+                <text x="996" y="113" text-anchor="middle" class="artifact-label">04</text>
+                <text x="996" y="141" text-anchor="middle" class="artifact-title">Agent action</text>
+                <text x="996" y="158" text-anchor="middle" class="artifact-label">side effect</text>
+
+                <rect x="500" y="206" width="220" height="48" rx="2" class="artifact-node" />
+                <text x="610" y="236" text-anchor="middle" class="artifact-label">blocked + audit record</text>
+                <circle cx="700" cy="128" r="5" fill="#d2ad68" class="trace-pulse" />
+              </svg>
+              <svg
+                class="architecture-mobile h-auto w-full"
+                viewBox="0 0 360 560"
+                role="img"
+                aria-labelledby="architecture-mobile-title architecture-mobile-description"
+              >
+                <title id="architecture-mobile-title">Hlinor registry mobile architecture</title>
+                <desc id="architecture-mobile-description">
+                  A vertical flow from developer intent through the YAML registry
+                  and policy engine to an allowed or blocked agent action.
+                </desc>
+                <path d="M180 84V144M180 214V274M180 344V404" class="artifact-muted" fill="none" stroke-width="1.5" />
+                <path d="M180 84V144M180 214V274M180 344V404" class="artifact-line trace-dash" fill="none" stroke-width="2" />
+                <path d="M180 344V500H94" class="artifact-muted" fill="none" stroke-width="1" />
+                <path d="M180 344V500H94" class="artifact-line trace-dash" fill="none" stroke-width="1.5" />
+
+                <rect x="72" y="20" width="216" height="64" rx="2" class="artifact-node" />
+                <text x="180" y="47" text-anchor="middle" class="artifact-label">01 / INTENT</text>
+                <text x="180" y="69" text-anchor="middle" class="artifact-title">Developer</text>
+
+                <rect x="72" y="144" width="216" height="70" rx="2" class="artifact-node" />
+                <text x="180" y="171" text-anchor="middle" class="artifact-label">02 / CONTRACT</text>
+                <text x="180" y="195" text-anchor="middle" class="artifact-title">YAML registry</text>
+
+                <rect x="72" y="274" width="216" height="70" rx="2" class="artifact-node-hot" />
+                <text x="180" y="301" text-anchor="middle" class="artifact-label">03 / DECISION</text>
+                <text x="180" y="325" text-anchor="middle" class="artifact-title">Policy engine</text>
+                <circle cx="180" cy="344" r="5" fill="#d2ad68" class="trace-pulse" />
+
+                <rect x="72" y="404" width="216" height="70" rx="2" class="artifact-node" />
+                <text x="180" y="431" text-anchor="middle" class="artifact-label">04 / SIDE EFFECT</text>
+                <text x="180" y="455" text-anchor="middle" class="artifact-title">Agent action</text>
+
+                <rect x="18" y="500" width="152" height="44" rx="2" class="artifact-node" />
+                <text x="94" y="527" text-anchor="middle" class="artifact-label">blocked + audit</text>
+              </svg>
+            </div>
+          </div>
+        </section>
+
+        <section id="community" class="bg-[#1d1915] py-24 sm:py-32">
+          <div class="mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-[1fr_0.8fr] lg:gap-24 lg:px-12">
+            <div>
+              <h2 class="max-w-xl text-4xl font-semibold leading-tight tracking-[-0.055em] text-[#f2ede2] sm:text-6xl">
+                Make your next agent easier to trust.
+              </h2>
+              <p class="mt-7 max-w-xl text-lg leading-8 text-[#aaa091]">
+                Start with a YAML contract, add a policy check before the first
+                side effect, and invite your security team into the review.
+              </p>
+              <div class="mt-9 flex flex-wrap items-center gap-x-7 gap-y-4">
+                <a
+                  class="focus-ring inline-flex items-center gap-3 bg-[#d2ad68] px-5 py-3 text-sm font-semibold text-[#15120f] transition-colors duration-200 hover:bg-[#ead6a8]"
+                  href="https://github.com/HlinorAI/hlinor-agent-registry"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Star the repository <span aria-hidden="true">↗</span>
+                </a>
+                <a
+                  class="focus-ring text-sm font-semibold text-[#ead6a8] transition-colors duration-200 hover:text-[#f2ede2]"
+                  href="mailto:team@hlinor.ai?subject=Hlinor%20Registry%20early%20access"
+                >
+                  Contact the team
+                </a>
+              </div>
+            </div>
+            <div class="border-t border-white/10 pt-6 text-sm text-[#aaa091] lg:border-l lg:border-t-0 lg:pl-8">
+              <p class="font-mono text-xs text-[#d2ad68]">OPEN SOURCE / EARLY ACCESS</p>
+              <p class="mt-5 max-w-sm leading-7">
+                HlinorAI works with teams designing internal agent platforms,
+                compliance workflows, and production action boundaries.
+              </p>
+              <a
+                class="focus-ring mt-6 inline-block font-semibold text-[#f2ede2] transition-colors duration-200 hover:text-[#ead6a8]"
+                href="https://github.com/HlinorAI/hlinor-agent-registry/issues"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open an issue or start a discussion ↗
+              </a>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="border-t border-white/10 bg-[#15120f]">
+        <div class="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 text-sm text-[#8d8476] sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
+          <div>
+            <a class="focus-ring font-semibold text-[#f2ede2] transition-colors duration-200 hover:text-[#ead6a8]" href="#top">Hlinor Registry</a>
+            <span class="mx-2 text-white/20">/</span>
+            <a class="focus-ring transition-colors duration-200 hover:text-[#f2ede2]" href="https://hlinor.com" target="_blank" rel="noreferrer">hlinor.com</a>
+          </div>
+          <div class="flex flex-wrap gap-x-5 gap-y-2">
+            <a class="focus-ring transition-colors duration-200 hover:text-[#f2ede2]" href="https://github.com/HlinorAI/hlinor-agent-registry" target="_blank" rel="noreferrer">GitHub</a>
+            <a class="focus-ring transition-colors duration-200 hover:text-[#f2ede2]" href="https://github.com/HlinorAI/hlinor-agent-registry/tree/main/docs" target="_blank" rel="noreferrer">Docs</a>
+            <span>© 2026 HlinorAI. Apache 2.0 License.</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        if (window.Prism) Prism.highlightAll();
+      });
+    </script>
+  </body>
+</html>
