@@ -17,7 +17,7 @@ dependencies = [
 hlinor-registry = "hlinor_registry.cli:main"
 
 [tool.setuptools]
-packages = ["hlinor_registry"]
+packages = ["hlinor_registry", "hlinor_registry.integrations"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

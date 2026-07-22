@@ -69,6 +69,41 @@ graph LR
     E -->|No| G[Block + Audit Log]
 ```
 
+## 🔌 Integrations
+
+Hlinor Registry provides lightweight integrations with popular AI agent
+frameworks. These integrations are optional and do not add heavy dependencies
+to the core package.
+
+### LangChain Integration
+
+Wrap a LangChain-compatible tool or agent with Hlinor governance policies:
+
+```python
+from hlinor_registry.integrations.langchain import GovernedAgent, GovernedTool
+
+safe_tool = GovernedTool(
+    tool=my_langchain_tool,
+    agent_id="my-agent",
+    registry_dir="./registry",
+)
+
+safe_agent = GovernedAgent(
+    agent_executor=my_agent_executor,
+    agent_id="my-agent",
+    registry_dir="./registry",
+)
+```
+
+See [`examples/langchain_integration.py`](examples/langchain_integration.py)
+for a complete example. Install LangChain only when you need this integration:
+
+```bash
+pip install langchain langchain-openai
+```
+
+More integrations may be added for other agent frameworks over time.
+
 ## ⚖️ Why Hlinor Registry?
 
 | Feature | Execution frameworks | **Hlinor Registry** |
