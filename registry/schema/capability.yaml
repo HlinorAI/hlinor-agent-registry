@@ -1,0 +1,42 @@
+id: capability
+name: Capability Registration
+description: Defines the public interface, governance policies, and validation requirements for a registered AI capability.
+
+required_fields:
+  - id
+  - type
+  - name
+  - description
+  - repository
+  - version
+  - interfaces
+  - policies
+  - validators
+  - metadata
+
+field_types:
+  id: string
+  type: string
+  name: string
+  description: string
+  repository: string
+  version: string
+  interfaces: object
+  policies: list
+  validators: list
+  metadata: object
+
+required_interface_fields:
+  - name
+  - type
+
+required_policy_fields:
+  - id
+  - description
+  - severity
+
+severity_values:
+  - low
+  - medium
+  - high
+  - critical
