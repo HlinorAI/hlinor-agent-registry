@@ -267,6 +267,12 @@ def test_runtime_governance_examples_are_valid():
     ) == []
 
 
+def test_funding_intelligence_capability_registration_is_valid():
+    from hlinor_registry.validator import validate_capability_registration
+
+    assert validate_capability_registration("examples/funding_intelligence.yaml") == []
+
+
 def test_passed_evidence_claim_requires_fresh_same_object(tmp_path):
     from hlinor_registry.validator import validate_evidence_claim_binding
 

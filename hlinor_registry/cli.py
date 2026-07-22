@@ -6,6 +6,7 @@ from hlinor_registry.validator import (
     validate_evidence_claim_binding,
     validate_protected_resource_boundary,
     validate_capability_verification,
+    validate_capability_registration,
     validate_action_preflight,
     validate_execution_context,
     load_yaml,
@@ -117,6 +118,12 @@ def main() -> int:
     )
     validate_capability_parser.add_argument("path", help="Path to YAML file")
 
+    validate_capability_registration_parser = subparsers.add_parser(
+        "validate-capability-registration",
+        help="Validate capability registration YAML",
+    )
+    validate_capability_registration_parser.add_argument("path", help="Path to YAML file")
+
     validate_protected_resource_boundary_parser = subparsers.add_parser(
         "validate-protected-resource-boundary",
         help="Validate protected resource boundary YAML",
@@ -202,6 +209,22 @@ def main() -> int:
             return 1
 
         print("Capability verification is valid.")
+        return 0
+
+    if args.command == "validate-capability-registration":
+        try:
+            errors = validate_capability_registration(args.path)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Invalid capability registration: {exc}")
+            return 1
+
+        if errors:
+            print("Invalid capability registration:")
+            for error in errors:
+                print(f"- {error}")
+            return 1
+
+        print("Capability registration is valid.")
         return 0
 
     if args.command == "validate-protected-resource-boundary":

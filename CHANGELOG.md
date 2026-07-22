@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Capability registration schema, validator, CLI command, and Funding Intelligence integration example.
 - Runtime `PolicyChecker` for declarative allowlist and blocklist enforcement.
 - Financial audit and budget-limited research agent examples.
 - Optional LangChain integration with `GovernedTool` and `GovernedAgent`.

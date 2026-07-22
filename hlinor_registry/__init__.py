@@ -1,5 +1,10 @@
+from .policy_checker import PolicyChecker
+from .decision import PolicyDecision, GovernanceDeniedError
+
 __version__ = "0.3.1"
 
-from hlinor_registry.policy_checker import PolicyChecker
-
-__all__ = ["PolicyChecker", "__version__"]
+__all__ = [
+    "PolicyChecker",
+    "PolicyDecision",
+    "GovernanceDeniedError",
+]

@@ -233,6 +233,21 @@ CAPABILITY_VERIFICATION_REQUIRED_FIELDS = [
     "verified_at",
 ]
 
+CAPABILITY_REGISTRATION_REQUIRED_FIELDS = [
+    "id",
+    "type",
+    "name",
+    "description",
+    "repository",
+    "version",
+    "interfaces",
+    "policies",
+    "validators",
+    "metadata",
+]
+
+CAPABILITY_POLICY_SEVERITIES = {"low", "medium", "high", "critical"}
+
 PROTECTED_RESOURCE_BOUNDARY_REQUIRED_FIELDS = [
     "boundary_id",
     "resource_class",
@@ -286,6 +301,75 @@ def validate_capability_verification(path: str | Path) -> list[str]:
         errors.append("capability_verification: Invalid status")
     if data.get("status") == "verified" and data.get("matched") is not True:
         errors.append("capability_verification: Verified capability must match")
+    return errors
+
+
+def validate_capability_registration(path: str | Path) -> list[str]:
+    """Validate a capability registration and its governance contracts."""
+    data = load_yaml(path)
+    errors = _validate_required_fields(
+        data,
+        CAPABILITY_REGISTRATION_REQUIRED_FIELDS,
+        "capability_registration",
+    )
+
+    for field in ["id", "name", "description", "repository", "version"]:
+        if field in data and (not isinstance(data[field], str) or not data[field].strip()):
+            errors.append(f"capability_registration: Field must be a non-empty string: {field}")
+
+    if data.get("type") != "capability":
+        errors.append("capability_registration: Field must equal capability: type")
+
+    interfaces = data.get("interfaces")
+    if not isinstance(interfaces, dict):
+        errors.append("capability_registration: Field must be an object: interfaces")
+    else:
+        for section in ["inputs", "outputs"]:
+            values = interfaces.get(section)
+            if not isinstance(values, list):
+                errors.append(f"capability_registration: Interface section must be a list: {section}")
+                continue
+            for index, interface in enumerate(values):
+                prefix = f"capability_registration: {section}[{index}]"
+                if not isinstance(interface, dict):
+                    errors.append(f"{prefix} must be an object")
+                    continue
+                for field in ["name", "type"]:
+                    if not isinstance(interface.get(field), str) or not interface[field].strip():
+                        errors.append(f"{prefix}: Missing or invalid field: {field}")
+                if "required" in interface and not isinstance(interface["required"], bool):
+                    errors.append(f"{prefix}: Field must be a boolean: required")
+
+    policies = data.get("policies")
+    if not isinstance(policies, list) or not policies:
+        errors.append("capability_registration: Policies must be a non-empty list")
+    else:
+        for index, policy in enumerate(policies):
+            prefix = f"capability_registration: policies[{index}]"
+            if not isinstance(policy, dict):
+                errors.append(f"{prefix} must be an object")
+                continue
+            for field in ["id", "description", "severity"]:
+                if not isinstance(policy.get(field), str) or not policy[field].strip():
+                    errors.append(f"{prefix}: Missing or invalid field: {field}")
+            if policy.get("severity") not in CAPABILITY_POLICY_SEVERITIES:
+                errors.append(f"{prefix}: Invalid severity")
+
+    validators = data.get("validators")
+    errors.extend(_validate_string_list_values(
+        {"validators": validators},
+        ["validators"],
+        "capability_registration",
+    ))
+
+    metadata = data.get("metadata")
+    if not isinstance(metadata, dict):
+        errors.append("capability_registration: Field must be an object: metadata")
+    else:
+        for field in ["owner", "compliance_level", "last_audit"]:
+            if not isinstance(metadata.get(field), str) or not metadata[field].strip():
+                errors.append(f"capability_registration: Missing or invalid metadata field: {field}")
+
     return errors
 
 def validate_protected_resource_boundary(path: str | Path) -> list[str]:

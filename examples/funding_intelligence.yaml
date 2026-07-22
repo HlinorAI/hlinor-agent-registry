@@ -1,0 +1,49 @@
+id: funding-intelligence
+type: capability
+name: Funding Intelligence Agent
+description: AI capability for analyzing project profiles, verifying evidence, and generating funding opportunity reports.
+repository: https://github.com/HlinorAI/funding-intelligence
+version: "0.2.0-dev"
+
+interfaces:
+  inputs:
+    - name: project_profile
+      type: object
+      required: true
+    - name: evidence
+      type: array
+      required: true
+    - name: funding_goal
+      type: string
+      required: false
+  outputs:
+    - name: opportunity_report
+      type: object
+    - name: decision_trace
+      type: object
+    - name: route_verification
+      type: object
+
+policies:
+  - id: unknown_is_not_evidence
+    description: Reject claims that are not backed by verifiable, cited sources.
+    severity: critical
+  - id: affiliation_precedence
+    description: Prioritize verified affiliations over unverified claims.
+    severity: high
+  - id: no_automatic_application
+    description: Never auto-apply or submit forms without explicit human approval.
+    severity: critical
+  - id: private_evidence_stays_local
+    description: Private or PII evidence must not be sent to external LLM APIs.
+    severity: critical
+
+validators:
+  - runner_regression_suite
+  - schema_validator
+  - credential_scanner
+
+metadata:
+  owner: HlinorAI Team
+  compliance_level: internal-use
+  last_audit: "2026-07-22"
