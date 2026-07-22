@@ -5,13 +5,66 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hlinor-registry"
 version = "0.3.1"
-description = "Validator and CLI tooling for Hlinor Agent Registry."
+description = "Governance and security layer for auditable AI agent systems."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
+authors = [
+    {name = "HlinorAI Team", email = "team@hlinor.ai"}
+]
+maintainers = [
+    {name = "HlinorAI Team", email = "team@hlinor.ai"}
+]
+keywords = [
+    "ai",
+    "agents",
+    "governance",
+    "security",
+    "policy",
+    "compliance",
+    "audit",
+    "langchain",
+    "multi-agent",
+    "registry",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "PyYAML>=6.0.0"
 ]
+
+[project.optional-dependencies]
+langchain = [
+    "langchain>=0.1.0",
+    "langchain-openai>=0.1.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+all = [
+    "langchain>=0.1.0",
+    "langchain-openai>=0.1.0",
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/HlinorAI/hlinor-agent-registry"
+Documentation = "https://github.com/HlinorAI/hlinor-agent-registry#readme"
+Repository = "https://github.com/HlinorAI/hlinor-agent-registry"
+Issues = "https://github.com/HlinorAI/hlinor-agent-registry/issues"
+Changelog = "https://github.com/HlinorAI/hlinor-agent-registry/blob/main/CHANGELOG.md"
 
 [project.scripts]
 hlinor-registry = "hlinor_registry.cli:main"
