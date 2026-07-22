@@ -1,0 +1,6 @@
+id: my-search-agent
+department: research
+skills: [web-search, data-extraction]
+allowed_actions: [search, read, summarize]
+blocked_actions: [delete, send_email, modify_external_records]
+policies: [no-stale-data, no-pii-leak]
