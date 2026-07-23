@@ -238,3 +238,4 @@ secrets.*
 .claude/settings.local.json
 scratchpad/
 *.scratch.*
+PROJECT_CONTEXT.md
