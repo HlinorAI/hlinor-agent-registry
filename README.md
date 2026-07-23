@@ -31,46 +31,42 @@ Once the package is published, the installation can be shortened to:
 python -m pip install hlinor-registry
 ```
 
-### 2. Define an agent
+### 2. Declare the source files
 
-Create `agent.yaml` in the project directory:
+Create a `registry.yaml` manifest. Only the files listed here can enter the
+runtime bundle:
 
 ```yaml
-id: research-agent
-name: Research Agent
-department: research
-description: Finds and summarizes public information.
-skills:
-  - web-search
-  - summarization
-validators:
-  - freshness-validator
+version: "1.0"
 policies:
-  - no-pii-leak
-allowed_actions:
-  - search
-  - read_public_url
-  - summarize
-blocked_actions:
-  - send_email
-  - modify_external_records
+  - path: "examples/secure_financial_agent.yaml"
+  - path: "examples/budget_limited_research_agent.yaml"
+metadata:
+  environment: "production"
+  compiled_by: "hlinor-registry-cli"
 ```
 
-### 3. Validate and enforce
+### 3. Compile and enforce
 
 ```bash
-hlinor-registry validate-agent agent.yaml
+hlinor-registry compile \
+  --manifest registry.yaml \
+  --output dist/policy-bundle.json
 ```
 
 ```python
 from hlinor_registry import PolicyChecker
 
-checker = PolicyChecker(".")
-allowed, reason = checker.check_action("research-agent", "send_email")
+checker = PolicyChecker("dist/policy-bundle.json")
+decision = checker.check_action("financial-audit-agent", "initiate_transfer")
 
-print("allowed" if allowed else "blocked")
-print(reason)
+print(decision.result, decision.reason_code)
+# denied ACTION_BLOCKLISTED_VIOLATED_POLICY_REQUIRE_HUMAN_APPROVAL_FOR_HIGH_VALUE
 ```
+
+Compilation validates every listed file, rejects duplicate IDs and path
+traversal, records per-file SHA-256 digests, and writes one authenticated JSON
+bundle. Runtime enforcement reads that bundle only; it never scans a folder.
 
 ## Use cases
 
@@ -94,11 +90,11 @@ blocked_actions: [send_external_email, delete_records]
 The blocklist takes priority over the allowlist:
 
 ```python
-allowed, reason = checker.check_action(
+decision = checker.check_action(
     "financial-audit-agent",
     "send_external_email",
 )
-assert not allowed
+assert decision.denied
 ```
 
 ### Block unauthorized actions
@@ -107,10 +103,10 @@ Use a strict allowlist for agents that should only perform a narrow set of
 operations. Everything outside the list is denied by `PolicyChecker`:
 
 ```python
-allowed, reason = checker.check_action("research-agent", "delete_records")
+decision = checker.check_action("research-agent", "delete_records")
 
-if not allowed:
-    print(f"Blocked before execution: {reason}")
+if decision.denied:
+    print(f"Blocked before execution: {decision.reason_code}")
 ```
 
 This gives security reviews a concrete answer to the question: “What can this
@@ -145,19 +141,20 @@ of burying it inside one agent implementation.
 
 ```mermaid
 flowchart LR
-    A["Developer or security team"] --> B["Agent YAML and policy files"]
-    B --> C["hlinor-registry validate"]
-    C --> D["Runtime adapter or PolicyChecker"]
-    D --> E{"Action permitted?"}
-    E -->|Yes| F["Execute tool or skill"]
-    E -->|No| G["Block and record decision"]
-    D --> H["Execution receipts and audit evidence"]
-    H --> I["Review, compliance, and incident response"]
+    A["Developer or security team"] --> B["Explicit registry.yaml manifest"]
+    B --> C["hlinor-registry compile"]
+    C --> D["Authenticated JSON policy bundle"]
+    D --> E["Runtime adapter or PolicyChecker"]
+    E --> F{"Action permitted?"}
+    F -->|Yes| G["Execute tool or skill"]
+    F -->|No| H["Block and record decision"]
+    E --> I["Execution receipts and audit evidence"]
+    I --> J["Review, compliance, and incident response"]
 ```
 
 Hlinor sits beside your execution framework. Your agents can continue to run
-in LangChain, CrewAI, or a custom stack while their action boundaries live in a
-central, inspectable registry.
+in LangChain, CrewAI, or a custom stack while their action boundaries are
+compiled from an explicit, inspectable manifest.
 
 ## Hlinor vs. alternatives
 
@@ -208,13 +205,13 @@ from hlinor_registry.integrations.langchain import GovernedAgent, GovernedTool
 safe_tool = GovernedTool(
     tool=my_langchain_tool,
     agent_id="research-agent",
-    registry_dir="./",
+    bundle_path="./dist/policy-bundle.json",
 )
 
 safe_agent = GovernedAgent(
     agent_executor=my_agent_executor,
     agent_id="research-agent",
-    registry_dir="./",
+    bundle_path="./dist/policy-bundle.json",
 )
 ```
 
@@ -229,6 +226,19 @@ python -m pytest
 ```
 
 ## CLI
+
+Compile an explicit manifest into the authenticated runtime bundle:
+
+```bash
+hlinor-registry compile \
+  --manifest registry.yaml \
+  --output dist/policy-bundle.json
+```
+
+The compiler validates every listed source, rejects duplicate IDs and paths
+outside the manifest directory, and records SHA-256 provenance for each entry.
+The runtime checker accepts the resulting JSON bundle only after verifying its
+overall digest.
 
 Validate a registry file:
 
@@ -278,7 +288,7 @@ hlinor-registry inspect <path>
 
 ## Trust signals
 
-- 31+ automated tests covering validation, policy enforcement, and integration behavior.
+- 41+ automated tests covering compilation, validation, policy enforcement, and integration behavior.
 - GitHub Actions runs the test suite on Python 3.10, 3.11, 3.12, and 3.13.
 - YAML schemas, examples, and governance decisions are designed to be reviewed in pull requests.
 - Licensed under Apache-2.0 for broad open-source and commercial use.

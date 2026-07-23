@@ -27,10 +27,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Declarative action boundaries support fine-grained allowlist and blocklist control.
 - Existing audit-oriented schemas remain available for execution receipts and governance records.
 
+## [0.4.0] - 2026-07-23
+
+### Added
+
+- Explicit `registry.yaml` manifests and the `compile` command for deterministic policy bundles.
+- SHA-256 digests for source entries and authenticated compiled bundles.
+- Runtime tests for path traversal protection, duplicate IDs, tamper detection, and unlisted files.
+
+### Changed
+
+- `PolicyChecker` now loads only compiled JSON bundles and no longer scans directories at runtime.
+- LangChain integrations accept a compiled `bundle_path` for governed tool execution.
+
 ## [0.3.0]
 
 Public registry release with YAML schemas, CLI validation, runtime governance
 contracts, lifecycle schemas, and audit-friendly examples.
 
 [0.3.1]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.3.0...v0.3.1
+[0.4.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.3.1...v0.4.0
 [0.3.0]: https://github.com/HlinorAI/hlinor-agent-registry/releases/tag/v0.3.0

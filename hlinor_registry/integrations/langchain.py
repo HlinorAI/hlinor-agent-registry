@@ -23,19 +23,21 @@ class GovernedTool:
         self,
         tool: Any,
         agent_id: str,
-        registry_dir: str = "./",
+        bundle_path: str = "./dist/policy-bundle.json",
         action_name: Optional[str] = None,
+        *,
+        registry_dir: Optional[str] = None,
     ) -> None:
         self.tool = tool
         self.agent_id = agent_id
-        self.registry_dir = registry_dir
+        self.bundle_path = registry_dir or bundle_path
         self.action_name = action_name or getattr(tool, "name", "unknown")
         self._checker: Optional[PolicyChecker] = None
 
     def _get_checker(self) -> PolicyChecker:
         """Lazily initialize the PolicyChecker."""
         if self._checker is None:
-            self._checker = PolicyChecker(self.registry_dir)
+            self._checker = PolicyChecker(self.bundle_path)
         return self._checker
 
     def _check_action(self) -> PolicyDecision:
@@ -79,11 +81,13 @@ class GovernedAgent:
         self,
         agent_executor: Any,
         agent_id: str,
-        registry_dir: str = "./",
+        bundle_path: str = "./dist/policy-bundle.json",
+        *,
+        registry_dir: Optional[str] = None,
     ) -> None:
         self.agent_executor = agent_executor
         self.agent_id = agent_id
-        self.registry_dir = registry_dir
+        self.bundle_path = registry_dir or bundle_path
         self._wrap_tools()
 
     def _wrap_tools(self) -> None:
@@ -100,7 +104,7 @@ class GovernedAgent:
             wrapped = GovernedTool(
                 tool=tool,
                 agent_id=self.agent_id,
-                registry_dir=self.registry_dir,
+                bundle_path=self.bundle_path,
                 action_name=getattr(tool, "name", None),
             )
             wrapped_tools.append(wrapped)

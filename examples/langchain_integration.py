@@ -5,6 +5,9 @@ Prerequisites:
 
 This example exits cleanly when optional LangChain dependencies are not
 installed, which keeps the base Hlinor package dependency-free.
+
+Compile the checked-in policy bundle before running this example:
+    hlinor-registry compile --manifest registry.yaml --output dist/policy-bundle.json
 """
 
 import os
@@ -32,7 +35,7 @@ def example_governed_tool() -> None:
     governed_search = GovernedTool(
         tool=search_tool,
         agent_id="web-research-agent",
-        registry_dir="./examples",
+        bundle_path="./dist/policy-bundle.json",
     )
     print("\n--- Allowed action ---")
     print(governed_search.run("AI agent governance"))
@@ -40,7 +43,7 @@ def example_governed_tool() -> None:
     governed_login = GovernedTool(
         tool=search_tool,
         agent_id="web-research-agent",
-        registry_dir="./examples",
+        bundle_path="./dist/policy-bundle.json",
         action_name="login_to_website",
     )
     print("\n--- Blocked action ---")
@@ -81,7 +84,7 @@ def example_governed_agent() -> None:
     governed_agent = GovernedAgent(
         agent_executor=agent,
         agent_id="financial-audit-agent",
-        registry_dir="./examples",
+        bundle_path="./dist/policy-bundle.json",
     )
     print("\n--- Governed agent ---")
     print(governed_agent.invoke("Search for recent financial reports"))

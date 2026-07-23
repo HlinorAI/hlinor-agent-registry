@@ -1,5 +1,14 @@
+"""Command-line interface for Hlinor Agent Registry."""
+
+from __future__ import annotations
+
 import argparse
+import hashlib
+import json
 import sys
+from pathlib import Path
+from typing import Any
+
 import yaml
 from hlinor_registry.validator import (
     validate_failure_circuit_breaker,
@@ -20,6 +29,7 @@ from hlinor_registry.validator import (
     validate_lifecycle_map,
     validate_lifecycle_receipt,
     validate_lifecycle_schema,
+    validate_registry_file,
 )
 
 
@@ -82,7 +92,151 @@ def _inspect(path: str) -> int:
     print(f"keys: {keys}")
     return 0
 
-def main() -> int:
+
+def _compute_file_digest(filepath: Path) -> str:
+    """Compute a SHA-256 digest for a source policy file."""
+    sha256 = hashlib.sha256()
+    with filepath.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(4096), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def _compute_bundle_digest(bundle: dict[str, Any]) -> str:
+    """Compute the canonical digest for a bundle with its digest cleared."""
+    unsigned_bundle = dict(bundle)
+    unsigned_bundle["digest"] = ""
+    payload = json.dumps(
+        unsigned_bundle,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _compile_error(message: str) -> int:
+    print(f"Error: {message}", file=sys.stderr)
+    return 1
+
+
+def cmd_compile(args: argparse.Namespace) -> int:
+    """Compile an explicit registry manifest into an immutable JSON bundle."""
+    manifest_path = Path(args.manifest).resolve()
+    output_path = Path(args.output).resolve()
+
+    if not manifest_path.is_file():
+        return _compile_error(f"Manifest file not found: {manifest_path}")
+
+    try:
+        with manifest_path.open("r", encoding="utf-8") as stream:
+            manifest = yaml.safe_load(stream)
+    except (OSError, yaml.YAMLError) as exc:
+        return _compile_error(f"Unable to read manifest: {exc}")
+
+    if not isinstance(manifest, dict):
+        return _compile_error("Manifest root must be an object.")
+
+    policies = manifest.get("policies")
+    if not isinstance(policies, list) or not policies:
+        return _compile_error("Manifest must contain a non-empty 'policies' list.")
+
+    metadata = manifest.get("metadata", {})
+    if not isinstance(metadata, dict):
+        return _compile_error("Manifest metadata must be an object.")
+
+    if output_path == manifest_path:
+        return _compile_error("Output path must not overwrite the manifest.")
+
+    manifest_dir = manifest_path.parent
+    bundle: dict[str, Any] = {
+        "version": manifest.get("version", "1.0"),
+        "metadata": metadata,
+        "agents": {},
+        "digest": "",
+    }
+    seen_paths: set[Path] = set()
+
+    for index, policy_entry in enumerate(policies):
+        if not isinstance(policy_entry, dict):
+            return _compile_error(f"Invalid policy entry at index {index}: expected an object.")
+
+        relative_path = policy_entry.get("path")
+        if not isinstance(relative_path, str) or not relative_path.strip():
+            return _compile_error(f"Policy entry at index {index} must contain a path.")
+
+        source_path = Path(relative_path)
+        if source_path.is_absolute():
+            return _compile_error(
+                f"Policy path must be relative to the manifest: {relative_path}"
+            )
+
+        file_path = (manifest_dir / source_path).resolve()
+        try:
+            file_path.relative_to(manifest_dir)
+        except ValueError:
+            return _compile_error(
+                f"Policy path escapes the manifest directory: {relative_path}"
+            )
+
+        if file_path in seen_paths:
+            return _compile_error(f"Duplicate policy path in manifest: {relative_path}")
+        seen_paths.add(file_path)
+
+        if not file_path.is_file():
+            return _compile_error(f"Policy file not found: {file_path}")
+
+        if output_path == file_path:
+            return _compile_error(
+                f"Output path must not overwrite a listed policy file: {relative_path}"
+            )
+
+        try:
+            config = load_yaml(file_path)
+        except (FileNotFoundError, ValueError, yaml.YAMLError) as exc:
+            return _compile_error(f"Unable to load {file_path}: {exc}")
+
+        entity_type = "capability" if config.get("type") == "capability" else "agent"
+        errors = (
+            validate_capability_registration(file_path)
+            if entity_type == "capability"
+            else validate_registry_file("agent", file_path)
+        )
+        if errors:
+            print(f"Error: Validation failed for {file_path}:", file=sys.stderr)
+            for error in errors:
+                print(f"- {error}", file=sys.stderr)
+            return 1
+
+        agent_id = config.get("id")
+        if not isinstance(agent_id, str) or not agent_id.strip():
+            return _compile_error(f"Missing non-empty 'id' in {file_path}")
+
+        if agent_id in bundle["agents"]:
+            return _compile_error(f"Duplicate agent ID '{agent_id}' in manifest.")
+
+        bundle["agents"][agent_id] = {
+            "config": config,
+            "entity_type": entity_type,
+            "source_path": source_path.as_posix(),
+            "digest": _compute_file_digest(file_path),
+        }
+
+    bundle["digest"] = _compute_bundle_digest(bundle)
+
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as stream:
+            json.dump(bundle, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+    except OSError as exc:
+        return _compile_error(f"Unable to write bundle: {exc}")
+
+    print(f"Successfully compiled {len(bundle['agents'])} entries to {output_path}")
+    print(f"Bundle digest: {bundle['digest']}")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="hlinor-registry",
         description="Validate Hlinor Agent Registry YAML files.",
@@ -142,7 +296,25 @@ def main() -> int:
     )
     validate_circuit_breaker_parser.add_argument("path", help="Path to YAML file")
 
-    args = parser.parse_args()
+    compile_parser = subparsers.add_parser(
+        "compile",
+        help="Compile an explicit registry manifest into a JSON bundle",
+    )
+    compile_parser.add_argument(
+        "--manifest",
+        required=True,
+        help="Path to registry manifest YAML",
+    )
+    compile_parser.add_argument(
+        "--output",
+        required=True,
+        help="Path to compiled JSON bundle",
+    )
+
+    args = parser.parse_args(argv)
+
+    if args.command == "compile":
+        return cmd_compile(args)
 
     if args.command == "validate":
         errors = validate_agent(args.path)

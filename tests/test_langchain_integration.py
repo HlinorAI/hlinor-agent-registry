@@ -4,8 +4,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from hlinor_registry import GovernanceDeniedError
+from hlinor_registry.cli import main
 from hlinor_registry.integrations.langchain import GovernedTool
 
 
@@ -23,22 +25,56 @@ def write_agent(
     allowed: list[str],
     blocked: list[str] | None = None,
 ) -> Path:
-    """Helper to write a test agent YAML."""
-    lines = [f"id: test-agent", f"allowed_actions: {allowed}"]
-    if blocked:
-        lines.append(f"blocked_actions: {blocked}")
-    (tmp_path / "agent.yaml").write_text("\n".join(lines), encoding="utf-8")
-    return tmp_path
+    """Helper to write and compile a test agent policy."""
+    source_dir = tmp_path / "policies"
+    source_dir.mkdir()
+    config = {
+        "id": "test-agent",
+        "name": "Test Agent",
+        "department": "testing",
+        "description": "Agent used for integration tests.",
+        "skills": ["test"],
+        "validators": ["test-validator"],
+        "policies": [],
+        "allowed_actions": allowed,
+        "blocked_actions": blocked or [],
+    }
+    source_path = source_dir / "agent.yaml"
+    source_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    manifest_path = tmp_path / "registry.yaml"
+    manifest_path.write_text(
+        yaml.safe_dump(
+            {
+                "version": "1.0",
+                "policies": [{"path": "policies/agent.yaml"}],
+                "metadata": {"environment": "test", "compiled_by": "pytest"},
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    bundle_path = tmp_path / "dist" / "policy-bundle.json"
+    assert main(
+        [
+            "compile",
+            "--manifest",
+            str(manifest_path),
+            "--output",
+            str(bundle_path),
+        ]
+    ) == 0
+    return bundle_path
 
 
 def test_governed_tool_allows_and_delegates(tmp_path: Path) -> None:
     """Tool should execute when action is allowed."""
     tool = FakeTool()
     wrapper = GovernedTool(
-        tool, 
-        "test-agent", 
+        tool,
+        "test-agent",
         str(write_agent(tmp_path, ["search"])),
-        action_name="search",  # <-- ДОБАВИТЬ ЭТО
+        action_name="search",
     )
     
     assert wrapper.run("query") == "result: query"

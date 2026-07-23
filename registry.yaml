@@ -1,0 +1,9 @@
+# Manifest declaring the exact source files compiled into the runtime bundle.
+version: "1.0"
+policies:
+  - path: "examples/secure_financial_agent.yaml"
+  - path: "examples/budget_limited_research_agent.yaml"
+  - path: "examples/funding_intelligence.yaml"
+metadata:
+  environment: "production"
+  compiled_by: "hlinor-registry-cli"
