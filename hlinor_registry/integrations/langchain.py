@@ -197,11 +197,28 @@ class GovernedAgent:
         self._wrap_tools()
 
     def _wrap_tools(self) -> None:
-        tools = getattr(self.agent_executor, "tools", [])
+        """Replace the discovered tool list in place.
+
+        The wrapped list must be written back to the object it was read from.
+        Writing it somewhere else leaves the original, ungoverned tools
+        reachable on the owner, which silently removes the governance boundary
+        this class exists to add.
+        """
+        owner = self.agent_executor
+        tools = getattr(owner, "tools", None) or []
         if not tools:
             agent = getattr(self.agent_executor, "agent", None)
-            if agent:
-                tools = getattr(agent, "tools", [])
+            if agent is not None:
+                agent_tools = getattr(agent, "tools", None) or []
+                if agent_tools:
+                    owner, tools = agent, agent_tools
+
+        if not tools:
+            raise ValueError(
+                "GovernedAgent found no tools to govern on the supplied executor. "
+                "Wrap the tools with GovernedTool before constructing the agent, "
+                "or pass an executor that exposes a non-empty 'tools' attribute."
+            )
 
         wrapped_tools = [
             GovernedTool(
@@ -216,5 +233,5 @@ class GovernedAgent:
             for tool in tools
         ]
 
-        if tools:
-            self.agent_executor.tools = wrapped_tools
+        owner.tools = wrapped_tools
+        self.governed_tools: list[GovernedTool] = wrapped_tools

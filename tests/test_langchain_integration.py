@@ -129,18 +129,58 @@ def test_governed_tool_blocks_before_delegation(tmp_path: Path) -> None:
     assert exc_info.value.decision.reason_code == "ACTION_BLOCKLISTED"
 
 
-def test_governed_agent_wraps_nested_tools() -> None:
-    """Smoke test for GovernedAgent initialization."""
-    # This is a basic smoke test; full integration tests require LangChain
-    from hlinor_registry.integrations.langchain import GovernedAgent
+def test_governed_agent_wraps_tools_on_the_executor() -> None:
+    """The executor's own tool list is replaced with governed wrappers."""
+    from hlinor_registry.integrations.langchain import GovernedAgent, GovernedTool
 
     class FakeExecutor:
         def __init__(self) -> None:
             self.tools = [FakeTool()]
 
-    # Should not raise
     executor = FakeExecutor()
     GovernedAgent(executor, "test-agent", "/tmp")
+
+    assert executor.tools
+    assert all(isinstance(tool, GovernedTool) for tool in executor.tools)
+
+
+def test_governed_agent_writes_wrapped_tools_back_to_their_owner() -> None:
+    """Tools discovered on the inner agent must be replaced on the inner agent.
+
+    Writing the wrapped list to the executor instead would leave the original
+    ungoverned tools reachable on ``executor.agent``, removing the boundary
+    this wrapper exists to add.
+    """
+    from hlinor_registry.integrations.langchain import GovernedAgent, GovernedTool
+
+    class FakeInnerAgent:
+        def __init__(self) -> None:
+            self.tools = [FakeTool()]
+
+    class FakeExecutor:
+        def __init__(self) -> None:
+            self.tools = []
+            self.agent = FakeInnerAgent()
+
+    executor = FakeExecutor()
+    original_tool = executor.agent.tools[0]
+    GovernedAgent(executor, "test-agent", "/tmp")
+
+    assert all(isinstance(tool, GovernedTool) for tool in executor.agent.tools)
+    assert original_tool not in executor.agent.tools
+    assert executor.agent.tools[0].tool is original_tool
+
+
+def test_governed_agent_refuses_an_executor_without_tools() -> None:
+    """Governing nothing must fail loudly rather than silently succeed."""
+    from hlinor_registry.integrations.langchain import GovernedAgent
+
+    class EmptyExecutor:
+        def __init__(self) -> None:
+            self.tools = []
+
+    with pytest.raises(ValueError, match="found no tools to govern"):
+        GovernedAgent(EmptyExecutor(), "test-agent", "/tmp")
 
 
 def test_real_langchain_tool_preserves_schema_metadata_and_callbacks(
