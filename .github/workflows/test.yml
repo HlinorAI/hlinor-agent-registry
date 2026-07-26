@@ -7,6 +7,31 @@ on:
     branches: [main]
 
 jobs:
+  # This repository is a public specification. Internal tooling and operational
+  # data reached its history once already, and the cleanup was expensive
+  # because a published commit cannot be recalled. These checks are cheap.
+  public-scope:
+    name: Scope and secret scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v5
+        with:
+          # gitleaks needs history, not just the tip, to catch a secret that
+          # was committed and then removed in a later commit of the same PR.
+          fetch-depth: 0
+
+      - name: Scan history for secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enforce the public-scope rule on tracked files
+        run: |
+          set -euo pipefail
+          git ls-files -z | xargs -0 python3 scripts/check_public_scope.py
+
   test:
     runs-on: ubuntu-latest
     strategy:
