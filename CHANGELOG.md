@@ -37,8 +37,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   code present in only one of them would have raised `ValueError` inside the
   path that constructs a denial.
 
+- Bounded the signature validity window. Signing warns above 90 days and
+  refuses above 366. Without a revocation channel, expiry is the only mechanism
+  that forces a leaked bundle out of circulation, and nothing previously
+  prevented `--expires-at 2099-01-01`.
+- Trust store entries with a relative `public_key_path` must resolve inside the
+  trust store directory, matching the boundary already enforced on policy
+  sources. Absolute paths remain an explicit deployment choice.
+- `load_public_key` treated any string without a PEM header as a filesystem
+  path, turning an unintended value into a file read. Strings containing
+  newlines or NULs are rejected rather than opened.
+- A bundle declaring an unrecognized `enforcement_mode` is now rejected instead
+  of silently coerced to `strict`. Coercion failed closed but hid a
+  disagreement between the compiler and the runtime.
+- The landing page no longer loads third-party code. It fetched the Tailwind
+  Play CDN and Prism from cdnjs with no subresource integrity; both are now
+  built and vendored, and the page loads no external subresource.
+- CI scans history with gitleaks and enforces the public-scope rule over every
+  tracked file; a matching pre-commit hook rejects internal paths, one-off
+  patch scripts, and files containing local absolute paths or PEM private keys.
+
 ### Changed
 
+- Runtime trust re-verification now runs only when the trust material changes.
+  Every governed call previously re-read the trust store, re-parsed each PEM,
+  rebuilt the canonical JSON of the whole bundle, and re-checked the signature,
+  making the cost of a decision scale with bundle size: 4.6 ms per call on a
+  74 KB bundle, now 129 µs and flat. Key revocation still takes effect
+  immediately, and the validity window is still checked on every call.
 - **Breaking for scripts:** `check` and `explain` now exit `0` for allowed,
   `1` for denied, and `2` when no decision could be reached (missing or
   unreadable bundle, broken trust configuration, failed audit-log write).
