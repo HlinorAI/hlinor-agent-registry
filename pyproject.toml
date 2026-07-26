@@ -70,19 +70,18 @@ crewai = [
 [tool.mypy]
 python_version = "3.10"
 
+# Optional and third-party dependencies without bundled type information.
+[[tool.mypy.overrides]]
+module = [
+    "yaml",
+    "pydantic",
+    "crewai",
+    "crewai.*",
+    "langchain_core",
+    "langchain_core.*",
+]
+ignore_missing_imports = true
 
-# Ignore missing imports for optional/third-party deps
-
-# Ignore missing imports for optional/third-party deps
-[[tool.mypy.overrides]]
-module = ["yaml", "pydantic"]
-ignore_missing_imports = true
-[[tool.mypy.overrides]]
-module = ["yaml", "pydantic"]
-ignore_missing_imports = true
-[[tool.mypy.overrides]]
-module = ["crewai", "crewai.*", "langchain_core", "langchain_core.*"]
-ignore_missing_imports = true
 [project.urls]
 Homepage = "https://github.com/HlinorAI/hlinor-agent-registry"
 Documentation = "https://github.com/HlinorAI/hlinor-agent-registry#readme"
