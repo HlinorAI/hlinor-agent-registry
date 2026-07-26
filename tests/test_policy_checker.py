@@ -226,7 +226,10 @@ def test_evaluate_binds_exact_request_and_bundle(tmp_path: Path) -> None:
     assert decision.request_id == request.request_id
     assert decision.request_digest == request.request_digest
     assert decision.bundle_digest == checker.bundle_digest
-    assert decision.matched_policy_ids == ("no_pii_in_logs",)
+    # Policy attribution is not implemented: the decision came from the block
+    # list, not from evaluating the declared "no_pii_in_logs" policy, so the
+    # audit record must not claim that policy was matched.
+    assert decision.matched_policy_ids == ()
     assert decision.environment == "production"
     assert decision.actor_id == "service:finance-prod"
     assert decision.bundle_schema_version == "1.0"

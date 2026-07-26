@@ -57,6 +57,13 @@ provenance from the immutable `PolicyDecision`; it does not infer the active
 bundle at serialization time. This prevents a decision made under one bundle
 from being mislabeled after a reload.
 
+`matched_policy_ids` is reserved and always empty. `PolicyChecker` is an
+action-name gate: a decision is produced by the compiled allow and block lists,
+not by evaluating the policies named on an agent. Populating the field with a
+guessed policy ID would place an unverifiable claim in an audit record, so it
+stays empty until real policy evaluation is implemented. Do not treat its
+absence as evidence that no policy applied.
+
 ## Decisions
 
 Common decisions:

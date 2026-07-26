@@ -311,14 +311,19 @@ class PolicyChecker:
         self,
         request: ActionRequest,
         enforcement_mode: str,
-        matched_policy_ids: tuple[str, ...] = (),
     ) -> dict[str, Any]:
         signature = self.verified_signature
         return {
             "request_id": request.request_id,
             "bundle_digest": self.bundle_digest,
             "request_digest": request.request_digest,
-            "matched_policy_ids": matched_policy_ids,
+            # Reserved for real policy attribution. ``PolicyChecker`` is an
+            # action-name gate: decisions come from the allow and block lists,
+            # not from evaluating the named policies declared on an agent.
+            # Emitting a guessed policy ID here would put an unverifiable claim
+            # into an audit record, so the field stays empty until policy
+            # evaluation exists.
+            "matched_policy_ids": (),
             "enforcement_mode": enforcement_mode,
             "environment": request.environment or self.environment,
             "actor_id": request.actor_id,
@@ -356,12 +361,11 @@ class PolicyChecker:
         blocked = agent_config["data"].get("blocked_actions") or []
 
         if request.action in blocked:
-            matched_policy_ids = self._matched_policy_ids(agent_config, request.action)
             return PolicyDecision.deny(
                 request.agent_id,
                 request.action,
                 ReasonCode.ACTION_BLOCKLISTED,
-                **self._decision_provenance(request, mode, matched_policy_ids),
+                **self._decision_provenance(request, mode),
             )
 
         if mode == "strict" and request.action not in allowed:
@@ -389,22 +393,6 @@ class PolicyChecker:
             environment=self.environment,
         )
         return self.evaluate(request)
-
-    @staticmethod
-    def _matched_policy_ids(
-        agent_config: dict[str, Any], action: str
-    ) -> tuple[str, ...]:
-        """Map known sensitive actions to declared explanatory policy IDs."""
-        policies = agent_config.get("data", {}).get("policies") or []
-        policy_by_action = {
-            "send_external_email": "no_pii_in_logs",
-            "send_email": "no_pii_in_logs",
-            "initiate_transfer": "require_human_approval_for_high_value",
-        }
-        policy_name = policy_by_action.get(action)
-        if policy_name is not None and policy_name in policies:
-            return (policy_name,)
-        return ()
 
     def get_agent_info(self, agent_id: str) -> dict[str, Any] | None:
         """Return a defensive copy of a loaded agent configuration."""

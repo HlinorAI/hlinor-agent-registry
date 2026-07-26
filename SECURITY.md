@@ -90,6 +90,10 @@ implemented.
 - The runtime checker is an action-name gate; policy schemas describing budget,
   rate, resource, evidence, or approval controls are not automatically enforced
   by `PolicyChecker`.
+- Policy attribution is not implemented. Decisions are produced by the compiled
+  allow and block lists, so the `matched_policy_ids` field on a decision and its
+  audit event is reserved and always empty. Treat it as absent rather than as
+  evidence that no declared policy applied.
 - LangChain and CrewAI compatibility is limited to the versions listed in the
   [integration compatibility matrix](docs/integration-compatibility.md) and may
   require application-specific integration testing.

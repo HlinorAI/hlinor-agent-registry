@@ -179,8 +179,11 @@ decision = checker.check_action("financial-audit-agent", "send_external_email")
 
 assert decision.denied
 # decision.reason_code: ACTION_BLOCKLISTED
-# decision.matched_policy_ids: ("no_pii_in_logs",)
 ```
+
+The `policies` list on an agent is declarative context for reviewers. It is not
+evaluated by `PolicyChecker`, so `decision.matched_policy_ids` is reserved and
+currently always empty. See [Known Limitations](SECURITY.md#known-limitations).
 
 ### Block unauthorized actions
 Use a strict allowlist for agents that should only perform a narrow set of operations. Everything outside the list is denied by `PolicyChecker`:
