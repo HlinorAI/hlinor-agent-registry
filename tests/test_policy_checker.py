@@ -273,3 +273,36 @@ def test_audit_event_uses_decision_provenance(tmp_path: Path) -> None:
     event = second_checker.audit_event(decision)
 
     assert event["policy_bundle_digest"] == first_checker.bundle_digest
+
+
+def test_blocked_action_cannot_be_reached_through_a_case_variant(
+    tmp_path: Path,
+) -> None:
+    """A case variant of a blocked action must not slip past the block list.
+
+    Reproduces the audit PoC: in permissive mode the block list was the only
+    control, and exact string matching let "initiate_transfer" through while
+    "Initiate_Transfer" was denied.
+    """
+    bundle_path = write_bundle(
+        tmp_path,
+        blocked_actions=["Initiate_Transfer"],
+        enforcement_mode="permissive",
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    for variant in ("Initiate_Transfer", "initiate_transfer", "INITIATE_TRANSFER"):
+        decision = checker.check_action("test-agent", variant)
+        assert decision.denied, f"{variant} was not blocked"
+        assert decision.reason_code is ReasonCode.ACTION_BLOCKLISTED
+
+
+def test_allow_list_matching_stays_exact(tmp_path: Path) -> None:
+    """Case-insensitive block matching must not loosen the allow list."""
+    bundle_path = write_bundle(tmp_path, allowed_actions=["read_database"])
+    checker = PolicyChecker(str(bundle_path))
+
+    assert checker.check_action("test-agent", "read_database").allowed
+    denied = checker.check_action("test-agent", "Read_Database")
+    assert denied.denied
+    assert denied.reason_code is ReasonCode.ACTION_NOT_ALLOWLISTED

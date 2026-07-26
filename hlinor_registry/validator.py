@@ -533,6 +533,52 @@ def validate_agent(path: str | Path) -> list[str]:
                     f"Invalid action in {action_field}[{index}]: wildcards are unsupported"
                 )
 
+    errors.extend(_validate_action_name_collisions(data))
+
+    return errors
+
+
+def _validate_action_name_collisions(data: dict) -> list[str]:
+    """Reject action names that differ only by case.
+
+    Two spellings of one action make the policy mean something the author did
+    not write. ``allowed_actions: [Read_DB]`` next to ``blocked_actions:
+    [read_db]`` reads as a block, but the allowlist entry is a different string
+    and the request is permitted. The compiler already refuses case-colliding
+    entity IDs; actions get the same treatment.
+    """
+    errors: list[str] = []
+    normalized_by_field: dict[str, dict[str, str]] = {}
+
+    for action_field in ["allowed_actions", "blocked_actions"]:
+        actions = data.get(action_field)
+        if not isinstance(actions, list):
+            continue
+        seen: dict[str, str] = {}
+        for action in actions:
+            if not isinstance(action, str) or action != action.strip() or not action:
+                continue
+            normalized = action.casefold()
+            previous = seen.get(normalized)
+            if previous is not None and previous != action:
+                errors.append(
+                    f"Action names in {action_field} differ only by case: "
+                    f"'{previous}' and '{action}'"
+                )
+            elif previous is None:
+                seen[normalized] = action
+        normalized_by_field[action_field] = seen
+
+    allowed = normalized_by_field.get("allowed_actions", {})
+    blocked = normalized_by_field.get("blocked_actions", {})
+    for normalized, blocked_action in blocked.items():
+        allowed_action = allowed.get(normalized)
+        if allowed_action is not None and allowed_action != blocked_action:
+            errors.append(
+                f"Action '{blocked_action}' in blocked_actions differs only by case "
+                f"from '{allowed_action}' in allowed_actions"
+            )
+
     return errors
 
 

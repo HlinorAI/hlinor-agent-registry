@@ -360,7 +360,16 @@ class PolicyChecker:
         allowed = agent_config["data"].get("allowed_actions") or []
         blocked = agent_config["data"].get("blocked_actions") or []
 
-        if request.action in blocked:
+        # Block-list matching is case-insensitive and allow-list matching is
+        # exact. The asymmetry is deliberate and always resolves toward denial:
+        # a case variant of a blocked name must not slip past the block, and an
+        # approval is never extended to a spelling that was not literally
+        # approved. Authoring-time validation rejects case collisions, but the
+        # requested action can also arrive from a caller at runtime.
+        if any(
+            isinstance(entry, str) and entry.casefold() == request.action.casefold()
+            for entry in blocked
+        ):
             return PolicyDecision.deny(
                 request.agent_id,
                 request.action,

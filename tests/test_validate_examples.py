@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import yaml
+
 from hlinor_registry.cli import main
 from hlinor_registry.validator import (
     validate_agent,
@@ -357,3 +359,80 @@ updated_at: "2026-01-01T00:00:00Z"
 
     errors = validate_failure_circuit_breaker(path)
     assert "failure_circuit_breaker: Open breaker cannot continue" in errors
+
+
+def test_case_colliding_actions_within_one_list_are_rejected(tmp_path):
+    """Two spellings of one action inside a list are an authoring mistake."""
+    path = tmp_path / "agent.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "id": "case-agent",
+                "name": "Case Agent",
+                "department": "testing",
+                "description": "Agent with case-colliding action names.",
+                "skills": [],
+                "validators": [],
+                "policies": [],
+                "allowed_actions": ["read_db", "Read_DB"],
+                "blocked_actions": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    errors = validate_agent(path)
+
+    assert any("differ only by case" in error for error in errors)
+
+
+def test_case_colliding_actions_across_lists_are_rejected(tmp_path):
+    """An allow entry that shadows a block entry by case must not compile.
+
+    ``allowed_actions: [Read_DB]`` beside ``blocked_actions: [read_db]`` reads
+    as a block but historically permitted the request.
+    """
+    path = tmp_path / "agent.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "id": "case-agent",
+                "name": "Case Agent",
+                "department": "testing",
+                "description": "Agent with a block shadowed by case.",
+                "skills": [],
+                "validators": [],
+                "policies": [],
+                "allowed_actions": ["Read_DB"],
+                "blocked_actions": ["read_db"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    errors = validate_agent(path)
+
+    assert any("differs only by case" in error for error in errors)
+
+
+def test_identical_action_in_both_lists_remains_valid(tmp_path):
+    """The documented block-wins overlap is not a case collision."""
+    path = tmp_path / "agent.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "id": "overlap-agent",
+                "name": "Overlap Agent",
+                "department": "testing",
+                "description": "Agent relying on documented block priority.",
+                "skills": [],
+                "validators": [],
+                "policies": [],
+                "allowed_actions": ["read_db"],
+                "blocked_actions": ["read_db"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert validate_agent(path) == []
