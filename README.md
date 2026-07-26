@@ -418,7 +418,7 @@ hlinor-registry inspect <path>
 
 ## 🏢 Enterprise
 
-Teams adopting agent governance at scale can contact the HlinorAI team at `team@hlinor.ai` for architecture guidance, policy design, and integration support.
+Teams adopting agent governance at scale can contact the HlinorAI team at `hello@hlinor.com` for architecture guidance, policy design, and integration support.
 
 ---
 
