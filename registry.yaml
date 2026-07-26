@@ -1,11 +1,20 @@
 # Manifest declaring the exact source files compiled into the runtime bundle.
+#
+# This is the repository's own demo manifest. It declares the "development"
+# environment so that `compile` followed by `check` works out of the box on a
+# fresh clone: an unsigned bundle is only accepted in development, test, or
+# local environments.
+#
+# For a real deployment, set `environment: production`, sign the bundle with
+# `--signing-key`, and configure the runtime with a trust store. See
+# docs/signed-bundles.md.
 schema_version: "1.0"
 policies:
   - path: "examples/secure_financial_agent.yaml"
   - path: "examples/budget_limited_research_agent.yaml"
   - path: "examples/funding_intelligence.yaml"
 metadata:
-  environment: "production"
+  environment: "development"
   compiled_by: "hlinor-registry-cli"
   bundle_revision: 1
   policy_revision: "repository-main"

@@ -43,6 +43,90 @@ jobs:
           hlinor-registry validate-agent examples/secure_financial_agent.yaml
           hlinor-registry validate-agent examples/budget_limited_research_agent.yaml
 
+      # The documented quickstart is compile -> check -> explain. Validation
+      # alone passed while that path was broken on a fresh clone, so exercise
+      # the whole path against the repository's own manifest.
+      - name: Smoke test the documented quickstart path
+        run: |
+          set -euo pipefail
+          hlinor-registry compile \
+            --manifest registry.yaml \
+            --output "${RUNNER_TEMP}/policy-bundle.json"
+          hlinor-registry check \
+            --bundle "${RUNNER_TEMP}/policy-bundle.json" \
+            --agent financial-audit-agent \
+            --action read
+          hlinor-registry explain \
+            --bundle "${RUNNER_TEMP}/policy-bundle.json" \
+            --agent financial-audit-agent \
+            --action read
+
+      - name: Smoke test fail-closed exit codes
+        run: |
+          set -euo pipefail
+          hlinor-registry compile \
+            --manifest registry.yaml \
+            --output "${RUNNER_TEMP}/policy-bundle.json"
+
+          # A blocked action must exit 1, not 0 and not the error code.
+          set +e
+          hlinor-registry check \
+            --bundle "${RUNNER_TEMP}/policy-bundle.json" \
+            --agent financial-audit-agent \
+            --action initiate_transfer
+          denied_status=$?
+
+          # A missing bundle is an environment failure, not a policy denial.
+          hlinor-registry check \
+            --bundle "${RUNNER_TEMP}/does-not-exist.json" \
+            --agent financial-audit-agent \
+            --action read
+          error_status=$?
+          set -e
+
+          test "$denied_status" -eq 1 || {
+            echo "Expected exit 1 for a denied action, got $denied_status" >&2
+            exit 1
+          }
+          test "$error_status" -eq 2 || {
+            echo "Expected exit 2 for a missing bundle, got $error_status" >&2
+            exit 1
+          }
+
+      - name: Smoke test signed bundle verification
+        run: |
+          set -euo pipefail
+          openssl genpkey -algorithm ED25519 -out "${RUNNER_TEMP}/signing-key.pem"
+          openssl pkey \
+            -in "${RUNNER_TEMP}/signing-key.pem" \
+            -pubout \
+            -out "${RUNNER_TEMP}/signing-key.pub.pem"
+          hlinor-registry compile \
+            --manifest registry.yaml \
+            --output "${RUNNER_TEMP}/signed-bundle.json" \
+            --signing-key "${RUNNER_TEMP}/signing-key.pem" \
+            --key-id ci-smoke-key \
+            --issuer hlinor-ci-smoke \
+            --issued-at "$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ)" \
+            --expires-at "$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)"
+          cat > "${RUNNER_TEMP}/trust-store.json" <<TRUST
+          {
+            "schema_version": "1.0",
+            "keys": {
+              "ci-smoke-key": {
+                "algorithm": "Ed25519",
+                "public_key_path": "${RUNNER_TEMP}/signing-key.pub.pem",
+                "issuer": "hlinor-ci-smoke"
+              }
+            }
+          }
+          TRUST
+          hlinor-registry verify-bundle \
+            --bundle "${RUNNER_TEMP}/signed-bundle.json" \
+            --trust-store "${RUNNER_TEMP}/trust-store.json" \
+            --signature-policy required \
+            --required-issuer hlinor-ci-smoke
+
   crewai-integration:
     runs-on: ubuntu-latest
 
@@ -77,12 +161,24 @@ jobs:
         with:
           python-version: "3.11"
 
+      # The [langchain] extra is asserted here as well as installed: pip only
+      # warns about an undeclared extra, so a missing one stayed invisible in CI
+      # while `pip install "hlinor-registry[langchain]"` silently installed
+      # nothing for users following the README.
       - name: Install LangChain integration dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev,langchain]" \
             "langchain-core==1.4.9" \
             "pydantic==2.13.4"
+          python - <<'PY'
+          from importlib.metadata import metadata
+
+          extras = set(metadata("hlinor-registry").get_all("Provides-Extra") or [])
+          missing = {"langchain", "crewai", "dev"} - extras
+          if missing:
+              raise SystemExit(f"pyproject is missing declared extras: {sorted(missing)}")
+          PY
 
       - name: Run LangChain integration tests
         run: python -m pytest tests/test_langchain_integration.py -v

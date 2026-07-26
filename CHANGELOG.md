@@ -21,6 +21,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   table that matched only the shipped examples, which placed an unverifiable
   claim into an audit record. The field is now reserved and always empty until
   real policy evaluation exists.
+- Block-list matching is now case-insensitive. Exact matching let a case
+  variant of a blocked action through: in permissive mode an agent blocked from
+  `Initiate_Transfer` could run `initiate_transfer`, and the pairing
+  `allowed: [Read_DB]` with `blocked: [read_db]` read as a block while
+  permitting the request. Allow-list matching stays exact so an approval is
+  never extended to a spelling that was not literally approved, and authoring
+  validation now rejects action names that differ only by case.
+- `GovernedAgent` writes wrapped tools back to the object they were read from.
+  Tools discovered on `executor.agent` were replaced on `executor`, leaving the
+  original ungoverned tools reachable. Constructing a `GovernedAgent` over an
+  executor with no tools now raises instead of silently governing nothing.
+- Collapsed the duplicated `DecisionResult` and `ReasonCode` definitions into
+  `hlinor_registry.enums`. The two copies had drifted, and emitting a reason
+  code present in only one of them would have raised `ValueError` inside the
+  path that constructs a denial.
+
+### Changed
+
+- **Breaking for scripts:** `check` and `explain` now exit `0` for allowed,
+  `1` for denied, and `2` when no decision could be reached (missing or
+  unreadable bundle, broken trust configuration, failed audit-log write).
+  Previously every failure shared exit `1` with a denial, so a pipeline gating
+  on a non-zero exit read a broken deployment as working governance. Error
+  messages moved from stdout to stderr.
+- The repository manifest `registry.yaml` declares the `development`
+  environment so that the documented `compile` then `check` path works on a
+  fresh clone. Production deployments should set `production` and sign the
+  bundle.
+
+### Fixed
+
+- Added the missing `langchain` extra. `pip install "hlinor-registry[langchain]"`
+  was documented in the README but not declared, so pip warned and installed
+  nothing while the next README line raised `ImportError`.
+- CI now exercises the documented quickstart end to end, asserts the exit-code
+  contract, verifies a signed bundle, and asserts that every documented extra
+  is actually declared.
 
 ### Added
 
