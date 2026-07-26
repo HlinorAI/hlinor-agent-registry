@@ -1,0 +1,15 @@
+id: web-search
+
+name: Web Search
+
+description: >
+  Searches for businesses.
+
+inputs:
+  - query
+
+outputs:
+  - candidates
+
+required_permissions:
+  - internet-access

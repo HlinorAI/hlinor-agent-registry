@@ -1,0 +1,33 @@
+id: protected-resource-boundary
+
+name: Protected Resource Boundary
+
+description: >
+  Defines resources that require explicit scope, approval, and audit before access.
+
+required_fields:
+  - boundary_id
+  - resource_class
+  - resource_scope
+  - allowed_operations
+  - blocked_operations
+  - approval_level
+  - audit_required
+
+approval_level_values:
+  - automatic
+  - human_approval
+  - owner_approval
+  - denied_by_default
+
+field_types:
+  resource_scope: object
+  allowed_operations: list
+  blocked_operations: list
+  audit_required: boolean
+
+blocked_patterns:
+  - read_outside_approved_scope
+  - write_without_required_approval
+  - infer_access_from_filesystem_visibility
+  - reuse_access_scope_for_another_project

@@ -1,0 +1,64 @@
+binding:
+  binding_id: binding_read_account_001
+  session_id: session_account_ops_001
+  project_id: project_account_ops
+  workspace_id: workspace_account_review_001
+  agent_id: account-read-agent
+  registry_version: registry@2026-06-27.issue-12
+  policy_bundle_digest: sha256:policybundle111111111111111111111111111111111111111111111111111111
+  tool_name: read_account
+  tool_descriptor_digest: sha256:tooldescriptor11111111111111111111111111111111111111111111111111
+  normalized_argument_digest: sha256:args111111111111111111111111111111111111111111111111111111111111
+  target_resource_scope:
+    resource_type: account
+    resource_id: acct_123
+    operations:
+      - read
+  approval_id_or_lease_id: lease_read_account_001
+  status: active
+  issued_at: "2026-06-27T12:00:00Z"
+  expires_at: "2026-06-27T12:30:00Z"
+
+pre_dispatch_authorization_check:
+  check_id: check_read_account_001
+  session_id: session_account_ops_001
+  binding_id: binding_read_account_001
+  requested_tool_name: read_account
+  observed_registry_version: registry@2026-06-27.issue-12
+  observed_policy_bundle_digest: sha256:policybundle111111111111111111111111111111111111111111111111111111
+  observed_tool_descriptor_digest: sha256:tooldescriptor11111111111111111111111111111111111111111111111111
+  observed_normalized_argument_digest: sha256:args111111111111111111111111111111111111111111111111111111111111
+  observed_target_resource_scope:
+    resource_type: account
+    resource_id: acct_123
+    operations:
+      - read
+  matched_approved_binding: true
+  decision: allowed
+  checked_at: "2026-06-27T12:05:00Z"
+  approval_id_or_lease_id: lease_read_account_001
+  reason: Requested read_account call matched the approved session binding.
+
+execution_receipt:
+  receipt_id: receipt_read_account_001
+  session_id: session_account_ops_001
+  binding_id: binding_read_account_001
+  check_id: check_read_account_001
+  timestamp: "2026-06-27T12:05:01Z"
+  actor: account-read-agent
+  requested_tool_name: read_account
+  authorization_result: allowed
+  side_effect_state: side_effect_attempted
+  matched_approved_binding: true
+  registry_version: registry@2026-06-27.issue-12
+  policy_bundle_digest: sha256:policybundle111111111111111111111111111111111111111111111111111111
+  tool_descriptor_digest: sha256:tooldescriptor11111111111111111111111111111111111111111111111111
+  normalized_argument_digest: sha256:args111111111111111111111111111111111111111111111111111111111111
+  target_resource_scope:
+    resource_type: account
+    resource_id: acct_123
+    operations:
+      - read
+  approval_id_or_lease_id: lease_read_account_001
+  output_reference: runtime://sessions/session_account_ops_001/outputs/read_account_001
+  reason: read_account succeeded under the approved binding.

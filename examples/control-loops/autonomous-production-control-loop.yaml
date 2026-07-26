@@ -1,0 +1,40 @@
+id: autonomous_production_control_loop
+kind: control_loop
+version: 0.1.0
+
+description: Generic bounded production control loop for autonomous agents.
+
+privacy:
+  contains_customer_data: false
+  contains_recipients: false
+  contains_secrets: false
+  contains_provider_specific_identifiers: false
+  contains_production_paths: false
+
+project_boundary:
+  required_project_id: example_project
+  isolation_required: true
+
+schedule:
+  type: recurring_timer
+  duplicate_active_run_policy: do_not_start_second_instance
+
+execution_boundary:
+  external_action_allowed_only_when:
+    - project_boundary_matches
+    - launched_by_approved_service_manager
+    - production_action_flag_present
+    - cap_available
+    - suppression_checked
+    - validation_available
+
+failure_handling:
+  stale_external_reference:
+    action: mark_stale_record_audit_and_continue
+    fail_whole_cycle: false
+  validation_failure:
+    action: fail_cycle
+    fail_whole_cycle: true
+  boundary_failure:
+    action: block_external_action
+    fail_whole_cycle: true

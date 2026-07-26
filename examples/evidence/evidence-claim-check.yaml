@@ -1,0 +1,8 @@
+binding_id: evidence-binding-example-001
+claim: "The observed interface contains a visible navigation menu."
+evidence_reference: evidence://example/interface-observation-001
+evidence_type: screenshot
+observation_time: "2026-01-01T00:00:00Z"
+freshness_status: fresh
+same_object_verified: true
+validator_result: passed

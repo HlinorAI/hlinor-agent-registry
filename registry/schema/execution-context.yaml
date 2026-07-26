@@ -1,0 +1,56 @@
+id: execution-context
+
+name: Execution Context
+
+description: >
+  Defines the verified runtime environment in which an agent action may execute.
+
+purpose: >
+  Prevents live, network-dependent, costly, or production-sensitive actions
+  from running in an unverified or restricted environment.
+
+recommended_fields:
+  - id
+  - name
+
+required_fields:
+  - context_id
+  - context_type
+  - status
+  - network_access
+  - production_access
+  - verification_method
+  - allowed_operations
+  - blocked_operations
+  - verified_at
+
+context_type_values:
+  - sandbox
+  - restricted
+  - host_native
+  - remote_approved
+
+status_values:
+  - verified
+  - unverified
+  - invalid
+
+field_types:
+  network_access: boolean
+  production_access: boolean
+  allowed_operations: list
+  blocked_operations: list
+
+verification_requirements:
+  - explicit_context_type
+  - observed_capabilities
+  - network_probe_when_network_is_required
+  - production_boundary_check_when_production_access_is_requested
+  - marker_alone_is_not_proof
+
+blocked_patterns:
+  - claim_host_native_from_environment_marker_only
+  - treat_sandbox_dns_failure_as_production_dns_failure
+  - run_live_discovery_without_verified_network_access
+  - run_production_action_from_unverified_context
+  - silently_fallback_from_live_execution_to_sandbox

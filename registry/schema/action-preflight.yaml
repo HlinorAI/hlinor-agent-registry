@@ -1,0 +1,33 @@
+id: action-preflight
+
+name: Action Preflight
+
+description: >
+  Defines the checks that must pass before a costly, live, privileged,
+  or production-sensitive action may begin.
+
+required_fields:
+  - preflight_id
+  - execution_context_status
+  - dependency_status
+  - capability_status
+  - budget_status
+  - decision
+  - checked_at
+
+decision_values:
+  - allowed
+  - blocked
+  - reapproval_required
+
+status_values:
+  - passed
+  - failed
+  - not_required
+  - unknown
+
+blocked_patterns:
+  - start_costly_action_before_preflight
+  - treat_missing_dependency_as_runtime_failure
+  - continue_after_budget_preflight_failure
+  - continue_after_execution_context_failure

@@ -1,0 +1,7 @@
+breaker_id: breaker-example-001
+failure_fingerprint: dependency.browser_runtime.missing
+threshold: 2
+current_count: 2
+state: open
+next_action: stop
+updated_at: "2026-01-01T00:00:00Z"

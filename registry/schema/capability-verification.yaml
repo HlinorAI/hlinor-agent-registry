@@ -1,0 +1,30 @@
+id: capability-verification
+
+name: Capability Verification
+
+description: >
+  Defines evidence that the current runtime can perform a requested operation.
+
+required_fields:
+  - verification_id
+  - requested_capability
+  - observed_capabilities
+  - required_permissions
+  - matched
+  - status
+  - verified_at
+
+status_values:
+  - verified
+  - unverified
+  - invalid
+
+field_types:
+  observed_capabilities: list
+  required_permissions: list
+  matched: boolean
+
+blocked_patterns:
+  - declare_capability_without_observation
+  - reuse_stale_capability_verification
+  - execute_when_required_permission_is_missing
