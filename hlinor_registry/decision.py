@@ -3,30 +3,19 @@
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Any
 
+# Re-exported for callers that historically imported these from this module.
+# The definitions live in .enums so that a decision built by PolicyChecker and a
+# decision built here can never disagree about which reason codes exist.
+from .enums import DecisionResult, ReasonCode
 
-class DecisionResult(str, Enum):
-    """Stable machine-readable outcomes for policy decisions."""
-
-    ALLOWED = "allowed"
-    DENIED = "denied"
-
-    def __str__(self) -> str:
-        return self.value
-
-
-class ReasonCode(str, Enum):
-    """Stable reason codes emitted by the action-gate evaluator."""
-
-    EXPLICITLY_ALLOWED = "EXPLICITLY_ALLOWED"
-    UNKNOWN_AGENT = "UNKNOWN_AGENT"
-    ACTION_BLOCKLISTED = "ACTION_BLOCKLISTED"
-    ACTION_NOT_ALLOWLISTED = "ACTION_NOT_ALLOWLISTED"
-
-    def __str__(self) -> str:
-        return self.value
+__all__ = [
+    "DecisionResult",
+    "GovernanceDeniedError",
+    "PolicyDecision",
+    "ReasonCode",
+]
 
 
 @dataclass(frozen=True)

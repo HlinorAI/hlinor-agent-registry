@@ -200,6 +200,33 @@ def test_policy_decision_has_required_fields(tmp_path: Path) -> None:
     assert decision.bundle_digest == PolicyChecker(str(bundle_path)).bundle_digest
 
 
+def test_decision_enums_have_exactly_one_definition() -> None:
+    """Guard against a second, drifting copy of the decision enums.
+
+    ``PolicyChecker`` builds denials with ``enums.ReasonCode`` while
+    ``PolicyDecision.deny`` re-validates through the name it imported. If those
+    ever become distinct types, any reason code missing from the second copy
+    raises ``ValueError`` while constructing a denial, turning a fail-closed
+    path into a crash.
+    """
+    from hlinor_registry import decision as decision_module
+    from hlinor_registry import enums as enums_module
+
+    assert decision_module.ReasonCode is enums_module.ReasonCode
+    assert decision_module.DecisionResult is enums_module.DecisionResult
+
+    from hlinor_registry import DecisionResult as exported_result
+    from hlinor_registry import ReasonCode as exported_reason
+
+    assert exported_reason is enums_module.ReasonCode
+    assert exported_result is enums_module.DecisionResult
+
+    # Every code the evaluator may emit must round-trip through the value-based
+    # lookup that PolicyDecision.deny performs.
+    for code in enums_module.ReasonCode:
+        assert decision_module.ReasonCode(code.value) is code
+
+
 def test_evaluate_binds_exact_request_and_bundle(tmp_path: Path) -> None:
     bundle_path = write_bundle(
         tmp_path,
