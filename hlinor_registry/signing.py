@@ -38,11 +38,17 @@ class BundleSignatureError(ValueError):
 
 @dataclass(frozen=True)
 class TrustedKey:
-    """One preconfigured Ed25519 trust root."""
+    """One preconfigured Ed25519 trust root.
+
+    ``source_path`` records the PEM file a trust-store entry was read from so a
+    long-lived verifier can notice that the file changed. It is ``None`` for
+    keys supplied programmatically, which have no file to watch.
+    """
 
     key_id: str
     public_key: Ed25519PublicKey
     issuer: str | None = None
+    source_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -410,6 +416,7 @@ def load_trust_store(path: str | Path) -> dict[str, TrustedKey]:
             key_id=key_id,
             public_key=public_key,
             issuer=issuer,
+            source_path=key_path,
         )
     return trusted_keys
 

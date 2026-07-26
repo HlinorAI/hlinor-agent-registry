@@ -1067,3 +1067,74 @@ def test_auto_policy_without_trust_roots_is_unchanged(tmp_path: Path) -> None:
     checker = PolicyChecker(str(bundle_path))
     assert checker.signature_policy == "auto"
     assert checker.check_action("signed-agent", "read").allowed
+
+
+def test_key_replaced_in_place_is_still_detected(tmp_path: Path) -> None:
+    """Rotating the PEM without touching the trust store must take effect.
+
+    Trust re-verification is now skipped while the trust material is unchanged.
+    "Unchanged" has to mean the referenced key files too, not just the trust
+    store JSON, or a revoked key would keep working until someone happened to
+    edit the store.
+    """
+    bundle_path, _, public_path = compile_signed_bundle(tmp_path)
+    trust_store = write_trust_store(tmp_path / "trust-store.json", public_path)
+    checker = PolicyChecker(
+        str(bundle_path),
+        trust_store=str(trust_store),
+        signature_policy="required",
+    )
+    assert checker.check_action("signed-agent", "read").allowed
+
+    _, replacement_public = write_keypair(tmp_path / "replacement", "replacement")
+    public_path.write_bytes(replacement_public.read_bytes())
+
+    with pytest.raises(BundleSignatureError, match="signature verification failed"):
+        checker.check_action("signed-agent", "read")
+
+
+def test_expiry_is_enforced_while_trust_material_is_unchanged(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The cheap path must keep checking the validity window.
+
+    A signature expires without any file changing, so skipping the expensive
+    re-verification must not also skip the window check.
+    """
+    bundle_path, _, public_path = compile_signed_bundle(tmp_path)
+    trust_store = write_trust_store(tmp_path / "trust-store.json", public_path)
+    checker = PolicyChecker(
+        str(bundle_path),
+        trust_store=str(trust_store),
+        signature_policy="required",
+    )
+    assert checker.check_action("signed-agent", "read").allowed
+
+    def expired(*args: object, **kwargs: object) -> None:
+        raise BundleSignatureError("Policy bundle signature has expired")
+
+    monkeypatch.setattr(
+        "hlinor_registry.policy_checker.validate_signature_window",
+        expired,
+    )
+
+    with pytest.raises(BundleSignatureError, match="has expired"):
+        checker.check_action("signed-agent", "read")
+
+
+def test_missing_trust_store_fails_closed_after_load(tmp_path: Path) -> None:
+    """A verifier that cannot read its trust roots must stop deciding."""
+    bundle_path, _, public_path = compile_signed_bundle(tmp_path)
+    trust_store = write_trust_store(tmp_path / "trust-store.json", public_path)
+    checker = PolicyChecker(
+        str(bundle_path),
+        trust_store=str(trust_store),
+        signature_policy="required",
+    )
+    assert checker.check_action("signed-agent", "read").allowed
+
+    trust_store.unlink()
+
+    with pytest.raises(FileNotFoundError):
+        checker.check_action("signed-agent", "read")

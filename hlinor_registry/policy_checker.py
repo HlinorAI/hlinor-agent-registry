@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import logging
 from collections.abc import Mapping
@@ -99,6 +100,7 @@ class PolicyChecker:
         self.verified_signature: VerifiedSignature | None = None
         self._bundle_snapshot: dict[str, Any] | None = None
         self._bundle_fingerprint: tuple[int, int] | None = None
+        self._trust_fingerprint: str | None = None
         self._load_bundle()
 
     def _load_configured_keys(self) -> dict[str, TrustedKey]:
@@ -230,6 +232,11 @@ class PolicyChecker:
         self.verified_signature = verified_signature
         self._bundle_snapshot = copy.deepcopy(bundle)
         self._bundle_fingerprint = (bundle_stat.st_mtime_ns, bundle_stat.st_size)
+        self._trust_fingerprint = (
+            self._trust_material_fingerprint()
+            if verified_signature is not None and self._trust_store_path is not None
+            else None
+        )
         logger.info(
             "Loaded %d agents from compiled bundle (digest: %s)",
             len(self.agents),
@@ -257,26 +264,79 @@ class PolicyChecker:
         self._load_bundle()
         return True
 
+    def _trust_material_fingerprint(self) -> str:
+        """Fingerprint the files that decide whether a key is still trusted.
+
+        Covers the trust store itself and every PEM it points at, so a revoked
+        entry and a key replaced in place are both detected. A missing file
+        raises, which fails closed: a verifier that cannot read its trust roots
+        must not keep serving decisions from a cached copy.
+
+        This hashes content rather than stat metadata deliberately. Ed25519
+        public key PEMs are all the same length, so a rotated key changes only
+        the modification time, and on a filesystem with coarse timestamp
+        granularity a rotation could land inside the same tick as the value it
+        replaced. Reading a trust store and a handful of small PEMs costs far
+        less than the signature verification this check exists to skip.
+        """
+        paths: list[Path] = []
+        if self._trust_store_path is not None:
+            paths.append(self._trust_store_path)
+        paths.extend(
+            key.source_path
+            for key in self.trusted_keys.values()
+            if key.source_path is not None
+        )
+
+        digest = hashlib.sha256()
+        for path in sorted(set(paths)):
+            digest.update(str(path).encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(path.read_bytes())
+            digest.update(b"\0")
+        return digest.hexdigest()
+
     def _assert_runtime_trust(self) -> None:
-        """Recheck time-sensitive trust constraints for a loaded snapshot."""
-        if self.verified_signature is not None:
-            if self._trust_store_path is not None:
-                if self._bundle_snapshot is None:  # pragma: no cover - invariant
-                    raise RuntimeError("Policy bundle snapshot is unavailable")
-                current_keys = self._load_configured_keys()
-                current_signature = verify_bundle_signature(
-                    self._bundle_snapshot,
-                    trusted_keys=current_keys,
-                    required_issuer=self.required_issuer,
-                    clock_skew_seconds=self.clock_skew_seconds,
-                )
-                self.trusted_keys = current_keys
-                self.verified_signature = current_signature
-            else:
-                validate_signature_window(
-                    self.verified_signature,
-                    clock_skew_seconds=self.clock_skew_seconds,
-                )
+        """Recheck time-sensitive trust constraints for a loaded snapshot.
+
+        Two costs are separated here. Re-reading the trust store and verifying
+        the Ed25519 signature over the whole bundle is what makes key
+        revocation take effect, and it is also disk I/O plus a full canonical
+        serialization. Doing that on every governed tool call was the dominant
+        cost of an authorization. The validity window still has to be rechecked
+        every time, because an expiry passes without any file changing.
+        """
+        if self.verified_signature is None:
+            return
+
+        if self._trust_store_path is None:
+            validate_signature_window(
+                self.verified_signature,
+                clock_skew_seconds=self.clock_skew_seconds,
+            )
+            return
+
+        if self._bundle_snapshot is None:  # pragma: no cover - invariant
+            raise RuntimeError("Policy bundle snapshot is unavailable")
+
+        fingerprint = self._trust_material_fingerprint()
+        if fingerprint == self._trust_fingerprint:
+            validate_signature_window(
+                self.verified_signature,
+                clock_skew_seconds=self.clock_skew_seconds,
+            )
+            return
+
+        current_keys = self._load_configured_keys()
+        current_signature = verify_bundle_signature(
+            self._bundle_snapshot,
+            trusted_keys=current_keys,
+            required_issuer=self.required_issuer,
+            clock_skew_seconds=self.clock_skew_seconds,
+        )
+        self.trusted_keys = current_keys
+        self.verified_signature = current_signature
+        self._trust_fingerprint = self._trust_material_fingerprint()
 
     def audit_event(self, decision: PolicyDecision) -> dict[str, Any]:
         """Return a structured, provenance-aware record for a decision."""
