@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- A `PolicyChecker` configured with trust roots now requires a signed bundle.
+  Under `signature_policy="auto"` the requirement was previously derived from
+  `metadata.environment` inside the bundle being verified, so an attacker able
+  to rewrite the deployed file could strip the signature, downgrade the declared
+  environment, recompute the digest, and disable authentication entirely.
+  Deployments that pass `trust_store` or `trusted_keys` are upgraded to
+  `required`; `signature_policy="optional"` remains an explicit unsafe override.
+- Removed fabricated policy attribution from decisions and audit events.
+  `matched_policy_ids` was populated from a hard-coded three-entry action-to-policy
+  table that matched only the shipped examples, which placed an unverifiable
+  claim into an audit record. The field is now reserved and always empty until
+  real policy evaluation exists.
+
 ### Added
 
 - A shared integration gate that creates one immutable `ActionRequest`, emits
