@@ -7,107 +7,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+This release is the result of an external security and architecture review of
+`f16d0ef`. The findings and their status are tracked in [AUDIT.md](AUDIT.md).
+Two of the fixes change observable behaviour; both are called out below.
+
 ### Security
 
-- A `PolicyChecker` configured with trust roots now requires a signed bundle.
-  Under `signature_policy="auto"` the requirement was previously derived from
-  `metadata.environment` inside the bundle being verified, so an attacker able
-  to rewrite the deployed file could strip the signature, downgrade the declared
-  environment, recompute the digest, and disable authentication entirely.
-  Deployments that pass `trust_store` or `trusted_keys` are upgraded to
-  `required`; `signature_policy="optional"` remains an explicit unsafe override.
-- Removed fabricated policy attribution from decisions and audit events.
-  `matched_policy_ids` was populated from a hard-coded three-entry action-to-policy
-  table that matched only the shipped examples, which placed an unverifiable
-  claim into an audit record. The field is now reserved and always empty until
-  real policy evaluation exists.
-- Block-list matching is now case-insensitive. Exact matching let a case
-  variant of a blocked action through: in permissive mode an agent blocked from
-  `Initiate_Transfer` could run `initiate_transfer`, and the pairing
-  `allowed: [Read_DB]` with `blocked: [read_db]` read as a block while
-  permitting the request. Allow-list matching stays exact so an approval is
-  never extended to a spelling that was not literally approved, and authoring
-  validation now rejects action names that differ only by case.
-- `GovernedAgent` writes wrapped tools back to the object they were read from.
-  Tools discovered on `executor.agent` were replaced on `executor`, leaving the
-  original ungoverned tools reachable. Constructing a `GovernedAgent` over an
-  executor with no tools now raises instead of silently governing nothing.
-- Collapsed the duplicated `DecisionResult` and `ReasonCode` definitions into
-  `hlinor_registry.enums`. The two copies had drifted, and emitting a reason
-  code present in only one of them would have raised `ValueError` inside the
-  path that constructs a denial.
-
-- Bounded the signature validity window. Signing warns above 90 days and
+- **Signature enforcement no longer depends on the artifact being verified.**
+  Under the default `signature_policy="auto"`, whether a signature was required
+  came from `metadata.environment` inside the bundle. An attacker able to
+  rewrite the deployed file could delete the `signature` object, set the
+  environment to `development`, recompute the digest, and load a tampered
+  policy with authentication silently disabled — even with a trust store
+  configured. A `PolicyChecker` given `trust_store` or `trusted_keys` now
+  requires a signed bundle. `signature_policy="optional"` remains the
+  documented explicit override.
+- **A blocked action can no longer be reached through a case variant.**
+  Matching was exact, so in permissive mode an agent blocked from
+  `Initiate_Transfer` could run `initiate_transfer`, and `allowed: [Read_DB]`
+  beside `blocked: [read_db]` read as a block while permitting the request.
+  Block-list matching is now case-insensitive; allow-list matching stays exact
+  so an approval is never extended to a spelling that was not literally
+  approved. Authoring validation rejects action names that differ only by case.
+- **Removed fabricated policy attribution from audit records.**
+  `matched_policy_ids` was filled from a hard-coded three-entry action-to-policy
+  table that matched only the shipped examples, putting an unverifiable claim
+  into a record that reads as compliance evidence. The field is reserved and
+  always empty until real policy evaluation exists.
+- **`GovernedAgent` no longer leaves ungoverned tools reachable.** Tools
+  discovered on `executor.agent` were wrapped but written back to `executor`,
+  so the originals stayed available on the object that owned them. Constructing
+  a `GovernedAgent` over an executor with no tools now raises rather than
+  silently governing nothing.
+- Bounded the signature validity window: signing warns above 90 days and
   refuses above 366. Without a revocation channel, expiry is the only mechanism
-  that forces a leaked bundle out of circulation, and nothing previously
-  prevented `--expires-at 2099-01-01`.
+  that forces a leaked bundle out of circulation, and nothing prevented
+  `--expires-at 2099-01-01`.
 - Trust store entries with a relative `public_key_path` must resolve inside the
   trust store directory, matching the boundary already enforced on policy
   sources. Absolute paths remain an explicit deployment choice.
 - `load_public_key` treated any string without a PEM header as a filesystem
   path, turning an unintended value into a file read. Strings containing
   newlines or NULs are rejected rather than opened.
-- A bundle declaring an unrecognized `enforcement_mode` is now rejected instead
-  of silently coerced to `strict`. Coercion failed closed but hid a
-  disagreement between the compiler and the runtime.
-- The landing page no longer loads third-party code. It fetched the Tailwind
-  Play CDN and Prism from cdnjs with no subresource integrity; both are now
-  built and vendored, and the page loads no external subresource.
-- CI scans history with gitleaks and enforces the public-scope rule over every
-  tracked file; a matching pre-commit hook rejects internal paths, one-off
-  patch scripts, and files containing local absolute paths or PEM private keys.
+- A bundle declaring an unrecognized `enforcement_mode` is rejected instead of
+  silently coerced to `strict`. Coercion failed closed but hid a disagreement
+  between the compiler that produced the bundle and the runtime reading it.
+- The landing page no longer executes third-party code. It loaded the Tailwind
+  Play CDN and three Prism files from cdnjs with no subresource integrity; both
+  are now built and vendored, and the page loads no external subresource.
+- CI scans history with gitleaks and enforces a public-scope rule over every
+  tracked file. A matching pre-commit hook rejects internal paths, one-off
+  patch-script filenames, and files containing local absolute paths or PEM
+  private keys.
 
 ### Changed
 
-- Runtime trust re-verification now runs only when the trust material changes.
+- **Breaking for scripts.** `check` and `explain` now exit `0` for allowed, `1`
+  for denied, and `2` when no decision could be reached: missing or unreadable
+  bundle, broken trust configuration, or a failed audit-log write. Every
+  failure previously shared exit `1` with a denial, so a pipeline gating on a
+  non-zero exit read a broken deployment as working governance. Error messages
+  moved from stdout to stderr. Gate on `1` specifically.
+- Runtime trust re-verification runs only when the trust material changes.
   Every governed call previously re-read the trust store, re-parsed each PEM,
-  rebuilt the canonical JSON of the whole bundle, and re-checked the signature,
-  making the cost of a decision scale with bundle size: 4.6 ms per call on a
-  74 KB bundle, now 129 µs and flat. Key revocation still takes effect
-  immediately, and the validity window is still checked on every call.
-- **Breaking for scripts:** `check` and `explain` now exit `0` for allowed,
-  `1` for denied, and `2` when no decision could be reached (missing or
-  unreadable bundle, broken trust configuration, failed audit-log write).
-  Previously every failure shared exit `1` with a denial, so a pipeline gating
-  on a non-zero exit read a broken deployment as working governance. Error
-  messages moved from stdout to stderr.
+  rebuilt the canonical JSON of the whole bundle and re-checked the signature,
+  so the cost of a decision scaled with bundle size: 4.6 ms per call on a 74 KB
+  bundle, now 129 µs and flat. Key revocation still takes effect immediately —
+  the fingerprint covers the referenced PEM files by content, not just the
+  trust store — and the validity window is still checked on every call.
+- `DecisionResult` and `ReasonCode` have a single definition in
+  `hlinor_registry.enums`; `hlinor_registry.decision` re-exports them. The two
+  copies had drifted, and emitting a reason code present in only one would have
+  raised `ValueError` inside the path that constructs a denial.
+- `TrustedKey` records the PEM path an entry was loaded from, so a long-lived
+  verifier can detect a key replaced in place.
 - The repository manifest `registry.yaml` declares the `development`
-  environment so that the documented `compile` then `check` path works on a
-  fresh clone. Production deployments should set `production` and sign the
-  bundle.
+  environment so the documented `compile` then `check` path works on a fresh
+  clone. Production deployments should set `production` and sign the bundle.
 
 ### Fixed
 
 - Added the missing `langchain` extra. `pip install "hlinor-registry[langchain]"`
-  was documented in the README but not declared, so pip warned and installed
-  nothing while the next README line raised `ImportError`.
-- CI now exercises the documented quickstart end to end, asserts the exit-code
-  contract, verifies a signed bundle, and asserts that every documented extra
-  is actually declared.
+  was documented in the README but never declared, so pip warned and installed
+  nothing while the next line of the same README section raised `ImportError`.
+- Corrected the README blocklist example, which asserted an output that did not
+  match its own input.
+- `make lint` covers `scripts/`.
 
 ### Added
 
-- A shared integration gate that creates one immutable `ActionRequest`, emits
-  one `PolicyDecision`, and blocks tool execution on denial.
-- Native async contracts and checker injection for LangChain, CrewAI, and
-  framework-agnostic decorators.
-- A versioned integration compatibility matrix and real-framework CI jobs.
-
-### Changed
-
-- `GovernedTool` is now a real LangChain `BaseTool` that preserves schemas,
-  metadata, callbacks, and sync/async behavior.
-- `GovernedCrewTool` now reuses a persistent checker and preserves wrapped
-  CrewAI tool schemas.
-- `PolicyViolationError` is now a compatibility alias for the shared
-  `GovernanceDeniedError`.
-- Expanded Ruff format and lint checks to runnable Python examples.
-- Split PyPI publication and post-publish verification into independently
-  retryable release jobs.
-- Added a bounded clean-environment installation check for every published
-  package version.
-- Updated installation and release documentation to match the current package
-  dependencies and Trusted Publishing workflow.
+- CI exercises the documented quickstart end to end, asserts the exit-code
+  contract, verifies a signed bundle through a generated key and trust store,
+  and asserts that every extra the README tells users to install is declared.
+- `scripts/check_public_scope.py`, run by both pre-commit and CI.
+- `scripts/build_landing_assets.sh` to regenerate the vendored landing assets.
+- README sections placing the project against content-safety tooling and
+  against OPA/Cedar, replacing a comparison table that listed LangChain and
+  CrewAI — the frameworks this project integrates with — as alternatives.
 
 ## [0.5.0] - 2026-07-26
 
@@ -122,6 +118,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   windows in `PolicyDecision` and JSONL audit events.
 - Security-negative tests for payload replacement, digest recomputation,
   untrusted keys, invalid issuers, expiration, future issuance, and rollback.
+- A shared integration gate that creates one immutable `ActionRequest`, emits
+  one `PolicyDecision`, and blocks tool execution on denial.
+- Native async contracts and checker injection for LangChain, CrewAI, and
+  framework-agnostic decorators.
+- A versioned integration compatibility matrix and real-framework CI jobs.
 
 ### Changed
 
@@ -130,6 +131,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   policy; production deployments should set `signature_policy="required"`.
 - Long-lived checkers revalidate signature expiry and configured trust roots
   before every signed-bundle evaluation.
+- `GovernedTool` is now a real LangChain `BaseTool` that preserves schemas,
+  metadata, callbacks, and sync/async behavior.
+- `GovernedCrewTool` now reuses a persistent checker and preserves wrapped
+  CrewAI tool schemas.
+- `PolicyViolationError` is now a compatibility alias for the shared
+  `GovernanceDeniedError`.
+- Expanded Ruff format and lint checks to runnable Python examples.
+- Split PyPI publication and post-publish verification into independently
+  retryable release jobs.
+- Added a bounded clean-environment installation check for every published
+  package version.
+- Updated installation and release documentation to match the current package
+  dependencies and Trusted Publishing workflow.
 
 ## [0.4.2] - 2026-07-26
 
@@ -162,6 +176,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional CrewAI integration and framework-agnostic `@governed` decorator.
 - Makefile, pre-commit configuration, and YAML linting defaults.
 
+## [0.4.0] - 2026-07-23
+
+### Added
+
+- Explicit `registry.yaml` manifests and the `compile` command for deterministic policy bundles.
+- SHA-256 digests for source entries and integrity-checked compiled bundles.
+- Runtime tests for path traversal protection, duplicate IDs, tamper detection, and unlisted files.
+
+### Changed
+
+- `PolicyChecker` now loads only compiled JSON bundles and no longer scans directories at runtime.
+- LangChain integrations accept a compiled `bundle_path` for governed tool execution.
+
 ## [0.3.1] - 2026-07-22
 
 ### Added
@@ -184,26 +211,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Declarative action boundaries support fine-grained allowlist and blocklist control.
 - Existing audit-oriented schemas remain available for execution receipts and governance records.
 
-## [0.4.0] - 2026-07-23
-
-### Added
-
-- Explicit `registry.yaml` manifests and the `compile` command for deterministic policy bundles.
-- SHA-256 digests for source entries and integrity-checked compiled bundles.
-- Runtime tests for path traversal protection, duplicate IDs, tamper detection, and unlisted files.
-
-### Changed
-
-- `PolicyChecker` now loads only compiled JSON bundles and no longer scans directories at runtime.
-- LangChain integrations accept a compiled `bundle_path` for governed tool execution.
-
 ## [0.3.0]
 
 Public registry release with YAML schemas, CLI validation, runtime governance
 contracts, lifecycle schemas, and audit-friendly examples.
 
-[0.3.1]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.3.0...v0.3.1
+[Unreleased]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/HlinorAI/hlinor-agent-registry/releases/tag/v0.3.0
