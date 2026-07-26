@@ -7,7 +7,16 @@ from pathlib import Path
 import pytest
 import yaml
 
-from hlinor_registry.cli import cmd_check, cmd_compile, cmd_explain, cmd_init, cmd_lint
+from hlinor_registry.cli import (
+    EXIT_ALLOWED,
+    EXIT_DENIED,
+    EXIT_ERROR,
+    cmd_check,
+    cmd_compile,
+    cmd_explain,
+    cmd_init,
+    cmd_lint,
+)
 
 
 @pytest.fixture
@@ -118,9 +127,9 @@ def test_cmd_check_missing_bundle(capsys: pytest.CaptureFixture):
         action="read_data",
     )
 
-    assert cmd_check(args) == 1
+    assert cmd_check(args) == EXIT_ERROR
     captured = capsys.readouterr()
-    assert "Error: Bundle file not found" in captured.out
+    assert "Error: Bundle file not found" in captured.err
 
 
 def test_cmd_check_reports_an_invalid_bundle(
@@ -133,8 +142,8 @@ def test_cmd_check_reports_an_invalid_bundle(
         bundle=str(bundle_path), agent="test-agent", action="read_data"
     )
 
-    assert cmd_check(args) == 1
-    assert "Policy bundle root must be an object" in capsys.readouterr().out
+    assert cmd_check(args) == EXIT_ERROR
+    assert "Policy bundle root must be an object" in capsys.readouterr().err
 
 
 def test_cmd_explain_denied_action(
@@ -275,3 +284,67 @@ def test_cmd_lint_rejects_permissive_production_policy(
 
     assert cmd_lint(argparse.Namespace(path=str(path))) == 1
     assert "Permissive enforcement is unsafe in production" in capsys.readouterr().out
+
+
+def test_check_exit_codes_separate_denial_from_failure(
+    compiled_bundle: Path, tmp_path: Path
+):
+    """A denied action and a broken deployment must not share an exit code.
+
+    A CI gate that treats every non-zero exit as "policy denied" reads an
+    unreadable bundle or a bad trust store as working governance.
+    """
+    allowed = argparse.Namespace(
+        bundle=str(compiled_bundle), agent="test-agent", action="read_data"
+    )
+    denied = argparse.Namespace(
+        bundle=str(compiled_bundle), agent="test-agent", action="delete_data"
+    )
+    missing = argparse.Namespace(
+        bundle=str(tmp_path / "absent.json"), agent="test-agent", action="read_data"
+    )
+
+    assert cmd_check(allowed) == EXIT_ALLOWED
+    assert cmd_check(denied) == EXIT_DENIED
+    assert cmd_check(missing) == EXIT_ERROR
+    assert EXIT_ALLOWED != EXIT_DENIED != EXIT_ERROR
+
+
+def test_explain_uses_the_same_exit_code_contract(
+    compiled_bundle: Path, tmp_path: Path
+):
+    """explain must agree with check so either can gate a pipeline."""
+    allowed = argparse.Namespace(
+        bundle=str(compiled_bundle),
+        agent="test-agent",
+        action="read_data",
+        format="jsonl",
+    )
+    denied = argparse.Namespace(
+        bundle=str(compiled_bundle),
+        agent="test-agent",
+        action="delete_data",
+        format="jsonl",
+    )
+    missing = argparse.Namespace(
+        bundle=str(tmp_path / "absent.json"),
+        agent="test-agent",
+        action="read_data",
+        format="jsonl",
+    )
+
+    assert cmd_explain(allowed) == EXIT_ALLOWED
+    assert cmd_explain(denied) == EXIT_DENIED
+    assert cmd_explain(missing) == EXIT_ERROR
+
+
+def test_unwritable_audit_log_is_an_error_not_a_denial(compiled_bundle: Path):
+    """A failed audit write must not be reported as an allowed or denied action."""
+    args = argparse.Namespace(
+        bundle=str(compiled_bundle),
+        agent="test-agent",
+        action="read_data",
+        audit_log="/proc/self/mem/decisions.jsonl",
+    )
+
+    assert cmd_check(args) == EXIT_ERROR

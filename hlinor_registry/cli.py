@@ -65,8 +65,23 @@ VALIDATION_COMMANDS = {
 }
 
 
+#: A policy decision was reached and the action is permitted.
+EXIT_ALLOWED = 0
+#: A policy decision was reached and the action is denied.
+EXIT_DENIED = 1
+#: No decision could be reached: bad arguments, unreadable bundle, broken trust
+#: configuration, or a failed audit-log write. A caller that cannot tell this
+#: apart from EXIT_DENIED will read a broken deployment as working governance.
+EXIT_ERROR = 2
+
+
 def _compact_error(error: Exception) -> str:
     return " ".join(str(error).split())
+
+
+def _runtime_error(message: str) -> int:
+    print(f"Error: {message}", file=sys.stderr)
+    return EXIT_ERROR
 
 
 def _run_validation(label: str, validator, path: str) -> int:
@@ -466,14 +481,12 @@ def cmd_check(args) -> int:
     bundle_path = Path(args.bundle).resolve()
 
     if not bundle_path.is_file():
-        print(f"Error: Bundle file not found: {bundle_path}")
-        return 1
+        return _runtime_error(f"Bundle file not found: {bundle_path}")
 
     try:
         checker = _policy_checker_from_args(args)
     except (OSError, ValueError, TypeError) as error:
-        print(f"Error: Failed to load bundle: {_compact_error(error)}")
-        return 1
+        return _runtime_error(f"Failed to load bundle: {_compact_error(error)}")
 
     decision = checker.check_action(args.agent, args.action)
     output_format = getattr(args, "format", "text")
@@ -482,11 +495,7 @@ def cmd_check(args) -> int:
     try:
         _append_audit_event(event, getattr(args, "audit_log", None))
     except OSError as error:
-        print(
-            f"Error: Failed to write audit log: {_compact_error(error)}",
-            file=sys.stderr,
-        )
-        return 1
+        return _runtime_error(f"Failed to write audit log: {_compact_error(error)}")
 
     if output_format == "jsonl":
         print(json.dumps(event, sort_keys=True))
@@ -498,7 +507,7 @@ def cmd_check(args) -> int:
         print(f"Decision ID: {decision.decision_id}")
         print(f"Timestamp: {decision.checked_at}")
 
-    return 0 if decision.allowed else 1
+    return EXIT_ALLOWED if decision.allowed else EXIT_DENIED
 
 
 def cmd_explain(args) -> int:
@@ -508,14 +517,12 @@ def cmd_explain(args) -> int:
     bundle_path = Path(args.bundle).resolve()
 
     if not bundle_path.is_file():
-        print(f"Error: Bundle file not found: {bundle_path}")
-        return 1
+        return _runtime_error(f"Bundle file not found: {bundle_path}")
 
     try:
         checker = _policy_checker_from_args(args)
     except (OSError, ValueError, TypeError) as error:
-        print(f"Error: Failed to load bundle: {_compact_error(error)}")
-        return 1
+        return _runtime_error(f"Failed to load bundle: {_compact_error(error)}")
 
     decision = checker.check_action(args.agent, args.action)
     output_format = getattr(args, "format", "text")
@@ -527,15 +534,11 @@ def cmd_explain(args) -> int:
     try:
         _append_audit_event(event, getattr(args, "audit_log", None))
     except OSError as error:
-        print(
-            f"Error: Failed to write audit log: {_compact_error(error)}",
-            file=sys.stderr,
-        )
-        return 1
+        return _runtime_error(f"Failed to write audit log: {_compact_error(error)}")
 
     if output_format == "jsonl":
         print(json.dumps(event, sort_keys=True))
-        return 0 if decision.allowed else 1
+        return EXIT_ALLOWED if decision.allowed else EXIT_DENIED
 
     print("=" * 60)
     print("GOVERNANCE DECISION EXPLANATION")
@@ -556,7 +559,8 @@ def cmd_explain(args) -> int:
         for agent_id in checker.agents:
             print(f"  - {agent_id}")
         print("=" * 60)
-        return 1
+        # An unknown agent is still a policy decision: strict mode denies it.
+        return EXIT_DENIED
 
     agent_config = agent_info["data"]
     allowed = agent_config.get("allowed_actions", [])
@@ -608,7 +612,7 @@ def cmd_explain(args) -> int:
         print("✓ Agent can perform this action safely")
 
     print("=" * 60)
-    return 0 if decision.allowed else 1
+    return EXIT_ALLOWED if decision.allowed else EXIT_DENIED
 
 
 def cmd_verify_bundle(args: argparse.Namespace) -> int:

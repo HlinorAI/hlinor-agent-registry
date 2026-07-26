@@ -345,6 +345,17 @@ hlinor-registry explain --bundle X --agent Y --action Z  # Get detailed audit ex
 hlinor-registry check --bundle X --agent Y --action Z --format jsonl --audit-log decisions.jsonl
 ```
 
+**Exit codes for `check` and `explain`:**
+
+| Code | Meaning |
+| --- | --- |
+| `0` | A decision was reached and the action is allowed |
+| `1` | A decision was reached and the action is denied |
+| `2` | No decision was reached: bad arguments, missing or unreadable bundle, broken trust configuration, or a failed audit-log write |
+
+Gate on `1` specifically. Treating every non-zero exit as a denial makes a
+broken deployment look like working governance.
+
 **Core commands:**
 ```bash
 # Compile an explicit manifest into the integrity-checked runtime bundle
