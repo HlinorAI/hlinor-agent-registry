@@ -981,3 +981,89 @@ def test_policy_checker_handles_invalid_json_and_safe_reload(tmp_path: Path) -> 
     bundle_path.write_text("{not-json", encoding="utf-8")
     with pytest.raises(ValueError, match="Invalid JSON"):
         PolicyChecker(str(bundle_path))
+
+
+def strip_signature_and_downgrade_environment(bundle_path: Path) -> Path:
+    """Simulate an attacker who can rewrite the deployed bundle file.
+
+    The attacker has no private key, so the signature is removed rather than
+    forged, the declared environment is downgraded to one that the "auto"
+    policy historically treated as exempt, and the digest is recomputed so the
+    integrity check still passes.
+    """
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    del bundle["signature"]
+    bundle["metadata"]["environment"] = "development"
+    bundle["agents"]["signed-agent"]["config"]["blocked_actions"] = []
+    bundle["agents"]["signed-agent"]["config"]["allowed_actions"].append("delete")
+    bundle["digest"] = compute_bundle_digest(bundle)
+    tampered_path = bundle_path.parent / "tampered-bundle.json"
+    tampered_path.write_text(json.dumps(bundle), encoding="utf-8")
+    return tampered_path
+
+
+def test_configured_trust_store_rejects_environment_downgrade(tmp_path: Path) -> None:
+    """Trust roots must not be disabled by metadata inside the bundle itself."""
+    bundle_path, _, public_path = compile_signed_bundle(tmp_path)
+    trust_store_path = write_trust_store(tmp_path / "trust-store.json", public_path)
+
+    checker = PolicyChecker(str(bundle_path), trust_store=str(trust_store_path))
+    assert checker.signature_policy == "required"
+    assert checker.check_action("signed-agent", "delete").denied
+
+    tampered_path = strip_signature_and_downgrade_environment(bundle_path)
+    with pytest.raises(ValueError, match="signature is required"):
+        PolicyChecker(str(tampered_path), trust_store=str(trust_store_path))
+
+
+def test_configured_programmatic_keys_reject_environment_downgrade(
+    tmp_path: Path,
+) -> None:
+    """The same upgrade applies to programmatically supplied trust roots."""
+    bundle_path, _, public_path = compile_signed_bundle(tmp_path)
+    tampered_path = strip_signature_and_downgrade_environment(bundle_path)
+
+    with pytest.raises(ValueError, match="signature is required"):
+        PolicyChecker(
+            str(tampered_path),
+            trusted_keys={"prod-key-2026": public_path},
+        )
+
+
+def test_explicit_optional_policy_still_overrides_configured_trust_store(
+    tmp_path: Path,
+) -> None:
+    """The documented unsafe override stays available for controlled migration."""
+    bundle_path, _, public_path = compile_signed_bundle(tmp_path)
+    trust_store_path = write_trust_store(tmp_path / "trust-store.json", public_path)
+    tampered_path = strip_signature_and_downgrade_environment(bundle_path)
+
+    checker = PolicyChecker(
+        str(tampered_path),
+        trust_store=str(trust_store_path),
+        signature_policy="optional",
+    )
+    assert checker.signature_policy == "optional"
+    assert checker.verified_signature is None
+
+
+def test_auto_policy_without_trust_roots_is_unchanged(tmp_path: Path) -> None:
+    """Deployments with no trust roots keep the previous "auto" behaviour."""
+    manifest_path, _ = write_policy_inputs(tmp_path, environment="development")
+    bundle_path = tmp_path / "bundle.json"
+    assert (
+        main(
+            [
+                "compile",
+                "--manifest",
+                str(manifest_path),
+                "--output",
+                str(bundle_path),
+            ]
+        )
+        == 0
+    )
+
+    checker = PolicyChecker(str(bundle_path))
+    assert checker.signature_policy == "auto"
+    assert checker.check_action("signed-agent", "read").allowed
