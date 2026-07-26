@@ -54,6 +54,14 @@ documented behavior creates an unexpected security bypass are still welcome.
   window.
 - Unknown signing keys, invalid signatures, expired signatures, and signatures
   issued too far in the future are rejected.
+- Signing warns above a 90-day validity window and refuses above 366 days.
+  Without a revocation channel, expiry is what forces a leaked bundle out of
+  circulation.
+- Trust store entries with a relative `public_key_path` must stay inside the
+  trust store directory. Absolute paths remain an explicit deployment choice.
+- A bundle declaring an `enforcement_mode` the runtime does not recognize is
+  rejected rather than coerced, so a compiler and runtime that disagree are
+  visible instead of silently reconciled.
 - A deployment-controlled minimum bundle revision provides an explicit
   rollback floor.
 

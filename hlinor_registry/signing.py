@@ -7,6 +7,7 @@ import binascii
 import copy
 import hashlib
 import json
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -20,8 +21,19 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
+logger = logging.getLogger(__name__)
+
 SIGNATURE_ALGORITHM = "Ed25519"
 TRUST_STORE_SCHEMA_VERSION = "1.0"
+
+#: Expiry is the only mechanism that forces a superseded or compromised bundle
+#: out of circulation without a revocation channel, so a long window quietly
+#: removes it. Beyond this, signing warns.
+RECOMMENDED_SIGNATURE_VALIDITY = timedelta(days=90)
+
+#: Beyond this, signing refuses. A window this long is not a policy choice, it
+#: is a value nobody meant to type.
+MAXIMUM_SIGNATURE_VALIDITY = timedelta(days=366)
 _SIGNATURE_FIELDS = {
     "algorithm",
     "key_id",
@@ -172,10 +184,21 @@ def _load_private_key(path: str | Path) -> Ed25519PrivateKey:
 
 
 def load_public_key(value: str | bytes | Path) -> Ed25519PublicKey:
-    """Load one Ed25519 public key from PEM bytes, PEM text, or a path."""
+    """Load one Ed25519 public key from PEM bytes, PEM text, or a path.
+
+    A ``str`` is ambiguous: it may be PEM text or a filesystem path. The
+    distinction is made by looking for the PEM header, so a caller that passes
+    an unintended string turns this into a file read. Pass a ``Path`` when the
+    value is a path and ``bytes`` when it is key material, and the ambiguity
+    does not arise.
+    """
     if isinstance(value, Path):
         key_bytes = value.resolve().read_bytes()
     elif isinstance(value, str) and "-----BEGIN PUBLIC KEY-----" not in value:
+        if "\n" in value or "\r" in value or "\x00" in value:
+            raise BundleSignatureError(
+                "Trusted public key string is neither PEM text nor a usable path"
+            )
         key_bytes = Path(value).resolve().read_bytes()
     elif isinstance(value, str):
         key_bytes = value.encode("utf-8")
@@ -215,6 +238,22 @@ def sign_bundle(
     expires = parse_timestamp(expires_at, "expires_at")
     if expires <= issued:
         raise BundleSignatureError("Signature expires_at must be after issued_at")
+    validity = expires - issued
+    if validity > MAXIMUM_SIGNATURE_VALIDITY:
+        raise BundleSignatureError(
+            f"Signature validity window of {validity.days} days exceeds the "
+            f"{MAXIMUM_SIGNATURE_VALIDITY.days}-day maximum. Expiry is the only "
+            "mechanism that forces a compromised bundle out of circulation "
+            "without a revocation channel."
+        )
+    if validity > RECOMMENDED_SIGNATURE_VALIDITY:
+        logger.warning(
+            "Bundle signature is valid for %d days, beyond the recommended "
+            "%d. Re-sign on your release cadence instead: until this expires, "
+            "a leaked bundle stays verifiable.",
+            validity.days,
+            RECOMMENDED_SIGNATURE_VALIDITY.days,
+        )
 
     signed_bundle = copy.deepcopy(dict(bundle))
     signed_bundle["signature"] = {
@@ -404,8 +443,23 @@ def load_trust_store(path: str | Path) -> dict[str, TrustedKey]:
             )
 
         key_path = Path(public_key_path)
-        if not key_path.is_absolute():
-            key_path = trust_store_path.parent / key_path
+        if key_path.is_absolute():
+            key_path = key_path.resolve()
+        else:
+            # A relative entry is resolved against the trust store directory and
+            # must stay inside it. The compiler applies the same rule to policy
+            # sources; a trust store that reaches out through '..' is either a
+            # mistake or an attempt to bind trust to a file the deployment does
+            # not control. An absolute path is an explicit deployment choice and
+            # is left alone.
+            key_path = (trust_store_path.parent / key_path).resolve()
+            try:
+                key_path.relative_to(trust_store_path.parent)
+            except ValueError:
+                raise BundleSignatureError(
+                    f"Trust store entry '{key_id}' points outside the trust store "
+                    f"directory: {public_key_path}"
+                ) from None
         try:
             public_key = load_public_key(key_path)
         except (OSError, TypeError, BundleSignatureError) as exc:

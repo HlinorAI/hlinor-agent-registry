@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 
@@ -1138,3 +1139,123 @@ def test_missing_trust_store_fails_closed_after_load(tmp_path: Path) -> None:
 
     with pytest.raises(FileNotFoundError):
         checker.check_action("signed-agent", "read")
+
+
+def test_signature_validity_window_is_bounded(tmp_path: Path) -> None:
+    """A signature valid for years removes the only expiry-based control."""
+    manifest_path, _ = write_policy_inputs(tmp_path)
+    private_path, _ = write_keypair(tmp_path / "keys", "prod-key-2026")
+    bundle_path = tmp_path / "dist" / "bundle.json"
+
+    assert (
+        main(
+            [
+                "compile",
+                "--manifest",
+                str(manifest_path),
+                "--output",
+                str(bundle_path),
+                "--signing-key",
+                str(private_path),
+                "--key-id",
+                "prod-key-2026",
+                "--issuer",
+                "hlinor-policy-ci",
+                "--issued-at",
+                "2026-01-01T00:00:00Z",
+                "--expires-at",
+                "2036-01-01T00:00:00Z",
+            ]
+        )
+        == 1
+    )
+    assert not bundle_path.exists()
+
+
+def test_long_but_plausible_validity_window_warns_and_succeeds(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A one-year window is discouraged, not blocked.
+
+    Refusing it outright would break signing pipelines that already use a
+    yearly window, so the boundary between "warn" and "refuse" sits well above
+    the recommendation.
+    """
+    with caplog.at_level(logging.WARNING, logger="hlinor_registry.signing"):
+        bundle_path, _, _ = compile_signed_bundle(tmp_path)
+
+    assert bundle_path.exists()
+    assert any(
+        "beyond the recommended" in record.message for record in caplog.records
+    ), "signing a year-long window should warn"
+
+
+def test_trust_store_cannot_point_outside_its_directory(tmp_path: Path) -> None:
+    """A relative trust-store entry must not reach out through '..'.
+
+    The compiler applies the same boundary to policy sources. A trust store
+    that binds trust to a file outside the directory the deployment controls is
+    either a mistake or an attempt to substitute the trust root.
+    """
+    bundle_path, _, public_path = compile_signed_bundle(tmp_path)
+    outside_key = tmp_path / "outside.pem"
+    outside_key.write_bytes(public_path.read_bytes())
+
+    store_dir = tmp_path / "trust"
+    store_dir.mkdir()
+    trust_store = store_dir / "trust-store.json"
+    trust_store.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "keys": {
+                    "prod-key-2026": {
+                        "algorithm": "Ed25519",
+                        "public_key_path": "../outside.pem",
+                        "issuer": "hlinor-policy-ci",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(BundleSignatureError, match="points outside the trust store"):
+        PolicyChecker(str(bundle_path), trust_store=str(trust_store))
+
+
+def test_absolute_trust_store_key_path_remains_supported(tmp_path: Path) -> None:
+    """An absolute path is an explicit deployment choice, not a traversal."""
+    bundle_path, _, public_path = compile_signed_bundle(tmp_path)
+    store_dir = tmp_path / "trust"
+    store_dir.mkdir()
+    trust_store = write_trust_store(store_dir / "trust-store.json", public_path)
+
+    checker = PolicyChecker(str(bundle_path), trust_store=str(trust_store))
+
+    assert checker.check_action("signed-agent", "read").allowed
+
+
+def test_multiline_string_is_not_treated_as_a_key_path() -> None:
+    """A string that is neither PEM nor a plausible path must not be opened."""
+    with pytest.raises(BundleSignatureError, match="neither PEM text nor"):
+        load_public_key("not a key\nsecond line")
+
+
+def test_unknown_enforcement_mode_in_a_bundle_is_rejected(tmp_path: Path) -> None:
+    """A bundle the runtime does not fully understand must not load.
+
+    Coercing the value to "strict" would fail closed but hide a disagreement
+    between the compiler that produced the bundle and the runtime reading it.
+    """
+    bundle_path, _, _ = compile_signed_bundle(tmp_path)
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    bundle["agents"]["signed-agent"]["config"]["enforcement_mode"] = "advisory"
+    del bundle["signature"]
+    bundle["metadata"]["environment"] = "development"
+    bundle["digest"] = compute_bundle_digest(bundle)
+    bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid enforcement_mode"):
+        PolicyChecker(str(bundle_path))

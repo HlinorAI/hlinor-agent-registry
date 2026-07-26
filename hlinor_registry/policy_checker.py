@@ -203,9 +203,17 @@ class PolicyChecker:
             if not isinstance(config, dict):
                 raise TypeError(f"Missing config for agent '{agent_id}'")
 
+            # Coercing an unrecognized mode to "strict" would fail closed, but
+            # it would also hide the fact that the bundle says something the
+            # runtime does not understand. A bundle is compiler output: an
+            # unknown value means the compiler and the runtime disagree, and
+            # that is worth stopping for rather than papering over.
             enforcement_mode = config.get("enforcement_mode", "strict")
             if enforcement_mode not in ("strict", "permissive"):
-                enforcement_mode = "strict"
+                raise ValueError(
+                    f"Invalid enforcement_mode for agent '{agent_id}': "
+                    f"{enforcement_mode!r}. Expected 'strict' or 'permissive'."
+                )
 
             for field in ("allowed_actions", "blocked_actions"):
                 values = config.get(field, [])
