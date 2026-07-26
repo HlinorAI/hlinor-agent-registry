@@ -71,11 +71,17 @@ class PolicyChecker:
             raise ValueError("clock_skew_seconds must be a non-negative integer")
 
         self.bundle_path = Path(bundle_path).resolve()
+        # Initialize signature_policy EARLY to prevent AttributeError in H-1 check
+        self.signature_policy = signature_policy
         self._trust_store_path = (
             Path(trust_store).resolve() if trust_store is not None else None
         )
         self._programmatic_keys = normalize_trusted_keys(trusted_keys)
         self.trusted_keys = self._load_configured_keys()
+        # SECURITY FIX (H-1): If trusted keys are configured, signature must be required.
+        # Prevents attackers from bypassing signatures by downgrading environment in bundle metadata.
+        if self.signature_policy == "auto" and self.trusted_keys:
+            self.signature_policy = "required"
 
         # SECURITY FIX (H-1): If trusted keys are configured, signature must be required.
         # Prevents attackers from bypassing signatures by downgrading environment in bundle metadata.
