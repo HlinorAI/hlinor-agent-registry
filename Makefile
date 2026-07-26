@@ -1,6 +1,6 @@
 .PHONY: help install test lint format build clean
 
-PYTHON_SOURCES := hlinor_registry tests examples
+PYTHON_SOURCES := hlinor_registry tests examples scripts
 
 help:
 	@echo "Available commands:"
