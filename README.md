@@ -256,18 +256,54 @@ Use a trusted minimum bundle revision to enforce a rollback floor.
 
 ---
 
-## 🆚 Hlinor vs. alternatives
+## 🆚 Where Hlinor sits
 
-| Capability | LangChain | CrewAI | Build it yourself | **Hlinor Registry** |
-| :--- | :--- | :--- | :--- | :--- |
-| Primary role | Agent and tool orchestration | Multi-agent orchestration | Whatever you implement | **Governance and policy layer** |
-| Policy source | Application and tool code | Agent/task configuration | Custom conventions | **Declarative YAML contracts** |
-| Action decisions | Add your own guardrails | Add your own guardrails | Fully custom | **Reusable PolicyChecker and validators** |
-| Runtime boundaries | Framework-dependent | Framework-dependent | Custom | **Allowlist/blocklist patterns and schemas** |
-| Audit model | Build around your stack | Build around your stack | Fully custom | **Audit-ready receipts and evidence schemas** |
-| Works with other frameworks | Not the goal | Not the goal | Depends on design | **Designed to sit beside them** |
+Three different things get called "AI guardrails". They operate on different
+objects and they compose rather than compete.
 
-Hlinor is not an execution framework. Use it when governance must be explicit, reviewable, and portable across the systems that execute your agents.
+| Layer | Question it answers | Examples |
+| :--- | :--- | :--- |
+| Content safety | Is this text acceptable to produce or accept? | NeMo Guardrails, Guardrails AI, Llama Guard |
+| Orchestration | What runs next, and with which tool? | LangChain, CrewAI, LangGraph |
+| **Action authorization** | **May this agent perform this action right now, and can we prove what was decided?** | **Hlinor Registry** |
+
+Content safety inspects what a model says. Hlinor does not look at text at all.
+It sits in front of the side effect: the tool call, the transfer, the outbound
+email.
+
+### Why not a general policy engine?
+
+Open Policy Agent and Cedar are the serious comparison, and for a team that
+already runs one, the honest answer is that they can express everything the
+current `PolicyChecker` does. Three things differ.
+
+| | OPA / Cedar | Hlinor Registry |
+| :--- | :--- | :--- |
+| Policy language | Rego / Cedar, general-purpose | YAML with a fixed schema, deliberately narrow |
+| Audience | Platform engineers | Whoever signs off on what an agent may do |
+| Distribution | Bundles you assemble and serve | Signed bundle is the product: Ed25519, digest, issuer, validity window, rollback floor |
+| Decision provenance | Build it into your own logging | Every decision carries the bundle digest, request digest, signing key fingerprint, and revision |
+| Runtime coupling | Sidecar, service, or embedded evaluator | One Python object reading one local file |
+
+Use OPA or Cedar when you need arbitrary policy logic and already operate the
+infrastructure. Reach for Hlinor when the reviewable artifact matters more than
+the expressiveness: when someone has to sign what an agent may do, when an
+auditor has to be shown which exact policy produced a decision, and when the
+answer must not depend on a service being reachable.
+
+The narrowness is the point. A `PolicyChecker` decision is an allowlist and a
+blocklist over action names, which is a claim a non-engineer can verify by
+reading the YAML.
+
+### Against writing it yourself
+
+Most teams start with a set of if-statements around their tool calls, and that
+works. What it does not give you is an artifact: something signed, versioned,
+diffable in review, and identical across the services that run your agents.
+That, rather than the checking logic, is what this repository is.
+
+Hlinor is not an execution framework. Use it when governance must be explicit,
+reviewable, and portable across the systems that execute your agents.
 
 ---
 
