@@ -1,4 +1,14 @@
 repos:
+  # Runs first: a scope violation is the one mistake a later commit cannot
+  # undo, because deleting a file does not remove it from a published history.
+  - repo: local
+    hooks:
+      - id: check-public-scope
+        name: Keep internal material out of the public registry
+        entry: python3 scripts/check_public_scope.py
+        language: system
+        types: [file]
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
