@@ -605,3 +605,63 @@ def test_a_broad_allow_pattern_relies_on_the_block_list(tmp_path: Path) -> None:
     )
     assert external.denied
     assert external.matched_pattern == "send:email:external:*"
+
+
+def test_a_bare_block_entry_covers_every_resource(tmp_path: Path) -> None:
+    """Regression: patterns must not weaken the block list.
+
+    'blocked_actions: [delete_records]' reads as "never deletes records". When
+    resource support arrived, matching only 'action:resource' turned that into
+    "never deletes records without naming one": the same agent kept refusing
+    the unscoped call and started permitting delete_records on customer/5,
+    triggered by nothing more than a caller populating a field that has been
+    on ActionRequest since 0.4.
+
+    Permissive mode is where it bites, because there the block list is the only
+    thing saying no. Caught by running an old-style bundle rather than by
+    reading the diff, which is why this test drives a compiled bundle.
+    """
+    bundle_path = write_bundle(
+        tmp_path,
+        blocked_actions=["delete_records"],
+        enforcement_mode="permissive",
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    for resource in (None, "customer/5", "customer/5/detail", "ANY:thing"):
+        decision = checker.evaluate(
+            ActionRequest(
+                agent_id="test-agent", action="delete_records", resource=resource
+            )
+        )
+        assert decision.denied, f"resource={resource!r} escaped the block list"
+        assert decision.reason_code is ReasonCode.ACTION_BLOCKLISTED
+
+    # Widening the block list must not spill onto a different action.
+    other = checker.evaluate(
+        ActionRequest(agent_id="test-agent", action="read", resource="customer/5")
+    )
+    assert other.allowed
+
+
+def test_a_scoped_block_entry_still_only_blocks_its_scope(tmp_path: Path) -> None:
+    """The widening applies to the action name, not to every pattern.
+
+    A block entry that names a resource means what it says; it must not start
+    blocking the whole action.
+    """
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["read:*", "read"],
+        blocked_actions=["read:secret/*"],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    def read(resource: str | None):
+        return checker.evaluate(
+            ActionRequest(agent_id="test-agent", action="read", resource=resource)
+        )
+
+    assert read("secret/keys").denied
+    assert read("public/report").allowed
+    assert read(None).allowed

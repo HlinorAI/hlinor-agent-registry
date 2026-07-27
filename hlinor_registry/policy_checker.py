@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from ._limits import MAX_BUNDLE_BYTES, read_text_capped
-from ._matching import find_match, request_key
+from ._matching import find_block_match, find_match, request_key
 from .action_request import ActionRequest
 from .decision import PolicyDecision
 from .enums import ReasonCode
@@ -466,7 +466,7 @@ class PolicyChecker:
         # asymmetry is deliberate and always resolves toward denial: no
         # spelling of a blocked name gets through, and an approval is never
         # extended to a spelling nobody approved.
-        blocked_by = find_match(blocked, key, ignore_case=True)
+        blocked_by = find_block_match(blocked, request.action, key)
         if blocked_by is not None:
             return PolicyDecision.deny(
                 request.agent_id,

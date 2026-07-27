@@ -89,6 +89,39 @@ def matches(pattern: str, key: str, *, ignore_case: bool = False) -> bool:
     return fnmatchcase(key, pattern)
 
 
+def find_block_match(
+    patterns: object,
+    action: str,
+    key: str,
+) -> str | None:
+    """Match the block list against the full key *and* the action alone.
+
+    A block entry is meant to be at least as broad as the reader expects, and
+    ``blocked_actions: [delete_records]`` reads as "this agent must never
+    delete records" -- not "must never delete records without naming one".
+
+    Matching only the key breaks that, and worse, it breaks it silently. Before
+    action patterns existed, ``resource`` was ignored, so a bare block entry
+    stopped the action whatever resource came with it. Matching only
+    ``action:resource`` would leave that entry matching just the unscoped form,
+    so an existing permissive-mode agent would keep refusing
+    ``delete_records`` and start permitting ``delete_records`` on
+    ``customer/5`` the moment a caller began populating a field that has been
+    on ``ActionRequest`` all along. A block list that weakens when the caller
+    supplies *more* information is the wrong way round.
+
+    Checking both keeps every 0.7.0 denial a denial. It can only widen the
+    block list, never narrow it, which is the safe direction for the list whose
+    job is to say no.
+    """
+    matched = find_match(patterns, key, ignore_case=True)
+    if matched is not None:
+        return matched
+    if key == action:
+        return None
+    return find_match(patterns, action, ignore_case=True)
+
+
 def patterns_can_overlap(left: str, right: str) -> bool:
     """True when some request key would match both patterns.
 
