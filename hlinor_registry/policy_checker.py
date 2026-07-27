@@ -92,6 +92,7 @@ class PolicyChecker:
         self.minimum_bundle_revision = minimum_bundle_revision
         self.clock_skew_seconds = clock_skew_seconds
         self.agents: dict[str, dict[str, Any]] = {}
+        self.capabilities: dict[str, dict[str, Any]] = {}
         self.bundle_digest: str = ""
         self.schema_version: str = ""
         self.compiler_version: str = ""
@@ -231,8 +232,28 @@ class PolicyChecker:
                 "digest": agent_data.get("digest", ""),
             }
 
+        # Capabilities are compiled into the bundle and exposed here as
+        # inventory: what the bundle declares, available for inspection and
+        # tooling. They are deliberately NOT consulted by evaluate(). Writing
+        # them into the enforcement artifact and then leaving them unreachable
+        # was the worse of the two options, and pretending they participate in
+        # decisions would be worse still.
+        raw_capabilities = bundle.get("capabilities", {})
+        if not isinstance(raw_capabilities, dict):
+            raise TypeError("Policy bundle capabilities must be an object")
+        loaded_capabilities: dict[str, dict[str, Any]] = {}
+        for capability_id, capability_data in raw_capabilities.items():
+            if not isinstance(capability_id, str) or not capability_id:
+                raise ValueError("Policy bundle contains an invalid capability ID")
+            if not isinstance(capability_data, dict):
+                raise TypeError(
+                    f"Invalid bundle entry for capability '{capability_id}'"
+                )
+            loaded_capabilities[capability_id] = capability_data
+
         bundle_stat = self.bundle_path.stat()
         self.agents = loaded_agents
+        self.capabilities = loaded_capabilities
         self.bundle_digest = bundle_digest
         self.schema_version = schema_version
         self.compiler_version = str(bundle.get("compiler_version", "unknown"))
@@ -485,6 +506,16 @@ class PolicyChecker:
             environment=self.environment,
         )
         return self.evaluate(request)
+
+    def get_capability_info(self, capability_id: str) -> dict[str, Any] | None:
+        """Return a declared capability, or None.
+
+        Inventory only. A capability being present says the bundle declares it
+        and that its registration passed compile-time validation. It says
+        nothing about any decision: ``evaluate`` does not read this.
+        """
+        capability = self.capabilities.get(capability_id)
+        return copy.deepcopy(capability) if capability is not None else None
 
     def get_agent_info(self, agent_id: str) -> dict[str, Any] | None:
         """Return a defensive copy of a loaded agent configuration."""

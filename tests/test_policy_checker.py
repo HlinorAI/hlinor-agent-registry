@@ -388,3 +388,81 @@ def test_size_limits_are_stated_not_arbitrary() -> None:
     )
 
     assert MAX_TRUST_STORE_BYTES < MAX_SOURCE_BYTES < MAX_BUNDLE_BYTES
+
+
+def test_compiled_capabilities_are_readable_but_not_enforced(tmp_path: Path) -> None:
+    """Capabilities are inventory, and the distinction has to be visible.
+
+    The compiler writes them into the bundle. Leaving them unreachable made
+    them dead data inside an enforcement artifact; letting them influence a
+    decision would claim an enforcement that does not exist. They are exposed,
+    and evaluate() ignores them.
+    """
+    source = tmp_path / "sources" / "capability.yaml"
+    source.parent.mkdir(parents=True)
+    source.write_text(
+        yaml.safe_dump(
+            {
+                "id": "sample-capability",
+                "type": "capability",
+                "name": "Sample Capability",
+                "description": "Capability used to test bundle inventory.",
+                "repository": "https://example.invalid/sample",
+                "version": "1.0.0",
+                "interfaces": {
+                    "inputs": [{"name": "query", "type": "string"}],
+                    "outputs": [{"name": "result", "type": "string"}],
+                },
+                "policies": [
+                    {"id": "p1", "description": "Sample policy", "severity": "low"}
+                ],
+                "validators": ["sample-validator"],
+                "metadata": {
+                    "owner": "tests",
+                    "compliance_level": "none",
+                    "last_audit": "2026-07-27",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    manifest = tmp_path / "registry.yaml"
+    manifest.write_text(
+        yaml.safe_dump(
+            {
+                "version": "1.0",
+                "policies": [{"path": "sources/capability.yaml"}],
+                "metadata": {"environment": "test"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    bundle_path = tmp_path / "bundle.json"
+    assert (
+        main(["compile", "--manifest", str(manifest), "--output", str(bundle_path)])
+        == 0
+    )
+
+    checker = PolicyChecker(str(bundle_path))
+
+    assert "sample-capability" in checker.capabilities
+    assert checker.get_capability_info("sample-capability") is not None
+    assert checker.get_capability_info("absent") is None
+
+    # A capability is not an agent, and naming one does not grant anything.
+    decision = checker.check_action("sample-capability", "anything")
+    assert decision.denied
+    assert decision.reason_code is ReasonCode.UNKNOWN_AGENT
+
+
+def test_capability_info_is_a_defensive_copy(tmp_path: Path) -> None:
+    """Callers must not be able to mutate the loaded bundle through it."""
+    bundle_path = write_bundle(tmp_path, allowed_actions=["read"])
+    checker = PolicyChecker(str(bundle_path))
+    checker.capabilities["injected"] = {"config": {}}
+
+    info = checker.get_capability_info("injected")
+    assert info is not None
+    info["config"]["tampered"] = True
+
+    assert checker.capabilities["injected"]["config"] == {}

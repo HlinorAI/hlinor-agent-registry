@@ -259,12 +259,18 @@ something. Read this table before you rely on any of it.
 | Execution context and capability verification | yes | no |
 | Lifecycle modes and transition gates | yes | no |
 | Named `policies:` on an agent | yes | no |
+| Declared capabilities | yes | inventory only |
 
 `PolicyChecker.evaluate()` answers exactly one question: *may this agent
 perform an action with this name, according to the compiled allow and block
 lists of a bundle whose integrity and signature check out?* Everything in the
 "no" column is a contract your own code, a preflight step, or a human review
 has to act on.
+
+Capabilities are a third category: compiled into the bundle and readable
+through `checker.capabilities` and `checker.get_capability_info()`, but never
+consulted by a decision. Use them to inspect what a bundle declares, not to
+conclude that anything is gated on them.
 
 This is deliberate — an action-name gate is a claim a non-engineer can verify
 by reading the YAML — but it is easy to over-read a repository this size, so it
