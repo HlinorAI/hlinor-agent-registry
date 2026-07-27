@@ -355,3 +355,36 @@ def test_permissive_allowance_reaches_the_audit_event(tmp_path: Path) -> None:
 
     assert event["result"] == "allowed"
     assert event["reason_code"] == "ALLOWED_NOT_BLOCKLISTED"
+
+
+def test_oversized_bundle_is_refused_before_parsing(tmp_path: Path) -> None:
+    """A wrong file should fail with a diagnosis, not by exhausting memory."""
+    from hlinor_registry import _limits
+
+    bundle_path = write_bundle(tmp_path, allowed_actions=["read"])
+    tiny_limit = 16
+
+    original = _limits.MAX_BUNDLE_BYTES
+    try:
+        _limits.MAX_BUNDLE_BYTES = tiny_limit
+        import hlinor_registry.policy_checker as checker_module
+
+        checker_module.MAX_BUNDLE_BYTES = tiny_limit
+        with pytest.raises(_limits.FileTooLargeError, match="above the"):
+            PolicyChecker(str(bundle_path))
+    finally:
+        _limits.MAX_BUNDLE_BYTES = original
+        import hlinor_registry.policy_checker as checker_module
+
+        checker_module.MAX_BUNDLE_BYTES = original
+
+
+def test_size_limits_are_stated_not_arbitrary() -> None:
+    """The limits should be ordered by the role of the file they guard."""
+    from hlinor_registry._limits import (
+        MAX_BUNDLE_BYTES,
+        MAX_SOURCE_BYTES,
+        MAX_TRUST_STORE_BYTES,
+    )
+
+    assert MAX_TRUST_STORE_BYTES < MAX_SOURCE_BYTES < MAX_BUNDLE_BYTES

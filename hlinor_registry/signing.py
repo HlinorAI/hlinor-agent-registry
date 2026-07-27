@@ -21,6 +21,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
+from ._limits import MAX_TRUST_STORE_BYTES, read_bytes_capped, read_text_capped
+
 logger = logging.getLogger(__name__)
 
 SIGNATURE_ALGORITHM = "Ed25519"
@@ -193,13 +195,17 @@ def load_public_key(value: str | bytes | Path) -> Ed25519PublicKey:
     does not arise.
     """
     if isinstance(value, Path):
-        key_bytes = value.resolve().read_bytes()
+        key_bytes = read_bytes_capped(
+            value.resolve(), MAX_TRUST_STORE_BYTES, "Trusted public key"
+        )
     elif isinstance(value, str) and "-----BEGIN PUBLIC KEY-----" not in value:
         if "\n" in value or "\r" in value or "\x00" in value:
             raise BundleSignatureError(
                 "Trusted public key string is neither PEM text nor a usable path"
             )
-        key_bytes = Path(value).resolve().read_bytes()
+        key_bytes = read_bytes_capped(
+            Path(value).resolve(), MAX_TRUST_STORE_BYTES, "Trusted public key"
+        )
     elif isinstance(value, str):
         key_bytes = value.encode("utf-8")
     elif isinstance(value, bytes):
@@ -387,7 +393,9 @@ def load_trust_store(path: str | Path) -> dict[str, TrustedKey]:
     if not trust_store_path.is_file():
         raise FileNotFoundError(f"Trust store not found: {trust_store_path}")
     try:
-        data = json.loads(trust_store_path.read_text(encoding="utf-8"))
+        data = json.loads(
+            read_text_capped(trust_store_path, MAX_TRUST_STORE_BYTES, "Trust store")
+        )
     except json.JSONDecodeError as exc:
         raise BundleSignatureError(f"Invalid trust store JSON: {exc}") from exc
     if not isinstance(data, dict):

@@ -21,6 +21,7 @@ class DecisionResult(str, Enum):
 import yaml
 
 from hlinor_registry import __version__
+from hlinor_registry._limits import MAX_SOURCE_BYTES, read_text_capped
 from hlinor_registry.signing import (
     BundleSignatureError,
     compute_bundle_digest,
@@ -229,9 +230,10 @@ def cmd_compile(args: argparse.Namespace) -> int:
         return _compile_error(f"Manifest file not found: {manifest_path}")
 
     try:
-        with manifest_path.open("r", encoding="utf-8") as stream:
-            manifest = yaml.safe_load(stream)
-    except (OSError, yaml.YAMLError) as exc:
+        manifest = yaml.safe_load(
+            read_text_capped(manifest_path, MAX_SOURCE_BYTES, "Manifest")
+        )
+    except (OSError, ValueError, yaml.YAMLError) as exc:
         return _compile_error(f"Unable to read manifest: {exc}")
 
     if not isinstance(manifest, dict):

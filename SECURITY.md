@@ -68,6 +68,10 @@ documented behavior creates an unexpected security bypass are still welcome.
   visible instead of silently reconciled.
 - A deployment-controlled minimum bundle revision provides an explicit
   rollback floor.
+- Parsed files are size-capped before they are read, so a truncated download or
+  a wrong path fails with a diagnosis instead of exhausting memory.
+- Runtime dependencies carry upper version bounds and GitHub Actions are pinned
+  to commit SHAs, so neither changes under the project without a decision.
 
 An unsigned bundle digest provides integrity checking, not authentication. A
 party that can replace an unsigned bundle can also recompute its digest.
@@ -106,6 +110,11 @@ implemented.
   allow and block lists, so the `matched_policy_ids` field on a decision and its
   audit event is reserved and always empty. Treat it as absent rather than as
   evidence that no declared policy applied.
+- YAML alias expansion is not bounded. Size limits cap the input, but a small
+  file with nested anchors can still expand disproportionately. Policy sources
+  are named explicitly in a manifest the deployment controls, so this is a
+  self-inflicted denial of service rather than an attack path; compile in an
+  environment where that is acceptable.
 - LangChain and CrewAI compatibility is limited to the versions listed in the
   [integration compatibility matrix](docs/integration-compatibility.md) and may
   require application-specific integration testing.

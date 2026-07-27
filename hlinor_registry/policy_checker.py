@@ -10,6 +10,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
+from ._limits import MAX_BUNDLE_BYTES, read_text_capped
 from .action_request import ActionRequest
 from .decision import PolicyDecision
 from .enums import ReasonCode
@@ -127,8 +128,9 @@ class PolicyChecker:
             )
 
         try:
-            with self.bundle_path.open("r", encoding="utf-8") as stream:
-                bundle = json.load(stream)
+            bundle = json.loads(
+                read_text_capped(self.bundle_path, MAX_BUNDLE_BYTES, "Policy bundle")
+            )
         except json.JSONDecodeError as exc:
             raise ValueError(f"Invalid JSON in policy bundle: {exc}") from exc
 

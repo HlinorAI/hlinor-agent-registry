@@ -2,6 +2,8 @@ from pathlib import Path
 
 import yaml
 
+from ._limits import MAX_SOURCE_BYTES, read_text_capped
+
 REQUIRED_EXECUTION_CONTEXT_FIELDS = [
     "context_id",
     "context_type",
@@ -159,8 +161,7 @@ def load_yaml(path: str | Path) -> dict:
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
 
-    with path.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    data = yaml.safe_load(read_text_capped(path, MAX_SOURCE_BYTES, "Policy source"))
 
     if not isinstance(data, dict):
         raise TypeError("YAML root must be an object")
