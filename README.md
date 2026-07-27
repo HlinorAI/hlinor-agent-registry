@@ -210,8 +210,11 @@ if decision.denied:
 
 This gives security reviews a concrete answer to the question: “What can this agent do?”
 
-### Enforce API budgets and rate limits
-Declare budget and rate-limit policies next to the agent's permitted actions. Adapters or preflight checks can evaluate these policies before a costly call:
+### Declare API budgets and rate limits for review
+Budget and rate-limit policies sit next to the agent's permitted actions, so a
+reviewer sees them together. **`PolicyChecker` does not enforce them** — see
+[What is enforced at runtime](#what-is-enforced-at-runtime) below. Your adapter
+or preflight check reads them and decides:
 
 ```yaml
 id: web-research-agent
@@ -231,6 +234,42 @@ metadata:
 ```
 
 The registry makes the constraint visible, versionable, and reviewable instead of burying it inside one agent implementation.
+
+---
+
+## ⚖️ What is enforced at runtime
+
+The repository ships 22 schemas and a set of governance patterns. Most of them
+are **authoring contracts**: they are validated when you compile, and they give
+reviewers a shared vocabulary. They are not evaluated when an agent asks to do
+something. Read this table before you rely on any of it.
+
+| Concern | Validated at compile time | Enforced by `PolicyChecker` |
+| :--- | :---: | :---: |
+| Action allow list and block list | yes | **yes** |
+| Unknown agent, unknown action | yes | **yes** |
+| Bundle integrity, signature, issuer, validity window | yes | **yes** |
+| Rollback floor (`minimum_bundle_revision`) | — | **yes** |
+| Enforcement mode (`strict` / `permissive`) | yes | **yes** |
+| Budgets and rate limits | yes | no |
+| Approval levels and human-in-the-loop | yes | no |
+| Resource scopes and protected resources | yes | no |
+| Evidence binding and claim freshness | yes | no |
+| Circuit breakers and failure thresholds | yes | no |
+| Execution context and capability verification | yes | no |
+| Lifecycle modes and transition gates | yes | no |
+| Named `policies:` on an agent | yes | no |
+
+`PolicyChecker.evaluate()` answers exactly one question: *may this agent
+perform an action with this name, according to the compiled allow and block
+lists of a bundle whose integrity and signature check out?* Everything in the
+"no" column is a contract your own code, a preflight step, or a human review
+has to act on.
+
+This is deliberate — an action-name gate is a claim a non-engineer can verify
+by reading the YAML — but it is easy to over-read a repository this size, so it
+is stated rather than implied. Progress toward enforcing more of the table is
+tracked in [Known Limitations](SECURITY.md#known-limitations).
 
 ---
 
