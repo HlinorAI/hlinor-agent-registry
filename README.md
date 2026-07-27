@@ -82,9 +82,17 @@ request = ActionRequest(
 decision = PolicyChecker("bundle.json").evaluate(request)
 ```
 
-Unsigned bundles are accepted automatically only when their manifest declares
-`development`, `test`, or `local`. Production deployments should use signed
-bundles and set `signature_policy="required"` independently of bundle metadata.
+**Configure trust roots and signatures become mandatory.** Passing
+`trust_store` or `trusted_keys` upgrades the default `signature_policy="auto"`
+to `"required"`. Without that, whether a signature was required would come from
+`metadata.environment` inside the bundle being verified — so anyone able to
+rewrite the deployed file could strip the signature, declare the bundle a
+development build, and disable authentication.
+
+With no trust roots configured there is nothing to verify against, and unsigned
+bundles are accepted only when the manifest declares `development`, `test`, or
+`local`. `signature_policy="optional"` remains an explicit override for
+controlled migration.
 
 ### Sign production bundles
 
@@ -180,6 +188,11 @@ decision = checker.check_action("financial-audit-agent", "send_external_email")
 assert decision.denied
 # decision.reason_code: ACTION_BLOCKLISTED
 ```
+
+Block-list matching ignores case, so no spelling of a blocked name gets
+through. Allow-list matching is exact, so an approval is never extended to a
+spelling that was not literally approved. Both directions resolve toward
+denial, and authoring validation rejects action names that differ only by case.
 
 The `policies` list on an agent is declarative context for reviewers. It is not
 evaluated by `PolicyChecker`, so `decision.matched_policy_ids` is reserved and

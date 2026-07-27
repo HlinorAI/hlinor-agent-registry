@@ -1,0 +1,11 @@
+# Language statistics.
+#
+# index.html is the landing page, not part of the distributed package, and
+# roughly half its bytes are vendored Tailwind and Prism inlined to keep the
+# page free of third-party CDN requests. Counting it as source made the project
+# read as one-sixth HTML, which describes the repository rather than the thing
+# it ships.
+index.html linguist-documentation
+
+# The vendored blocks inside that page are third-party code, not ours.
+index.html linguist-vendored
