@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Action list entries may be patterns, so a permission can name the resources
+  it covers.** An entry is matched against `action:resource`, built from
+  `ActionRequest.resource`, and `*` and `?` are the whole vocabulary:
+  `read:report:quarterly/*` permits reads of quarterly reports and nothing
+  else. Before this, `PolicyChecker` compared action names and ignored
+  `resource` entirely, so "may read reports" and "may read *these* reports"
+  were the same statement.
+- `PolicyDecision.matched_pattern` and the corresponding audit field name the
+  entry that produced the decision, so a record can say *denied by
+  `send:email:external:*`* instead of *denied*. Computed from the comparison
+  that was made, unlike the reserved `matched_policy_ids`.
+- `hlinor-registry lint` reports allow patterns that reach past their apparent
+  scope. `*` crosses `:`, so `send:email:*` covers `send:email:external:someone`
+  and is held in bounds only by the block list; deleting that block entry
+  widens the agent with no visible change to the allow list. Reported as a note
+  rather than a warning, because with no negation in the syntax this is the
+  only way to write that intent, and `lint` still exits 0.
+- `hlinor-registry lint` warns — and fails — when `allowed_actions` contains
+  `*`, which is permissive enforcement written in the allow list.
+
+### Changed
+
+- Authoring validation no longer rejects `*` and `?` in action names. Anything
+  outside the supported syntax — `**`, character classes, alternation,
+  negation — is still rejected, now with a message naming the construct and
+  what to use instead.
+
+### Compatibility
+
+Additive. An entry with no wildcard is an exact match, so every action list
+written before this release decides exactly as it did, including the rule that
+a bare `read` does not match a request that names a resource. Callers that
+never set `ActionRequest.resource` see no change at all.
+
 ## [0.7.0] - 2026-07-27
 
 Follow-up to the 0.6.0 review, acting on a second external code review that

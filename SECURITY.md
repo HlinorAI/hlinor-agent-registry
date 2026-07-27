@@ -77,7 +77,8 @@ An unsigned bundle digest provides integrity checking, not authentication. A
 party that can replace an unsigned bundle can also recompute its digest.
 Version 0.5 adds Ed25519 bundle authentication, but trust store distribution,
 private-key protection, and rollback-floor state remain deployment
-responsibilities. Resource-aware and argument-aware authorization are not yet
+responsibilities. Action patterns give resource-aware authorization when the
+caller supplies `ActionRequest.resource`; argument-aware authorization is not
 implemented.
 
 ## Production Hardening
@@ -103,9 +104,20 @@ implemented.
   stateless verifier cannot detect rollback by itself.
 - Trust-store distribution, key revocation rollout, and private-key custody are
   deployment responsibilities.
-- The runtime checker is an action-name gate; policy schemas describing budget,
-  rate, resource, evidence, or approval controls are not automatically enforced
-  by `PolicyChecker`.
+- The runtime checker is a name-and-pattern gate over the action and the
+  resource string the caller supplies. Policy schemas describing budget, rate,
+  evidence, or approval controls are not automatically enforced by
+  `PolicyChecker`.
+- A resource-scoped decision is only as good as the resource string the caller
+  passes. `PolicyChecker` cannot verify that `report:quarterly/q1` is the file
+  the tool actually opened; the adapter that builds the `ActionRequest` owns
+  that correspondence. Derive the resource from the same value the tool will
+  use, not from a parallel one.
+- `*` in a pattern crosses the `:` separator, so `send:email:*` also covers
+  `send:email:external:someone`. `hlinor-registry lint` warns when an allow
+  pattern covers a block pattern beside it, but the warning is advisory:
+  nothing prevents compiling a bundle whose allow list is broader than its
+  author intended.
 - Policy attribution is not implemented. Decisions are produced by the compiled
   allow and block lists, so the `matched_policy_ids` field on a decision and its
   audit event is reserved and always empty. Treat it as absent rather than as

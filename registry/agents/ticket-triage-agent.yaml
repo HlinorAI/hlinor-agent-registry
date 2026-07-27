@@ -18,10 +18,24 @@ validators:
 policies:
   - no-customer-pii-in-logs
 
+# The first three entries have no wildcard, so they are exact matches: they
+# permit the action with no resource named, and nothing more.
+#
+# The fourth is a pattern, matched against "action:resource". It scopes
+# attachment reads to the support queue, so a request for
+# read_attachment on queue/security/9/report.pdf is refused by the allow list
+# itself -- ACTION_NOT_ALLOWLISTED, with no block entry involved.
+#
+# Note what is deliberately absent: a block entry of the form
+# read_attachment:*secrets/*. Because '*' crosses ':', that block would
+# overlap this allow pattern, and `hlinor-registry lint` would say so. A
+# policy whose safety depends on remembering to keep a line in a second list
+# is weaker than one whose allow pattern is narrow enough not to need it.
 allowed_actions:
   - read_ticket
   - classify_ticket
   - set_priority
+  - read_attachment:queue/support/*
 
 # Blocked wins over allowed, and matching ignores case, so no spelling of a
 # name listed here gets through.

@@ -198,6 +198,86 @@ The `policies` list on an agent is declarative context for reviewers. It is not
 evaluated by `PolicyChecker`, so `decision.matched_policy_ids` is reserved and
 currently always empty. See [Known Limitations](SECURITY.md#known-limitations).
 
+### Scope an action to the resources it may touch
+
+An action list entry may be a glob over a colon-separated key. The key is the
+action alone when a request names no resource, and `action:resource` when it
+does:
+
+```yaml
+allowed_actions:
+  - read:report:quarterly/*
+  - classify:ticket:*
+blocked_actions:
+  - read:report:quarterly/secret*
+```
+
+```python
+from hlinor_registry import ActionRequest, PolicyChecker
+
+checker = PolicyChecker("bundle.json")
+
+decision = checker.evaluate(
+    ActionRequest(
+        agent_id="report-agent",
+        action="read",
+        resource="report:quarterly/q1",
+    )
+)
+assert decision.allowed
+assert decision.matched_pattern == "read:report:quarterly/*"
+
+decision = checker.evaluate(
+    ActionRequest(
+        agent_id="report-agent",
+        action="read",
+        resource="report:quarterly/secret-q1",
+    )
+)
+assert decision.denied  # ACTION_BLOCKLISTED
+assert decision.matched_pattern == "read:report:quarterly/secret*"
+```
+
+`decision.matched_pattern` names the entry that produced the decision. Unlike
+`matched_policy_ids` it is computed from the comparison that was actually made,
+so an audit record can say *denied by `read:report:quarterly/secret*`* rather
+than just *denied*.
+
+**The syntax is deliberately tiny.** `*` and `?` are the whole vocabulary.
+There is no `**`, no character class, no alternation, no regular expression and
+no negation; `hlinor-registry validate` rejects all of them with a message
+saying what to use instead. If a decision needs a condition rather than a name,
+that belongs in a policy object, not in a pattern.
+
+Two properties are worth knowing before you write one:
+
+- **An entry with no wildcard is an exact match.** `read` matches the action
+  `read` with no resource, and does *not* match `read:report:quarterly`. Every
+  action list written before patterns existed decides exactly as it did.
+- **`*` crosses `:`.** `send:email:*` therefore also matches
+  `send:email:external:someone`. A broad allow pattern grants more than its
+  shape suggests, and only the block list narrows it. `hlinor-registry lint`
+  says so whenever an allow pattern and a block pattern can match the same
+  request key — decided exactly, not by comparing prefixes — because deleting
+  that block entry would silently widen the agent:
+
+```
+Notes for agent.yaml:
+  - 'send:email:*' also covers 'send:email:external:*'; the wildcard crosses
+    ':' and only 'blocked_actions' narrows it. Removing the block entry would
+    widen what this agent may do.
+```
+
+  This is a note, not a failure: `lint` still exits 0. The syntax has no
+  negation, so "everything under this prefix except that" can only be written
+  as a broad allow plus a block, and rejecting the only available spelling of
+  a common intent would just teach people to skip the linter. Warnings — which
+  do fail — are reserved for a file that says one thing and does another, such
+  as `allowed_actions: ["*"]` under `enforcement_mode: strict`.
+
+Block-list matching still ignores case and allow-list matching is still exact,
+in both directions resolving toward denial.
+
 ### Block unauthorized actions
 Use a strict allowlist for agents that should only perform a narrow set of operations. Everything outside the list is denied by `PolicyChecker`:
 
@@ -247,13 +327,14 @@ something. Read this table before you rely on any of it.
 | Concern | Validated at compile time | Enforced by `PolicyChecker` |
 | :--- | :---: | :---: |
 | Action allow list and block list | yes | **yes** |
+| Resource scope via action patterns (`read:report:*`) | yes | **yes** |
 | Unknown agent, unknown action | yes | **yes** |
 | Bundle integrity, signature, issuer, validity window | yes | **yes** |
 | Rollback floor (`minimum_bundle_revision`) | — | **yes** |
 | Enforcement mode (`strict` / `permissive`) | yes | **yes** |
 | Budgets and rate limits | yes | no |
 | Approval levels and human-in-the-loop | yes | no |
-| Resource scopes and protected resources | yes | no |
+| `protected-resource-boundary` schema | yes | no |
 | Evidence binding and claim freshness | yes | no |
 | Circuit breakers and failure thresholds | yes | no |
 | Execution context and capability verification | yes | no |
