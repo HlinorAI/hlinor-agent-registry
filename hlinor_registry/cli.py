@@ -16,6 +16,7 @@ import yaml
 from hlinor_registry import __version__
 from hlinor_registry._limits import MAX_SOURCE_BYTES, read_text_capped
 from hlinor_registry._matching import overlapping_allow_patterns
+from hlinor_registry.action_request import ActionRequest
 from hlinor_registry.policies import POLICY_KINDS
 from hlinor_registry.signing import (
     BundleSignatureError,
@@ -555,7 +556,12 @@ def cmd_check(args) -> int:
     except (OSError, ValueError, TypeError) as error:
         return _runtime_error(f"Failed to load bundle: {_compact_error(error)}")
 
-    decision = checker.check_action(args.agent, args.action)
+    try:
+        request = _build_request(args, checker.environment)
+    except (ValueError, TypeError) as error:
+        return _runtime_error(_compact_error(error))
+
+    decision = checker.evaluate(request)
     output_format = getattr(args, "format", "text")
     event = checker.audit_event(decision)
 
@@ -597,7 +603,12 @@ def cmd_explain(args) -> int:
     except (OSError, ValueError, TypeError) as error:
         return _runtime_error(f"Failed to load bundle: {_compact_error(error)}")
 
-    decision = checker.check_action(args.agent, args.action)
+    try:
+        request = _build_request(args, checker.environment)
+    except (ValueError, TypeError) as error:
+        return _runtime_error(_compact_error(error))
+
+    decision = checker.evaluate(request)
     output_format = getattr(args, "format", "text")
     event = checker.audit_event(decision)
     event["explanation"] = (
@@ -841,6 +852,59 @@ def cmd_lint(args) -> int:
     return 0
 
 
+def _add_request_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the request fields a decision can turn on.
+
+    Without these the CLI can only ask about a bare action name, so an agent
+    whose allow list scopes an action to a resource, or whose policies demand
+    an approval, cannot be exercised from the terminal at all -- the one place
+    a reviewer is most likely to check what a bundle actually does.
+    """
+    parser.add_argument(
+        "--resource",
+        help="Resource the action targets; matched as 'action:resource'",
+    )
+    parser.add_argument(
+        "--signals-file",
+        help=(
+            "Path to a JSON object supplying policy signals "
+            "(approval, evidence, failure_counts)"
+        ),
+    )
+
+
+def _build_request(args: argparse.Namespace, environment: str) -> ActionRequest:
+    """Build the request a decision command evaluates.
+
+    Raises ValueError with a message fit for the terminal; the caller turns
+    that into EXIT_ERROR rather than a denial, because a malformed signals
+    file means no decision was reached, not that the action is refused.
+    """
+    signals: dict[str, Any] = {}
+    signals_file = getattr(args, "signals_file", None)
+    if signals_file:
+        path = Path(signals_file).resolve()
+        if not path.is_file():
+            raise ValueError(f"Signals file not found: {path}")
+        try:
+            loaded = json.loads(read_text_capped(path, MAX_SOURCE_BYTES, "Signals"))
+        except (OSError, ValueError) as error:
+            raise ValueError(
+                f"Unable to read signals file: {_compact_error(error)}"
+            ) from error
+        if not isinstance(loaded, dict):
+            raise ValueError("Signals file must contain a JSON object")
+        signals = loaded
+
+    return ActionRequest(
+        agent_id=args.agent,
+        action=args.action,
+        resource=getattr(args, "resource", None),
+        signals=signals,
+        environment=environment,
+    )
+
+
 def _add_trust_arguments(parser: argparse.ArgumentParser) -> None:
     """Add shared runtime bundle trust options to a CLI parser."""
     parser.add_argument(
@@ -913,6 +977,7 @@ def main(argv: list[str] | None = None) -> int:
         "--audit-log",
         help="Append a provenance-aware JSONL decision event to this file",
     )
+    _add_request_arguments(explain_parser)
     _add_trust_arguments(explain_parser)
 
     # Register init command
@@ -937,6 +1002,7 @@ def main(argv: list[str] | None = None) -> int:
         "--audit-log",
         help="Append a provenance-aware JSONL decision event to this file",
     )
+    _add_request_arguments(check_parser)
     _add_trust_arguments(check_parser)
 
     verify_bundle_parser = subparsers.add_parser(

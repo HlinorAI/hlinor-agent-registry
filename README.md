@@ -50,6 +50,19 @@ hlinor-registry check --bundle bundle.json --agent my-agent --action read_databa
 hlinor-registry check --bundle bundle.json --agent my-agent --action send_external_email
 ```
 
+`--resource` and `--signals-file` reach the parts of a bundle a bare action
+name cannot, so an agent whose permission is scoped to a resource or gated
+behind a policy can be exercised from the terminal:
+
+```bash
+hlinor-registry check --bundle bundle.json \
+  --agent refund-agent --action refund_payment --resource ticket/1234 \
+  --signals-file approval.json
+```
+
+Exit codes are `0` allowed, `1` denied, `2` no decision reached — an unreadable
+bundle or an unusable signals file is the third, never the second.
+
 For an auditable machine-readable decision, emit JSONL and optionally append
 the same provenance-aware event to a durable log file:
 

@@ -44,6 +44,11 @@ could verify afterwards.
 - `hlinor-registry check` prints the policy detail on a denial, so an action
   that needs an approval nobody attached is distinguishable from one that is
   simply forbidden.
+- `hlinor-registry check` and `explain` accept `--resource` and
+  `--signals-file`. Without them the CLI could only ask about a bare action
+  name, so an agent whose permission is scoped or policy-gated could not be
+  exercised from the terminal at all -- and would be reported as
+  `ACTION_NOT_ALLOWLISTED` for an action it is in fact permitted to perform.
 - **Action list entries may be patterns, so a permission can name the resources
   it covers.** An entry is matched against `action:resource`, built from
   `ActionRequest.resource`, and `*` and `?` are the whole vocabulary:

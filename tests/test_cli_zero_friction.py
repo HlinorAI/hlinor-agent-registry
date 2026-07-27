@@ -527,3 +527,153 @@ def test_lint_does_not_flag_an_identical_entry_on_both_lists_as_overlap(
     assert "both allowed and blocked lists" in output
     assert "only 'blocked_actions' narrows it" not in output
     assert "Notes for" not in output
+
+
+def _decision_bundle(tmp_path: Path) -> Path:
+    """Compile an agent whose permission is scoped and policy-gated."""
+    from tests.test_policy_checker import approval_policy, write_bundle
+
+    return write_bundle(
+        tmp_path,
+        allowed_actions=["send:email:external:*"],
+        policies=["needs-approval"],
+        policy_files=[approval_policy()],
+    )
+
+
+def test_check_can_exercise_a_resource_scoped_permission(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """Without --resource the CLI cannot reach a scoped allow list at all.
+
+    It would report ACTION_NOT_ALLOWLISTED for an action the agent is in fact
+    permitted to perform, which is the wrong answer to give a reviewer
+    checking what a bundle does.
+    """
+    bundle = _decision_bundle(tmp_path)
+    args = [
+        "check",
+        "--bundle",
+        str(bundle),
+        "--agent",
+        "test-agent",
+        "--action",
+        "send",
+        "--resource",
+        "email:external:bob",
+    ]
+
+    assert main(args) == 1
+    assert "POLICY_SIGNAL_MISSING" in capsys.readouterr().out
+
+
+def test_check_reports_which_policy_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """A denial needing an approval must not look like a forbidden action."""
+    bundle = _decision_bundle(tmp_path)
+    main(
+        [
+            "check",
+            "--bundle",
+            str(bundle),
+            "--agent",
+            "test-agent",
+            "--action",
+            "send",
+            "--resource",
+            "email:external:bob",
+        ]
+    )
+    output = capsys.readouterr().out
+    assert "Policy: policy 'needs-approval'" in output
+
+
+def test_check_accepts_signals_and_allows_a_satisfied_request(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    bundle = _decision_bundle(tmp_path)
+    signals_path = tmp_path / "signals.json"
+    signals_path.write_text(
+        json.dumps(
+            {
+                "approval": {
+                    "approver_role": "security-lead",
+                    "granted_for": "send:email:external:*",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "check",
+            "--bundle",
+            str(bundle),
+            "--agent",
+            "test-agent",
+            "--action",
+            "send",
+            "--resource",
+            "email:external:bob",
+            "--signals-file",
+            str(signals_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert "[ALLOWED]" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("content", ["not json", '"a string"', "[1, 2]"])
+def test_an_unusable_signals_file_is_an_error_not_a_denial(
+    tmp_path: Path, content: str
+) -> None:
+    """Exit 2, not 1.
+
+    A caller that cannot tell "no decision was reached" from "the action is
+    refused" reads a broken invocation as working governance.
+    """
+    bundle = _decision_bundle(tmp_path)
+    signals_path = tmp_path / "signals.json"
+    signals_path.write_text(content, encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "check",
+                "--bundle",
+                str(bundle),
+                "--agent",
+                "test-agent",
+                "--action",
+                "send",
+                "--resource",
+                "email:external:bob",
+                "--signals-file",
+                str(signals_path),
+            ]
+        )
+        == 2
+    )
+
+
+def test_a_missing_signals_file_is_an_error_not_a_denial(tmp_path: Path) -> None:
+    bundle = _decision_bundle(tmp_path)
+    assert (
+        main(
+            [
+                "check",
+                "--bundle",
+                str(bundle),
+                "--agent",
+                "test-agent",
+                "--action",
+                "send",
+                "--signals-file",
+                str(tmp_path / "absent.json"),
+            ]
+        )
+        == 2
+    )
