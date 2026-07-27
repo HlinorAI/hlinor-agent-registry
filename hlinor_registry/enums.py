@@ -37,6 +37,14 @@ class ReasonCode(str, Enum):
     ACTION_BLOCKLISTED = "ACTION_BLOCKLISTED"
     ACTION_NOT_ALLOWLISTED = "ACTION_NOT_ALLOWLISTED"
     UNKNOWN_AGENT = "UNKNOWN_AGENT"
+    #: A policy applied to the action and the request did not carry the signal
+    #: the policy needs. Distinct from the codes below, which mean the signal
+    #: arrived and did not satisfy the rule: "nobody reported this" and "this
+    #: was reported and it fails" call for different follow-up.
+    POLICY_SIGNAL_MISSING = "POLICY_SIGNAL_MISSING"
+    APPROVAL_REQUIRED = "APPROVAL_REQUIRED"
+    EVIDENCE_REQUIRED = "EVIDENCE_REQUIRED"
+    FAILURE_THRESHOLD_REACHED = "FAILURE_THRESHOLD_REACHED"
     BUNDLE_INTEGRITY_FAILED = "BUNDLE_INTEGRITY_FAILED"
     SIGNATURE_INVALID = "SIGNATURE_INVALID"
     POLICY_EVALUATION_ERROR = "POLICY_EVALUATION_ERROR"

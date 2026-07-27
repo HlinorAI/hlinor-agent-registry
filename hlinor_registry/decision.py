@@ -44,7 +44,12 @@ class PolicyDecision:
     #: matched. "Denied by send:email:external:*" is reviewable; "denied" is
     #: not. Unlike matched_policy_ids this is computed, not guessed.
     matched_pattern: str | None = None
+    #: Typed policies whose trigger matched this request, in declaration
+    #: order. On a denial the refusing policy is the last one listed.
     matched_policy_ids: tuple[str, ...] = ()
+    #: Human-readable reason a policy refused, naming the policy and what was
+    #: missing. Empty on allowances and on denials that no policy produced.
+    policy_detail: str = ""
     enforcement_mode: str = "strict"
     environment: str | None = None
     actor_id: str | None = None

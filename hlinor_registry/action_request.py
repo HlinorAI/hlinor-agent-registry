@@ -56,6 +56,11 @@ class ActionRequest:
     resource: str | None = None
     arguments_digest: str | None = None
     attributes: Mapping[str, Any] = field(default_factory=dict)
+    #: Material the caller supplies to discharge obligations that typed
+    #: policies impose: an approval, evidence claims, a failure count. Read
+    #: only by policy handlers, and asserted by the caller rather than
+    #: verified by the checker -- see hlinor_registry.policies.
+    signals: Mapping[str, Any] = field(default_factory=dict)
     approval_id: str | None = None
     session_id: str | None = None
     tenant_id: str | None = None
@@ -95,6 +100,7 @@ class ActionRequest:
                 )
 
         object.__setattr__(self, "attributes", _freeze_json(self.attributes))
+        object.__setattr__(self, "signals", _freeze_json(self.signals))
 
     def to_dict(self) -> dict[str, Any]:
         """Return the stable JSON-compatible representation used for hashing."""
@@ -107,6 +113,7 @@ class ActionRequest:
             "resource": self.resource,
             "arguments_digest": self.arguments_digest,
             "attributes": _thaw_json(self.attributes),
+            "signals": _thaw_json(self.signals),
             "approval_id": self.approval_id,
             "session_id": self.session_id,
             "tenant_id": self.tenant_id,
