@@ -1,0 +1,23 @@
+# A skill describes a capability an agent may use, and what it needs to do so.
+id: classify-ticket
+name: Classify Ticket
+description: >-
+  Assign one category and one priority to a support ticket, based only on the
+  text of the ticket itself.
+
+inputs:
+  - name: ticket_text
+    type: string
+    required: true
+  - name: ticket_id
+    type: string
+    required: true
+
+outputs:
+  - name: category
+    type: string
+  - name: priority
+    type: string
+
+required_permissions:
+  - read_ticket

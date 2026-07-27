@@ -1,0 +1,16 @@
+# A department groups agents that share policies and validators.
+# Everything here is generic and safe to copy.
+id: support
+name: Customer Support
+description: >-
+  Agents that read and classify inbound customer tickets. The department owns
+  the controls every agent in it inherits, so a reviewer reads them once.
+
+agents:
+  - ticket-triage-agent
+
+shared_policies:
+  - no-customer-pii-in-logs
+
+shared_validators:
+  - ticket-input-validator

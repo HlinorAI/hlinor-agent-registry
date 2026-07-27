@@ -1,0 +1,15 @@
+# A validator states the checks an input must pass before an agent acts on it.
+# The rules are declarative: this repository does not execute them.
+id: ticket-input-validator
+name: Ticket Input Validator
+description: >-
+  Checks that a ticket is well formed and small enough to process before an
+  agent reads it.
+
+rules:
+  - name: ticket_id_present
+    description: The ticket carries a non-empty identifier.
+  - name: ticket_text_within_limit
+    description: Ticket text is under 32 KB.
+  - name: no_attachments_inline
+    description: Attachments are referenced, never inlined into the text.

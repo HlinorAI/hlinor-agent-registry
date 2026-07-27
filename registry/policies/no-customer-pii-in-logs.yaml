@@ -1,0 +1,12 @@
+# A policy names a constraint and how it is meant to be enforced. Naming it
+# here makes it reviewable and versionable; it does not make PolicyChecker
+# evaluate it.
+id: no-customer-pii-in-logs
+name: No Customer PII in Logs
+description: >-
+  Customer names, email addresses and payment identifiers must not reach
+  application logs or decision records.
+
+enforcement: >-
+  Redact at the logging boundary. Agents in this department are blocked from
+  outbound actions, so the remaining exposure is what they write down.

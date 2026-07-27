@@ -436,3 +436,104 @@ def test_identical_action_in_both_lists_remains_valid(tmp_path):
     )
 
     assert validate_agent(path) == []
+
+
+REGISTRY_ENTRIES = [
+    ("registry/agents/ticket-triage-agent.yaml", validate_agent),
+    ("registry/departments/support.yaml", validate_department),
+    ("registry/skills/classify-ticket.yaml", validate_skill),
+    ("registry/validators/ticket-input-validator.yaml", validate_validator),
+    ("registry/policies/no-customer-pii-in-logs.yaml", validate_policy),
+]
+
+
+def test_registry_entries_are_valid():
+    """The entries shipped in registry/ are meant to be copied, so they must work.
+
+    They exist because five empty directories in a project called a registry
+    tell a reader nothing. Validating them here means a schema change that
+    breaks them is caught rather than shipped as a broken starting point.
+    """
+    for path, validator in REGISTRY_ENTRIES:
+        assert Path(path).is_file(), f"{path} is missing"
+        errors = validator(path)
+        assert errors == [], f"{path}: {errors}"
+
+
+def test_registry_entries_reference_each_other():
+    """The set is a worked example, not five unrelated stubs.
+
+    Every cross-reference resolves, so a reader following one entry to the next
+    does not hit a name that exists nowhere.
+    """
+    import yaml as yaml_module
+
+    def load(path):
+        return yaml_module.safe_load(Path(path).read_text(encoding="utf-8"))
+
+    agent = load("registry/agents/ticket-triage-agent.yaml")
+    department = load("registry/departments/support.yaml")
+    skill = load("registry/skills/classify-ticket.yaml")
+    validator = load("registry/validators/ticket-input-validator.yaml")
+    policy = load("registry/policies/no-customer-pii-in-logs.yaml")
+
+    assert agent["department"] == department["id"]
+    assert agent["id"] in department["agents"]
+    assert skill["id"] in agent["skills"]
+    assert validator["id"] in agent["validators"]
+    assert policy["id"] in agent["policies"]
+
+    # The department's shared controls are the ones the agent declares.
+    assert policy["id"] in department["shared_policies"]
+    assert validator["id"] in department["shared_validators"]
+
+    # A skill's required permissions should be actions the agent may perform.
+    for permission in skill["required_permissions"]:
+        assert permission in agent["allowed_actions"], (
+            f"skill requires {permission!r}, which the agent is not allowed"
+        )
+
+
+def test_registry_agent_compiles_and_enforces():
+    """An entry someone copies must survive compile and produce a decision."""
+    import tempfile
+
+    from hlinor_registry import PolicyChecker
+
+    with tempfile.TemporaryDirectory() as workspace:
+        manifest = Path(workspace) / "registry.yaml"
+        manifest.write_text(
+            "schema_version: '1.0'\n"
+            "policies:\n"
+            f"  - path: '{Path('registry/agents/ticket-triage-agent.yaml').resolve()}'\n"
+            "metadata:\n"
+            "  environment: test\n",
+            encoding="utf-8",
+        )
+        bundle = Path(workspace) / "bundle.json"
+        # Absolute source paths are rejected by design, so compile from a copy
+        # placed beside the manifest instead.
+        source = Path(workspace) / "agent.yaml"
+        source.write_text(
+            Path("registry/agents/ticket-triage-agent.yaml").read_text(
+                encoding="utf-8"
+            ),
+            encoding="utf-8",
+        )
+        manifest.write_text(
+            "schema_version: '1.0'\n"
+            "policies:\n"
+            "  - path: 'agent.yaml'\n"
+            "metadata:\n"
+            "  environment: test\n",
+            encoding="utf-8",
+        )
+        assert (
+            main(["compile", "--manifest", str(manifest), "--output", str(bundle)]) == 0
+        )
+
+        checker = PolicyChecker(str(bundle))
+        assert checker.check_action("ticket-triage-agent", "classify_ticket").allowed
+        assert checker.check_action("ticket-triage-agent", "refund_payment").denied
+        # Case variants of a blocked action are still blocked.
+        assert checker.check_action("ticket-triage-agent", "Refund_Payment").denied

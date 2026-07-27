@@ -1,0 +1,33 @@
+# One agent. The two action lists are the only part PolicyChecker enforces at
+# runtime; skills, validators and policies are declarative context a reviewer
+# reads. See "What is enforced at runtime" in the README.
+id: ticket-triage-agent
+type: agent
+name: Ticket Triage Agent
+department: support
+description: >-
+  Reads an inbound support ticket and assigns a category and priority. It never
+  replies to the customer and never touches account state.
+
+skills:
+  - classify-ticket
+
+validators:
+  - ticket-input-validator
+
+policies:
+  - no-customer-pii-in-logs
+
+allowed_actions:
+  - read_ticket
+  - classify_ticket
+  - set_priority
+
+# Blocked wins over allowed, and matching ignores case, so no spelling of a
+# name listed here gets through.
+blocked_actions:
+  - send_customer_reply
+  - refund_payment
+  - delete_ticket
+
+enforcement_mode: strict
