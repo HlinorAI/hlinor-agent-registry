@@ -62,6 +62,29 @@ VALIDATION_COMMANDS = {
     "validate-lifecycle-map": ("Lifecycle map", validate_lifecycle_map),
     "validate-lifecycle-receipt": ("Lifecycle receipt", validate_lifecycle_receipt),
     "validate-lifecycle-schema": ("Lifecycle schema", validate_lifecycle_schema),
+    "validate": ("Registry file", validate_agent),
+    "validate-execution-context": ("Execution context", validate_execution_context),
+    "validate-action-preflight": ("Action preflight", validate_action_preflight),
+    "validate-capability": (
+        "Capability verification",
+        validate_capability_verification,
+    ),
+    "validate-capability-registration": (
+        "Capability registration",
+        validate_capability_registration,
+    ),
+    "validate-protected-resource-boundary": (
+        "Protected resource boundary",
+        validate_protected_resource_boundary,
+    ),
+    "validate-evidence-claim": (
+        "Evidence claim binding",
+        validate_evidence_claim_binding,
+    ),
+    "validate-circuit-breaker": (
+        "Failure circuit breaker",
+        validate_failure_circuit_breaker,
+    ),
 }
 
 
@@ -808,13 +831,9 @@ def main(argv: list[str] | None = None) -> int:
         help="Append a provenance-aware JSONL decision event to this file",
     )
     _add_trust_arguments(explain_parser)
-    explain_parser.set_defaults(func=cmd_explain)
 
     # Register init command
-    init_parser = subparsers.add_parser(
-        "init", help="Generate template registry and agent files"
-    )
-    init_parser.set_defaults(func=cmd_init)
+    subparsers.add_parser("init", help="Generate template registry and agent files")
 
     # Register check command
     check_parser = subparsers.add_parser(
@@ -836,7 +855,6 @@ def main(argv: list[str] | None = None) -> int:
         help="Append a provenance-aware JSONL decision event to this file",
     )
     _add_trust_arguments(check_parser)
-    check_parser.set_defaults(func=cmd_check)
 
     verify_bundle_parser = subparsers.add_parser(
         "verify-bundle",
@@ -854,7 +872,6 @@ def main(argv: list[str] | None = None) -> int:
         help="Output format",
     )
     _add_trust_arguments(verify_bundle_parser)
-    verify_bundle_parser.set_defaults(func=cmd_verify_bundle)
 
     # Register validation commands
     validate_parser = subparsers.add_parser(
@@ -979,140 +996,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "compile":
         return cmd_compile(args)
 
-    if args.command == "validate":
-        try:
-            errors = validate_agent(args.path)
-        except (FileNotFoundError, TypeError, ValueError, yaml.YAMLError) as exc:
-            print(f"Invalid registry file: {exc}")
-            return 1
-
-        if errors:
-            print("Invalid registry file:")
-            for error in errors:
-                print(f"- {error}")
-            return 1
-
-        print("Registry file is valid.")
-        return 0
-
     if args.command in VALIDATION_COMMANDS:
         label, validator = VALIDATION_COMMANDS[args.command]
         return _run_validation(label, validator, args.path)
 
     if args.command == "inspect":
         return _inspect(args.path)
-
-    if args.command == "validate-execution-context":
-        try:
-            errors = validate_execution_context(args.path)
-        except (FileNotFoundError, TypeError, ValueError) as exc:
-            print(f"Invalid execution context: {exc}")
-            return 1
-
-        if errors:
-            print("Invalid execution context:")
-            for error in errors:
-                print(f"- {error}")
-            return 1
-
-        print("Execution context is valid.")
-        return 0
-
-    if args.command == "validate-action-preflight":
-        try:
-            errors = validate_action_preflight(args.path)
-        except (FileNotFoundError, TypeError, ValueError) as exc:
-            print(f"Invalid action preflight: {exc}")
-            return 1
-
-        if errors:
-            print("Invalid action preflight:")
-            for error in errors:
-                print(f"- {error}")
-            return 1
-
-        print("Action preflight is valid.")
-        return 0
-
-    if args.command == "validate-capability":
-        try:
-            errors = validate_capability_verification(args.path)
-        except (FileNotFoundError, TypeError, ValueError) as exc:
-            print(f"Invalid capability verification: {exc}")
-            return 1
-
-        if errors:
-            print("Invalid capability verification:")
-            for error in errors:
-                print(f"- {error}")
-            return 1
-
-        print("Capability verification is valid.")
-        return 0
-
-    if args.command == "validate-capability-registration":
-        try:
-            errors = validate_capability_registration(args.path)
-        except (FileNotFoundError, TypeError, ValueError) as exc:
-            print(f"Invalid capability registration: {exc}")
-            return 1
-
-        if errors:
-            print("Invalid capability registration:")
-            for error in errors:
-                print(f"- {error}")
-            return 1
-
-        print("Capability registration is valid.")
-        return 0
-
-    if args.command == "validate-protected-resource-boundary":
-        try:
-            errors = validate_protected_resource_boundary(args.path)
-        except (FileNotFoundError, TypeError, ValueError) as exc:
-            print(f"Invalid protected resource boundary: {exc}")
-            return 1
-
-        if errors:
-            print("Invalid protected resource boundary:")
-            for error in errors:
-                print(f"- {error}")
-            return 1
-
-        print("Protected resource boundary is valid.")
-        return 0
-
-    if args.command == "validate-evidence-claim":
-        try:
-            errors = validate_evidence_claim_binding(args.path)
-        except (FileNotFoundError, TypeError, ValueError) as exc:
-            print(f"Invalid evidence claim binding: {exc}")
-            return 1
-
-        if errors:
-            print("Invalid evidence claim binding:")
-            for error in errors:
-                print(f"- {error}")
-            return 1
-
-        print("Evidence claim binding is valid.")
-        return 0
-
-    if args.command == "validate-circuit-breaker":
-        try:
-            errors = validate_failure_circuit_breaker(args.path)
-        except (FileNotFoundError, TypeError, ValueError) as exc:
-            print(f"Invalid failure circuit breaker: {exc}")
-            return 1
-
-        if errors:
-            print("Invalid failure circuit breaker:")
-            for error in errors:
-                print(f"- {error}")
-            return 1
-
-        print("Failure circuit breaker is valid.")
-        return 0
 
     return 1
 

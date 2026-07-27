@@ -348,3 +348,36 @@ def test_unwritable_audit_log_is_an_error_not_a_denial(compiled_bundle: Path):
     )
 
     assert cmd_check(args) == EXIT_ERROR
+
+
+def test_every_validation_subcommand_is_dispatched(capsys: pytest.CaptureFixture):
+    """The parser and the dispatch table must not drift apart.
+
+    Validation commands used to be registered in two places: a table and a
+    hand-written if-chain that repeated the same try/except/print block nine
+    times. A command present in one and missing from the other failed silently
+    by falling through to a bare `return 1`.
+    """
+    from hlinor_registry.cli import VALIDATION_COMMANDS, main
+
+    for command in VALIDATION_COMMANDS:
+        exit_code = main([command, "definitely-not-a-real-path.yaml"])
+        captured = capsys.readouterr()
+        assert exit_code == 1, f"{command} did not report a failure"
+        assert "not found" in (captured.out + captured.err).lower(), (
+            f"{command} produced no diagnostic: {captured.out!r} {captured.err!r}"
+        )
+
+
+def test_dispatch_has_no_unreachable_parser_defaults():
+    """argparse defaults that nothing reads are dead weight.
+
+    Four parsers set `func=` while main() dispatched on `args.command`, so the
+    attribute was never called. Two dispatch mechanisms where one is inert is
+    how a command ends up registered but unreachable.
+    """
+    from pathlib import Path
+
+    source = Path("hlinor_registry/cli.py").read_text(encoding="utf-8")
+    assert "set_defaults(func=" not in source
+    assert "args.func" not in source
