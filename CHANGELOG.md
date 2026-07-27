@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-27
+
 Follow-up to the 0.6.0 review, acting on a second external code review that
 agreed with most of it and caught two things it had missed.
+
+**One breaking change.** In permissive mode the reason code on an allowance is
+now `ALLOWED_NOT_BLOCKLISTED` rather than `EXPLICITLY_ALLOWED`. Anything
+matching reason codes as strings — a log filter, a dashboard query, an
+assertion — has to account for it. Strict mode is unaffected: there, every
+allowance is explicit and still reports `EXPLICITLY_ALLOWED`.
 
 ### Security
 
@@ -141,6 +149,8 @@ the fixes do; both are marked.
   and asserts that every extra the README tells users to install is declared.
 - `scripts/check_public_scope.py`, run by both pre-commit and CI.
 - `scripts/build_landing_assets.sh` to regenerate the vendored landing assets.
+- Working entries in `registry/`, one per contract type, cross-referencing each
+  other and validated in CI. The five directories previously held nothing.
 - README sections placing the project against content-safety tooling and
   against OPA/Cedar, replacing a comparison table that listed LangChain and
   CrewAI — the frameworks this project integrates with — as alternatives.
@@ -256,7 +266,8 @@ the fixes do; both are marked.
 Public registry release with YAML schemas, CLI validation, runtime governance
 contracts, lifecycle schemas, and audit-friendly examples.
 
-[Unreleased]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.4.1...v0.4.2
