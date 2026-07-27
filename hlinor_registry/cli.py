@@ -8,20 +8,14 @@ import json
 import os
 import sys
 import tempfile
-from enum import Enum
 from pathlib import Path
 from typing import Any, cast
-
-
-class DecisionResult(str, Enum):
-    ALLOWED = "allowed"
-    DENIED = "denied"
-
 
 import yaml
 
 from hlinor_registry import __version__
 from hlinor_registry._limits import MAX_SOURCE_BYTES, read_text_capped
+from hlinor_registry._matching import overlapping_allow_patterns
 from hlinor_registry.signing import (
     BundleSignatureError,
     compute_bundle_digest,
@@ -713,7 +707,12 @@ def cmd_lint(args) -> int:
             print(f"- {validation_error}")
         return 1
 
-    warnings = []
+    # Two severities. A warning is something to change before shipping and
+    # fails the command. A note is a true statement about the policy that its
+    # author may well have intended; it is printed and does not fail, because
+    # a linter that rejects idiomatic policies is a linter people turn off.
+    warnings: list[str] = []
+    notes: list[str] = []
     allowed = data.get("allowed_actions") or []
     blocked = data.get("blocked_actions") or []
     mode = data.get("enforcement_mode", "strict")
@@ -750,14 +749,42 @@ def cmd_lint(args) -> int:
     if len(normalized_blocked) != len(blocked):
         warnings.append("Duplicate normalized entries found in 'blocked_actions'.")
 
+    # Check 4: An allow pattern that only the block list keeps in bounds.
+    # '*' crosses ':', so the allow entry reaches further than its shape
+    # suggests. This is a note rather than a warning: the syntax has no
+    # negation, so "everything under this prefix except that" can only be
+    # written as a broad allow plus a block, and that is a policy worth
+    # describing rather than rejecting.
+    for allow_pattern, block_pattern in overlapping_allow_patterns(allowed, blocked):
+        notes.append(
+            f"'{allow_pattern}' also covers '{block_pattern}'; the wildcard "
+            f"crosses ':' and only 'blocked_actions' narrows it. Removing the "
+            f"block entry would widen what this agent may do."
+        )
+
+    # Check 5: An allowlist that allows everything is a permissive policy
+    # wearing a strict label. That is a warning, not a note: the file says
+    # one thing and does another.
+    if "*" in allowed:
+        warnings.append(
+            "'allowed_actions' contains '*', which permits every action. This is "
+            "'permissive' enforcement written in the allowlist; set "
+            "enforcement_mode instead so the intent is visible."
+        )
+
+    if notes:
+        print(f"Notes for {path}:")
+        for note in notes:
+            print(f"  - {note}")
+
     if warnings:
         print(f"Linting warnings for {path}:")
         for w in warnings:
             print(f"  ⚠️  {w}")
         return 1
-    else:
-        print(f"✅ {path} passed logical checks.")
-        return 0
+
+    print(f"✅ {path} passed logical checks.")
+    return 0
 
 
 def _add_trust_arguments(parser: argparse.ArgumentParser) -> None:

@@ -420,3 +420,110 @@ def test_help_builds_the_parser_on_any_version():
     with pytest.raises(SystemExit) as exit_info:
         main(["--help"])
     assert exit_info.value.code == 0
+
+
+def _lint_agent(tmp_path: Path, **overrides: object) -> argparse.Namespace:
+    """Write a minimal valid agent policy and return lint's arguments."""
+    config: dict[str, object] = {
+        "id": "lint-agent",
+        "type": "agent",
+        "name": "Lint Agent",
+        "department": "testing",
+        "description": "Policy used for linter tests.",
+        "skills": [],
+        "validators": [],
+        "policies": [],
+        "allowed_actions": [],
+        "blocked_actions": [],
+    }
+    config.update(overrides)
+    path = tmp_path / "lint-agent.yaml"
+    path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    return argparse.Namespace(path=str(path))
+
+
+def test_lint_notes_when_only_the_block_list_narrows_a_wildcard(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """The greedy-'*' footgun, said out loud before it ships.
+
+    'send:email:*' covers 'send:email:external:anyone' because '*' crosses
+    ':'. The policy is safe only while the block entry stays. Deleting one
+    line from blocked_actions silently widens the agent, and nothing in
+    allowed_actions hints at that.
+
+    Reported, but not as a failure. The syntax has no negation, so "all of
+    this prefix except that" can only be written this way, and a linter that
+    rejects the only available spelling of a common intent gets disabled.
+    """
+    args = _lint_agent(
+        tmp_path,
+        allowed_actions=["send:email:*"],
+        blocked_actions=["send:email:external:*"],
+    )
+
+    assert cmd_lint(args) == 0
+    output = capsys.readouterr().out
+    assert "'send:email:*' also covers 'send:email:external:*'" in output
+    assert "only 'blocked_actions' narrows it" in output
+
+
+def test_lint_still_fails_when_a_real_warning_accompanies_a_note(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """A note must not soften a warning that shares the file with it."""
+    args = _lint_agent(
+        tmp_path,
+        allowed_actions=["*", "send:email:*"],
+        blocked_actions=["send:email:external:*"],
+    )
+
+    assert cmd_lint(args) == 1
+    output = capsys.readouterr().out
+    assert "only 'blocked_actions' narrows it" in output
+    assert "permits every action" in output
+
+
+def test_lint_accepts_a_wildcard_with_nothing_blocked_beneath_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """The warning must fire on the overlap, not on wildcards as such.
+
+    A linter that complains about every '*' gets switched off, and then it
+    protects nothing.
+    """
+    args = _lint_agent(
+        tmp_path,
+        allowed_actions=["read:report:*"],
+        blocked_actions=["delete:report:*"],
+    )
+
+    assert cmd_lint(args) == 0
+    assert "passed logical checks" in capsys.readouterr().out
+
+
+def test_lint_rejects_an_allowlist_that_allows_everything(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """'*' in strict mode is permissive enforcement with a strict label."""
+    args = _lint_agent(tmp_path, allowed_actions=["*"], blocked_actions=[])
+
+    assert cmd_lint(args) == 1
+    assert "permits every action" in capsys.readouterr().out
+
+
+def test_lint_does_not_flag_an_identical_entry_on_both_lists_as_overlap(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """That case already has its own warning; two for one fact is noise."""
+    args = _lint_agent(
+        tmp_path,
+        allowed_actions=["read:report:*"],
+        blocked_actions=["read:report:*"],
+    )
+
+    assert cmd_lint(args) == 1
+    output = capsys.readouterr().out
+    assert "both allowed and blocked lists" in output
+    assert "only 'blocked_actions' narrows it" not in output
+    assert "Notes for" not in output
