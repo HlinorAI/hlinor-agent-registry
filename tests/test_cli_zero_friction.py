@@ -16,6 +16,7 @@ from hlinor_registry.cli import (
     cmd_explain,
     cmd_init,
     cmd_lint,
+    main,
 )
 
 
@@ -381,3 +382,41 @@ def test_dispatch_has_no_unreachable_parser_defaults():
     source = Path("hlinor_registry/cli.py").read_text(encoding="utf-8")
     assert "set_defaults(func=" not in source
     assert "args.func" not in source
+
+
+def test_no_subcommand_is_registered_twice():
+    """Registering a subparser name twice must fail loudly on every version.
+
+    Python 3.10 accepted a duplicate subparser silently; 3.11 raises
+    ArgumentError. Moving commands into the dispatch table while leaving their
+    old explicit add_parser calls in place produced exactly that, and it passed
+    locally on 3.10 and broke on the three newer versions in CI.
+
+    Count the names the parser actually registers rather than trusting argparse
+    to complain, so the check does not depend on the interpreter.
+    """
+    import argparse
+    from unittest.mock import patch
+
+    registered: list[str] = []
+    original = argparse._SubParsersAction.add_parser
+
+    def recording_add_parser(self, name, **kwargs):
+        registered.append(name)
+        return original(self, name, **kwargs)
+
+    with (
+        patch.object(argparse._SubParsersAction, "add_parser", recording_add_parser),
+        pytest.raises(SystemExit),
+    ):
+        main(["--help"])
+
+    duplicates = sorted({n for n in registered if registered.count(n) > 1})
+    assert not duplicates, f"subcommands registered more than once: {duplicates}"
+
+
+def test_help_builds_the_parser_on_any_version():
+    """Building the full parser must not raise. Smoke test for the above."""
+    with pytest.raises(SystemExit) as exit_info:
+        main(["--help"])
+    assert exit_info.value.code == 0

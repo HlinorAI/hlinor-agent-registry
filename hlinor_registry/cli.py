@@ -876,10 +876,6 @@ def main(argv: list[str] | None = None) -> int:
     _add_trust_arguments(verify_bundle_parser)
 
     # Register validation commands
-    validate_parser = subparsers.add_parser(
-        "validate", help="Validate an agent YAML file"
-    )
-    validate_parser.add_argument("path", help="Path to YAML file")
 
     for command in VALIDATION_COMMANDS:
         command_parser = subparsers.add_parser(command, help=f"Run {command}")
@@ -889,52 +885,6 @@ def main(argv: list[str] | None = None) -> int:
         "inspect", help="Inspect a YAML registry file"
     )
     inspect_parser.add_argument("path", help="Path to YAML file")
-
-    execution_context_parser = subparsers.add_parser(
-        "validate-execution-context",
-        help="Validate an execution context YAML file",
-    )
-    execution_context_parser.add_argument("path", help="Path to YAML file")
-
-    validate_action_preflight_parser = subparsers.add_parser(
-        "validate-action-preflight",
-        help="Validate action preflight YAML",
-    )
-    validate_action_preflight_parser.add_argument("path", help="Path to YAML file")
-
-    validate_capability_parser = subparsers.add_parser(
-        "validate-capability",
-        help="Validate capability verification YAML",
-    )
-    validate_capability_parser.add_argument("path", help="Path to YAML file")
-
-    validate_capability_registration_parser = subparsers.add_parser(
-        "validate-capability-registration",
-        help="Validate capability registration YAML",
-    )
-    validate_capability_registration_parser.add_argument(
-        "path", help="Path to YAML file"
-    )
-
-    validate_protected_resource_boundary_parser = subparsers.add_parser(
-        "validate-protected-resource-boundary",
-        help="Validate protected resource boundary YAML",
-    )
-    validate_protected_resource_boundary_parser.add_argument(
-        "path", help="Path to YAML file"
-    )
-
-    validate_evidence_claim_parser = subparsers.add_parser(
-        "validate-evidence-claim",
-        help="Validate evidence claim binding YAML",
-    )
-    validate_evidence_claim_parser.add_argument("path", help="Path to YAML file")
-
-    validate_circuit_breaker_parser = subparsers.add_parser(
-        "validate-circuit-breaker",
-        help="Validate failure circuit breaker YAML",
-    )
-    validate_circuit_breaker_parser.add_argument("path", help="Path to YAML file")
 
     # Register compile command
     compile_parser = subparsers.add_parser(
