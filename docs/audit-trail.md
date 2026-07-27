@@ -57,6 +57,20 @@ provenance from the immutable `PolicyDecision`; it does not infer the active
 bundle at serialization time. This prevents a decision made under one bundle
 from being mislabeled after a reload.
 
+Reason codes distinguish *why* an action was permitted, not only *that* it was:
+
+| Code | Meaning |
+| --- | --- |
+| `EXPLICITLY_ALLOWED` | The action is on the agent's allow list |
+| `ALLOWED_NOT_BLOCKLISTED` | Permissive mode; the policy does not mention this action at all |
+| `ACTION_BLOCKLISTED` | The action is on the block list |
+| `ACTION_NOT_ALLOWLISTED` | Strict mode; the action is not on the allow list |
+| `UNKNOWN_AGENT` | No such agent in the bundle |
+
+The first two are both allowances and must not be read as equivalent. A review
+asking "what was this agent approved to do" should count `EXPLICITLY_ALLOWED`;
+`ALLOWED_NOT_BLOCKLISTED` records that nobody decided anything about the action.
+
 `matched_policy_ids` is reserved and always empty. `PolicyChecker` is an
 action-name gate: a decision is produced by the compiled allow and block lists,
 not by evaluating the policies named on an agent. Populating the field with a

@@ -45,6 +45,10 @@ documented behavior creates an unexpected security bypass are still welcome.
   made without recomputing the digest.
 - Unknown agents and unknown actions in strict mode are denied.
 - Blocked actions take priority over allowed actions.
+- An allowance names its own basis. `EXPLICITLY_ALLOWED` means the action is on
+  the allow list. `ALLOWED_NOT_BLOCKLISTED` means permissive mode permitted an
+  action the policy never mentions. The audit record does not present the
+  second as the first.
 - Supported integrations raise a typed governance exception before executing
   the wrapped tool when a decision is denied.
 - `ActionRequest` and `PolicyDecision` bind each evaluation to canonical request

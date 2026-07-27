@@ -306,3 +306,52 @@ def test_allow_list_matching_stays_exact(tmp_path: Path) -> None:
     denied = checker.check_action("test-agent", "Read_Database")
     assert denied.denied
     assert denied.reason_code is ReasonCode.ACTION_NOT_ALLOWLISTED
+
+
+def test_permissive_allowance_is_not_reported_as_explicit(tmp_path: Path) -> None:
+    """Permissive mode must not claim an action was explicitly permitted.
+
+    Nothing in the policy mentions the action; it is allowed because the mode
+    has no opinion. Recording that as EXPLICITLY_ALLOWED puts a claim into the
+    audit record that the policy does not support, which is the same defect
+    class as fabricated policy attribution.
+    """
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["read"],
+        blocked_actions=["delete"],
+        enforcement_mode="permissive",
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    unmentioned = checker.check_action("test-agent", "something_nobody_listed")
+    assert unmentioned.allowed
+    assert unmentioned.reason_code is ReasonCode.ALLOWED_NOT_BLOCKLISTED
+
+    listed = checker.check_action("test-agent", "read")
+    assert listed.allowed
+    assert listed.reason_code is ReasonCode.EXPLICITLY_ALLOWED
+
+    blocked = checker.check_action("test-agent", "delete")
+    assert blocked.denied
+    assert blocked.reason_code is ReasonCode.ACTION_BLOCKLISTED
+
+
+def test_strict_mode_allowance_stays_explicit(tmp_path: Path) -> None:
+    """In strict mode every allowance is by definition explicit."""
+    bundle_path = write_bundle(tmp_path, allowed_actions=["read"])
+
+    decision = PolicyChecker(str(bundle_path)).check_action("test-agent", "read")
+
+    assert decision.reason_code is ReasonCode.EXPLICITLY_ALLOWED
+
+
+def test_permissive_allowance_reaches_the_audit_event(tmp_path: Path) -> None:
+    """The distinction has to survive into the JSONL record, not just the API."""
+    bundle_path = write_bundle(tmp_path, enforcement_mode="permissive")
+    checker = PolicyChecker(str(bundle_path))
+
+    event = checker.audit_event(checker.check_action("test-agent", "anything"))
+
+    assert event["result"] == "allowed"
+    assert event["reason_code"] == "ALLOWED_NOT_BLOCKLISTED"

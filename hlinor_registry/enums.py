@@ -29,6 +29,11 @@ class ReasonCode(str, Enum):
     """
 
     EXPLICITLY_ALLOWED = "EXPLICITLY_ALLOWED"
+    #: Permissive mode only: nothing blocked the action, and nothing allowed it
+    #: either. Distinct from EXPLICITLY_ALLOWED because an audit record that
+    #: claims an action was explicitly permitted, when the policy never
+    #: mentioned it, is a claim the policy does not support.
+    ALLOWED_NOT_BLOCKLISTED = "ALLOWED_NOT_BLOCKLISTED"
     ACTION_BLOCKLISTED = "ACTION_BLOCKLISTED"
     ACTION_NOT_ALLOWLISTED = "ACTION_NOT_ALLOWLISTED"
     UNKNOWN_AGENT = "UNKNOWN_AGENT"

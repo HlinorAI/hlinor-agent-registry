@@ -455,9 +455,20 @@ class PolicyChecker:
                 **self._decision_provenance(request, mode),
             )
 
+        # Two different facts, recorded as two different codes. An action named
+        # in the allow list was permitted by a decision someone made. An action
+        # permitted in permissive mode was permitted because the policy is
+        # silent about it. Recording the second as EXPLICITLY_ALLOWED puts a
+        # claim in the audit record that the policy does not support.
+        reason = (
+            ReasonCode.EXPLICITLY_ALLOWED
+            if request.action in allowed
+            else ReasonCode.ALLOWED_NOT_BLOCKLISTED
+        )
         return PolicyDecision.allow(
             request.agent_id,
             request.action,
+            reason,
             **self._decision_provenance(request, mode),
         )
 

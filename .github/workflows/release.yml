@@ -52,6 +52,14 @@ jobs:
 
       - name: Publish distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # A tag can be pushed more than once: a history rewrite moves it, and
+          # the workflow runs again. PyPI refuses to replace an existing
+          # version, which is correct, but failing the job for it turns a
+          # no-op into a red run and hides real failures. Treat an already
+          # published version as success; the verify job below still checks
+          # that what is on PyPI matches the tag.
+          skip-existing: true
 
   verify:
     name: Verify published package from PyPI

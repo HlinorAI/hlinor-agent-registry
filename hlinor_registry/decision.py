@@ -74,14 +74,26 @@ class PolicyDecision:
         )
 
     @classmethod
-    def allow(cls, agent_id: str, action: str, **provenance: Any) -> "PolicyDecision":
-        """Create an allowance decision."""
+    def allow(
+        cls,
+        agent_id: str,
+        action: str,
+        reason_code: ReasonCode | str = ReasonCode.EXPLICITLY_ALLOWED,
+        **provenance: Any,
+    ) -> "PolicyDecision":
+        """Create an allowance decision.
+
+        The caller states *why* it is allowed. An action permitted because the
+        allow list names it and one permitted because permissive mode has no
+        opinion are different facts, and an audit record should not present
+        the second as the first.
+        """
         return cls(
             decision_id=str(uuid.uuid4()),
             agent_id=agent_id,
             action=action,
             result=DecisionResult.ALLOWED,
-            reason_code=ReasonCode.EXPLICITLY_ALLOWED,
+            reason_code=ReasonCode(reason_code),
             checked_at=datetime.now(timezone.utc).isoformat(),
             **provenance,
         )
