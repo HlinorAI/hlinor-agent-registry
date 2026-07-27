@@ -239,3 +239,12 @@ secrets.*
 scratchpad/
 *.scratch.*
 PROJECT_CONTEXT.md
+
+# Internal working documents. This repository is a public specification; audit
+# reports and incident runbooks describe operations, not the spec, and naming
+# what was removed reproduces the leak they exist to close.
+AUDIT.md
+docs/internal/
+
+# Local, project-specific path patterns for scripts/check_public_scope.py.
+.public-scope-denylist

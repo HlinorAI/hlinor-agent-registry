@@ -7,9 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-This release is the result of an external security and architecture review of
-`f16d0ef`. The findings and their status are tracked in [AUDIT.md](AUDIT.md).
-Two of the fixes change observable behaviour; both are called out below.
+This release is the result of an external security and architecture review.
+Every finding is described below in the terms that matter to a user of the
+package: what was wrong, what changes, and whether it changes behaviour. Two of
+the fixes do; both are marked.
 
 ### Security
 
