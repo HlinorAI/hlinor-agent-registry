@@ -24,6 +24,7 @@ def write_bundle(
     blocked_actions: list[str] | None = None,
     enforcement_mode: str | None = None,
     policies: list[str] | None = None,
+    policy_files: list[dict] | None = None,
 ) -> Path:
     """Write a valid agent policy and compile it into a bundle."""
     source_path = tmp_path / "policies" / "agent.yaml"
@@ -43,10 +44,18 @@ def write_bundle(
         config["enforcement_mode"] = enforcement_mode
     source_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 
+    manifest_entries = [{"path": "policies/agent.yaml"}]
+    for index, policy_config in enumerate(policy_files or []):
+        policy_path = tmp_path / "policies" / f"policy-{index}.yaml"
+        policy_path.write_text(
+            yaml.safe_dump(policy_config, sort_keys=False), encoding="utf-8"
+        )
+        manifest_entries.append({"path": f"policies/policy-{index}.yaml"})
+
     manifest_path = tmp_path / "registry.yaml"
     manifest = {
         "version": "1.0",
-        "policies": [{"path": "policies/agent.yaml"}],
+        "policies": manifest_entries,
         "metadata": {"environment": "test", "compiled_by": "pytest"},
     }
     manifest_path.write_text(
@@ -605,6 +614,230 @@ def test_a_broad_allow_pattern_relies_on_the_block_list(tmp_path: Path) -> None:
     )
     assert external.denied
     assert external.matched_pattern == "send:email:external:*"
+
+
+def approval_policy(policy_id: str = "needs-approval", **requires: object) -> dict:
+    """A typed policy file gating external sends behind an approval."""
+    return {
+        "type": "policy",
+        "id": policy_id,
+        "name": "Needs Approval",
+        "description": "External sends require an approval.",
+        "enforcement": "Denied unless the request carries a bound approval.",
+        "kind": "requires_approval",
+        "trigger": ["send:email:external:*"],
+        "requires": {"approver_role": "security-lead", **requires},
+    }
+
+
+def good_approval(granted_for: str = "send:email:external:*") -> dict:
+    return {"approver_role": "security-lead", "granted_for": granted_for}
+
+
+def test_a_typed_policy_denies_an_action_the_allow_list_permits(
+    tmp_path: Path,
+) -> None:
+    """The whole point of the layer: allowed is no longer the last word."""
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["send:email:*"],
+        policies=["needs-approval"],
+        policy_files=[approval_policy()],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    def send(resource: str, **signals: object):
+        return checker.evaluate(
+            ActionRequest(
+                agent_id="test-agent",
+                action="send",
+                resource=resource,
+                signals=signals,
+            )
+        )
+
+    # Outside the trigger, the action list still decides alone.
+    assert send("email:internal:bob").allowed
+
+    unapproved = send("email:external:bob")
+    assert unapproved.denied
+    assert unapproved.reason_code is ReasonCode.POLICY_SIGNAL_MISSING
+    assert unapproved.matched_policy_ids == ("needs-approval",)
+    assert "needs-approval" in unapproved.policy_detail
+
+    assert send("email:external:bob", approval=good_approval()).allowed
+
+
+def test_matched_policy_ids_names_what_was_evaluated_not_what_was_declared(
+    tmp_path: Path,
+) -> None:
+    """The field stopped being a guess in 0.6.0 and becomes real here.
+
+    An id appears because its trigger matched and it was consulted. An agent
+    declaring a policy whose trigger does not match this request must not have
+    that policy listed on the decision -- that would be the same fabricated
+    attribution the field was emptied for.
+    """
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["send:email:*"],
+        policies=["needs-approval"],
+        policy_files=[approval_policy()],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    untriggered = checker.evaluate(
+        ActionRequest(
+            agent_id="test-agent", action="send", resource="email:internal:bob"
+        )
+    )
+    assert untriggered.allowed
+    assert untriggered.matched_policy_ids == ()
+
+    triggered = checker.evaluate(
+        ActionRequest(
+            agent_id="test-agent",
+            action="send",
+            resource="email:external:bob",
+            signals={"approval": good_approval()},
+        )
+    )
+    assert triggered.allowed
+    assert triggered.matched_policy_ids == ("needs-approval",)
+    assert checker.audit_event(triggered)["matched_policy_ids"] == ["needs-approval"]
+
+
+def test_a_policy_cannot_permit_what_the_action_lists_refuse(tmp_path: Path) -> None:
+    """Policies restrict in one direction only.
+
+    If a satisfied policy could grant, then reading the allow list would no
+    longer tell you the widest thing an agent can do, and every review would
+    have to hold both lists and every policy in mind at once.
+    """
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["read:*"],
+        blocked_actions=["send:email:external:*"],
+        policies=["needs-approval"],
+        policy_files=[approval_policy()],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    # Blocked, with a policy that would otherwise be satisfied.
+    blocked = checker.evaluate(
+        ActionRequest(
+            agent_id="test-agent",
+            action="send",
+            resource="email:external:bob",
+            signals={"approval": good_approval()},
+        )
+    )
+    assert blocked.denied
+    assert blocked.reason_code is ReasonCode.ACTION_BLOCKLISTED
+
+    # Not on the allow list at all.
+    unlisted = checker.evaluate(
+        ActionRequest(
+            agent_id="test-agent",
+            action="delete",
+            resource="report:q1",
+            signals={"approval": good_approval("delete:report:q1")},
+        )
+    )
+    assert unlisted.denied
+    assert unlisted.reason_code is ReasonCode.ACTION_NOT_ALLOWLISTED
+
+
+def test_a_declared_policy_absent_from_the_bundle_stays_declarative(
+    tmp_path: Path,
+) -> None:
+    """Naming a policy nobody compiled must not look like enforcement.
+
+    It also must not fail the agent closed: every policy behaved this way
+    before typed policies existed, and upgrading should not turn documentation
+    into a denial. `compile` reports the split so the state is visible.
+    """
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["send:email:*"],
+        policies=["no-such-policy"],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    decision = checker.evaluate(
+        ActionRequest(
+            agent_id="test-agent", action="send", resource="email:external:bob"
+        )
+    )
+    assert decision.allowed
+    assert decision.matched_policy_ids == ()
+    assert checker.agents["test-agent"]["declarative_policy_ids"] == ("no-such-policy",)
+
+
+def test_policies_apply_only_to_the_agents_that_declare_them(tmp_path: Path) -> None:
+    """A compiled policy is not ambient; an agent opts in by naming it."""
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["send:email:*"],
+        policies=[],
+        policy_files=[approval_policy()],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    assert "needs-approval" in checker.policy_rules
+    decision = checker.evaluate(
+        ActionRequest(
+            agent_id="test-agent", action="send", resource="email:external:bob"
+        )
+    )
+    assert decision.allowed
+    assert decision.matched_policy_ids == ()
+
+
+def test_signals_are_bound_into_the_request_digest(tmp_path: Path) -> None:
+    """A decision record must bind what the decision was based on.
+
+    If signals sat outside the digest, an audit record could not distinguish a
+    request that carried an approval from one that did not, and the field the
+    decision turned on would be the one field nobody could verify afterwards.
+    """
+    without = ActionRequest(agent_id="a", action="send", request_id="fixed")
+    with_signal = ActionRequest(
+        agent_id="a",
+        action="send",
+        request_id="fixed",
+        signals={"approval": good_approval()},
+    )
+    assert without.request_digest != with_signal.request_digest
+
+
+def test_every_policy_that_applies_is_evaluated_and_the_first_refusal_stops(
+    tmp_path: Path,
+) -> None:
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["send:email:*"],
+        policies=["needs-approval", "needs-fresh-approval"],
+        policy_files=[
+            approval_policy(),
+            approval_policy("needs-fresh-approval", max_age_seconds=900),
+        ],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    decision = checker.evaluate(
+        ActionRequest(
+            agent_id="test-agent",
+            action="send",
+            resource="email:external:bob",
+            signals={"approval": good_approval()},
+        )
+    )
+    assert decision.denied
+    assert decision.reason_code is ReasonCode.APPROVAL_REQUIRED
+    # Both applied; the second is the one that refused.
+    assert decision.matched_policy_ids == ("needs-approval", "needs-fresh-approval")
+    assert "needs-fresh-approval" in decision.policy_detail
 
 
 def test_a_bare_block_entry_covers_every_resource(tmp_path: Path) -> None:

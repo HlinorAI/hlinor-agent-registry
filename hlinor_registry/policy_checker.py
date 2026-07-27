@@ -15,6 +15,7 @@ from ._matching import find_block_match, find_match, request_key
 from .action_request import ActionRequest
 from .decision import PolicyDecision
 from .enums import ReasonCode
+from .policies import PolicyRule, load_policy_rules
 from .signing import (
     TrustedKey,
     VerifiedSignature,
@@ -94,6 +95,7 @@ class PolicyChecker:
         self.clock_skew_seconds = clock_skew_seconds
         self.agents: dict[str, dict[str, Any]] = {}
         self.capabilities: dict[str, dict[str, Any]] = {}
+        self.policy_rules: dict[str, PolicyRule] = {}
         self.bundle_digest: str = ""
         self.schema_version: str = ""
         self.compiler_version: str = ""
@@ -252,9 +254,39 @@ class PolicyChecker:
                 )
             loaded_capabilities[capability_id] = capability_data
 
+        # Typed policies are compiled the same way agents are, and unlike
+        # capabilities they do participate in decisions. An entry without a
+        # `kind` produces no rule and stays declarative prose.
+        raw_policies = bundle.get("policies", {})
+        if not isinstance(raw_policies, dict):
+            raise TypeError("Policy bundle policies must be an object")
+        loaded_rules = load_policy_rules(raw_policies)
+
+        # Bind each agent to the rules it named. An agent listing a policy id
+        # that compiled to no rule keeps it as declarative context, which is
+        # how every policy behaved before typed policies existed. `compile`
+        # reports the split so the difference is visible before deployment
+        # rather than inferred from behaviour afterwards.
+        for agent_id, agent_entry in loaded_agents.items():
+            declared = agent_entry["data"].get("policies") or []
+            if not isinstance(declared, list):
+                raise TypeError(
+                    f"Invalid policies for agent '{agent_id}': expected a list"
+                )
+            named = [item for item in declared if isinstance(item, str)]
+            agent_entry["rules"] = tuple(
+                loaded_rules[policy_id]
+                for policy_id in named
+                if policy_id in loaded_rules
+            )
+            agent_entry["declarative_policy_ids"] = tuple(
+                policy_id for policy_id in named if policy_id not in loaded_rules
+            )
+
         bundle_stat = self.bundle_path.stat()
         self.agents = loaded_agents
         self.capabilities = loaded_capabilities
+        self.policy_rules = loaded_rules
         self.bundle_digest = bundle_digest
         self.schema_version = schema_version
         self.compiler_version = str(bundle.get("compiler_version", "unknown"))
@@ -388,6 +420,7 @@ class PolicyChecker:
             "request_digest": decision.request_digest,
             "matched_pattern": decision.matched_pattern,
             "matched_policy_ids": list(decision.matched_policy_ids),
+            "policy_detail": decision.policy_detail,
             "enforcement_mode": decision.enforcement_mode,
             "environment": decision.environment,
             "actor_id": decision.actor_id,
@@ -407,6 +440,8 @@ class PolicyChecker:
         request: ActionRequest,
         enforcement_mode: str,
         matched_pattern: str | None = None,
+        matched_policy_ids: tuple[str, ...] = (),
+        policy_detail: str = "",
     ) -> dict[str, Any]:
         signature = self.verified_signature
         return {
@@ -414,13 +449,12 @@ class PolicyChecker:
             "bundle_digest": self.bundle_digest,
             "request_digest": request.request_digest,
             "matched_pattern": matched_pattern,
-            # Reserved for real policy attribution. ``PolicyChecker`` is an
-            # action-name gate: decisions come from the allow and block lists,
-            # not from evaluating the named policies declared on an agent.
-            # Emitting a guessed policy ID here would put an unverifiable claim
-            # into an audit record, so the field stays empty until policy
-            # evaluation exists.
-            "matched_policy_ids": (),
+            # The typed policies whose trigger matched this request, in the
+            # order the agent declared them. Empty means no policy applied --
+            # not that policies were ignored. Every id here was evaluated, and
+            # on a denial the last one is the one that refused.
+            "matched_policy_ids": matched_policy_ids,
+            "policy_detail": policy_detail,
             "enforcement_mode": enforcement_mode,
             "environment": request.environment or self.environment,
             "actor_id": request.actor_id,
@@ -484,6 +518,31 @@ class PolicyChecker:
                 **self._decision_provenance(request, mode),
             )
 
+        # Typed policies run last, on an action the lists have already
+        # permitted, and they can only refuse it. Nothing here can turn a
+        # denial into an allowance. That one-directional rule is what keeps the
+        # action lists readable as the outer bound of what an agent can do:
+        # policies narrow that bound and never widen it.
+        applicable = tuple(
+            rule for rule in agent_config.get("rules", ()) if rule.applies_to(key)
+        )
+        consulted = tuple(rule.policy_id for rule in applicable)
+        for rule in applicable:
+            outcome = rule.check(request)
+            if not outcome.satisfied:
+                return PolicyDecision.deny(
+                    request.agent_id,
+                    request.action,
+                    outcome.reason_code or ReasonCode.POLICY_EVALUATION_ERROR,
+                    **self._decision_provenance(
+                        request,
+                        mode,
+                        allowed_by,
+                        matched_policy_ids=consulted,
+                        policy_detail=outcome.detail,
+                    ),
+                )
+
         # Two different facts, recorded as two different codes. An action the
         # allow list covers was permitted by a decision someone made. An action
         # permitted in permissive mode was permitted because the policy is
@@ -498,7 +557,9 @@ class PolicyChecker:
             request.agent_id,
             request.action,
             reason,
-            **self._decision_provenance(request, mode, allowed_by),
+            **self._decision_provenance(
+                request, mode, allowed_by, matched_policy_ids=consulted
+            ),
         )
 
     def check_action(self, agent_id: str, action: str) -> PolicyDecision:

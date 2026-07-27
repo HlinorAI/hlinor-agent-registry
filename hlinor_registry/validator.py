@@ -4,6 +4,7 @@ import yaml
 
 from ._limits import MAX_SOURCE_BYTES, read_text_capped
 from ._matching import pattern_errors
+from .policies import policy_definition_errors
 
 REQUIRED_EXECUTION_CONTEXT_FIELDS = [
     "context_id",
@@ -631,6 +632,11 @@ def validate_policy(path: str | Path) -> list[str]:
         not isinstance(data["enforcement"], str) or not data["enforcement"].strip()
     ):
         errors.append("policy: Field must be a non-empty string: enforcement")
+
+    # A policy with a `kind` is enforced by PolicyChecker and its enforceable
+    # part is checked here. A policy without one is prose for reviewers, which
+    # stays valid: the two forms coexist on purpose.
+    errors.extend(policy_definition_errors(data))
 
     return errors
 

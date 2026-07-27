@@ -16,6 +16,7 @@ import yaml
 from hlinor_registry import __version__
 from hlinor_registry._limits import MAX_SOURCE_BYTES, read_text_capped
 from hlinor_registry._matching import overlapping_allow_patterns
+from hlinor_registry.policies import POLICY_KINDS
 from hlinor_registry.signing import (
     BundleSignatureError,
     compute_bundle_digest,
@@ -80,6 +81,14 @@ VALIDATION_COMMANDS = {
         "Failure circuit breaker",
         validate_failure_circuit_breaker,
     ),
+}
+
+
+#: Where each declared entity type lands in the compiled bundle.
+_BUNDLE_NAMESPACES = {
+    "agent": "agents",
+    "capability": "capabilities",
+    "policy": "policies",
 }
 
 
@@ -277,6 +286,7 @@ def cmd_compile(args: argparse.Namespace) -> int:
         "metadata": metadata,
         "agents": {},
         "capabilities": {},
+        "policies": {},
         "digest": "",
     }
     seen_paths: set[Path] = set()
@@ -326,17 +336,18 @@ def cmd_compile(args: argparse.Namespace) -> int:
         declared_type = config.get("type")
         if declared_type is None:
             entity_type = "agent"
-        elif declared_type in {"agent", "capability"}:
+        elif declared_type in {"agent", "capability", "policy"}:
             entity_type = declared_type
         else:
             return _compile_error(
                 f"Unsupported entity type '{declared_type}' in {file_path}"
             )
-        errors = (
-            validate_capability_registration(file_path)
-            if entity_type == "capability"
-            else validate_registry_file("agent", file_path)
-        )
+        if entity_type == "capability":
+            errors = validate_capability_registration(file_path)
+        elif entity_type == "policy":
+            errors = validate_policy(file_path)
+        else:
+            errors = validate_registry_file("agent", file_path)
         if errors:
             print(f"Error: Validation failed for {file_path}:", file=sys.stderr)
             for error in errors:
@@ -366,7 +377,7 @@ def cmd_compile(args: argparse.Namespace) -> int:
                 "Use --allow-permissive-production only for an explicit unsafe override."
             )
 
-        namespace = "capabilities" if entity_type == "capability" else "agents"
+        namespace = _BUNDLE_NAMESPACES[entity_type]
         bundle[namespace][entity_id] = {
             "config": config,
             "entity_type": entity_type,
@@ -426,12 +437,49 @@ def cmd_compile(args: argparse.Namespace) -> int:
     except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
         return _compile_error(f"Unable to write bundle: {exc}")
 
-    entry_count = len(bundle["agents"]) + len(bundle["capabilities"])
+    entry_count = (
+        len(bundle["agents"]) + len(bundle["capabilities"]) + len(bundle["policies"])
+    )
     print(f"Successfully compiled {entry_count} entries to {output_path}")
     print(f"Bundle digest: {bundle['digest']}")
     if "signature" in bundle:
         print(f"Signature key: {bundle['signature']['key_id']}")
+    for line in _policy_binding_report(bundle):
+        print(line)
     return 0
+
+
+def _policy_binding_report(bundle: dict[str, Any]) -> list[str]:
+    """Say which declared policies are enforced and which are only prose.
+
+    An agent naming a policy that compiled to no rule behaves exactly as it did
+    before typed policies existed -- the name is documentation. That is a
+    reasonable state to be in, and a dangerous one to be in by accident: drop
+    the policy file from the manifest and enforcement disappears with nothing
+    in the agent file changing. Compile is the last place to notice before the
+    bundle is signed, so it says so here rather than leaving it to be inferred
+    from behaviour in production.
+    """
+    enforceable = {
+        policy_id
+        for policy_id, entry in bundle["policies"].items()
+        if isinstance(entry.get("config"), dict)
+        and entry["config"].get("kind") in POLICY_KINDS
+    }
+    lines: list[str] = []
+    for agent_id, entry in sorted(bundle["agents"].items()):
+        declared = entry["config"].get("policies") or []
+        named = [item for item in declared if isinstance(item, str)]
+        bound = [policy_id for policy_id in named if policy_id in enforceable]
+        unbound = [policy_id for policy_id in named if policy_id not in enforceable]
+        if bound:
+            lines.append(f"Agent '{agent_id}' enforces: {', '.join(bound)}")
+        if unbound:
+            lines.append(
+                f"Agent '{agent_id}' declares but does not enforce: "
+                f"{', '.join(unbound)} (no compiled policy with that id)"
+            )
+    return lines
 
 
 def cmd_init(args) -> int:
@@ -523,6 +571,12 @@ def cmd_check(args) -> int:
         print(f"[{status}] {decision.reason_code}")
         print(f"Agent: {args.agent}")
         print(f"Action: {args.action}")
+        # A denial produced by a policy is otherwise indistinguishable from one
+        # produced by the action lists, and the operator would have no way to
+        # tell "this action is forbidden" from "this action needs an approval
+        # nobody attached".
+        if decision.policy_detail:
+            print(f"Policy: {decision.policy_detail}")
         print(f"Decision ID: {decision.decision_id}")
         print(f"Timestamp: {decision.checked_at}")
 
