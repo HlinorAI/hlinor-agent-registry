@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Follow-up to the 0.6.0 review, acting on a second external code review that
+agreed with most of it and caught two things it had missed.
+
+### Security
+
+- **A permissive-mode allowance is no longer reported as explicit.** An action
+  nobody had listed was allowed and recorded as `EXPLICITLY_ALLOWED`; nothing
+  explicitly allowed it. New reason code `ALLOWED_NOT_BLOCKLISTED` records that
+  the policy is silent about the action. Same defect class as the fabricated
+  `matched_policy_ids` removed in 0.6.0: a claim in the audit record that the
+  policy does not support. Strict-mode allowances are unchanged.
+- Runtime dependencies carry upper bounds, so a major release of the crypto or
+  parsing library cannot arrive silently on the next install.
+- GitHub Actions are pinned to commit SHAs rather than mutable major tags.
+- Parsed files are size-capped before being read: 1 MB for a trust store, 4 MB
+  for a policy source, 64 MB for a compiled bundle. A wrong path now fails with
+  a diagnosis instead of exhausting memory. YAML alias expansion remains
+  unbounded and is documented as such.
+
+### Added
+
+- A README table stating, concern by concern, what `PolicyChecker` enforces at
+  runtime and what is only validated at compile time. Five rows are enforced,
+  eight are not. Every pattern document carries the same scope note.
+- Compiled capabilities are readable through `PolicyChecker.capabilities` and
+  `get_capability_info()`. They were written into every bundle and never read.
+  They remain outside enforcement by design.
+
+### Changed
+
+- `main()` dispatches subcommands one way instead of two. Four parsers set an
+  argparse `func` default that nothing called, while a 135-line if-chain
+  repeated an identical block nine times beside a table that already expressed
+  it. `cli.py` drops from 1117 to 1010 lines with no behaviour change.
+- The PyPI publish step skips versions already published, so a re-pushed tag no
+  longer fails the release workflow for what is a no-op.
+
 ## [0.6.0] - 2026-07-27
 
 This release is the result of an external security and architecture review.
