@@ -22,10 +22,32 @@ jobs:
           # was committed and then removed in a later commit of the same PR.
           fetch-depth: 0
 
+      # gitleaks itself is MIT licensed and free. Only the gitleaks-action
+      # wrapper requires a paid GITLEAKS_LICENSE for organization accounts, so
+      # run the binary directly and keep the check unconditional.
+      #
+      # The checksum is verified against the checksums file published with the
+      # same release. That protects against a corrupted or truncated download,
+      # not against a compromised release: both come from one source. Pinning
+      # the version is what limits the blast radius.
       - name: Scan history for secrets
-        uses: gitleaks/gitleaks-action@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.28.0
+        run: |
+          set -euo pipefail
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+
+          curl -sSfL "${base}/${archive}" -o "$archive"
+          curl -sSfL "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt" -o checksums.txt
+          grep " ${archive}\$" checksums.txt | sha256sum -c -
+
+          tar -xzf "$archive" gitleaks
+          ./gitleaks version
+
+          # --redact keeps any finding out of the public log; the exit code is
+          # what fails the job.
+          ./gitleaks git . --redact --verbose
 
       - name: Enforce the public-scope rule on tracked files
         run: |
