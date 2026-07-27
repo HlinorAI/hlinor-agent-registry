@@ -290,11 +290,13 @@ class PolicyChecker:
         paths: list[Path] = []
         if self._trust_store_path is not None:
             paths.append(self._trust_store_path)
-        paths.extend(
-            key.source_path
-            for key in self.trusted_keys.values()
-            if key.source_path is not None
-        )
+        # An explicit loop rather than a filtered comprehension: mypy does not
+        # reliably narrow an optional attribute inside a generator condition,
+        # and `source_path` is `Path | None`.
+        for key in self.trusted_keys.values():
+            key_path = key.source_path
+            if key_path is not None:
+                paths.append(key_path)
 
         digest = hashlib.sha256()
         for path in sorted(set(paths)):
