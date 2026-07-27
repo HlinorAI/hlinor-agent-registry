@@ -1,0 +1,45 @@
+# A second agent in the same department, here to show what a typed policy
+# changes. Compare it with ticket-triage-agent, which blocks refund_payment
+# outright.
+#
+# Blocking is the right answer when an agent should never do something. This
+# agent exists to issue refunds, so a block would defeat its purpose and an
+# unconditional allow would make it able to refund anything it likes. The
+# policy is the third option: allowed, but only for a request that carries an
+# approval naming that refund.
+#
+# Note the ordering this relies on. Blocked always wins, and policies run only
+# on an action the lists already permitted, so a policy can never re-enable
+# something the block list refuses. refund_payment therefore has to be absent
+# from blocked_actions for the policy to have anything to say.
+id: refund-agent
+type: agent
+name: Refund Agent
+department: support
+description: >-
+  Issues refunds on support tickets that a human has already approved. It
+  cannot approve its own refunds: the approval must come from a support lead
+  and must name the refund it approved.
+
+skills:
+  - classify-ticket
+
+validators:
+  - ticket-input-validator
+
+policies:
+  # Compiled and enforced: see registry/policies/refund-requires-approval.yaml.
+  - refund-requires-approval
+  # Prose for reviewers, evaluated by nobody. Both forms are valid and
+  # `hlinor-registry compile` prints which is which.
+  - no-customer-pii-in-logs
+
+allowed_actions:
+  - read_ticket
+  - refund_payment:ticket/*
+
+blocked_actions:
+  - delete_ticket
+  - send_customer_reply
+
+enforcement_mode: strict

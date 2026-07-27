@@ -7,8 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Prepared as 0.8.0. Not tagged and not on PyPI; `pip install hlinor-registry`
+still gives 0.7.0 until a `v0.8.0` tag is pushed.
+
+Two layers of the same idea. An action list entry can now name the resources it
+covers, and a policy can require that a permitted action still discharge an
+obligation before it runs. Together they are what `matched_policy_ids` was
+reserved for since 0.6.0.
+
+**Breaking: the request digest changes.** `ActionRequest.signals` is part of the
+canonical representation, so digests recomputed after upgrading will not match
+digests recorded before it. Signals had to be inside the digest -- a decision
+record that could not distinguish a request carrying an approval from one
+without it would leave the field the decision turned on as the one field nobody
+could verify afterwards.
+
 ### Added
 
+- **Typed policies.** A policy is its own file with `type: policy`, compiled
+  into the bundle, and an agent opts in by naming its id. It carries a
+  `trigger` using the action pattern syntax and a handler `kind`:
+  `requires_approval`, `requires_evidence`, or `failure_threshold`. An
+  unrecognised kind is refused at compile time rather than skipped, because a
+  policy that silently applies to nothing reads, in the registry, exactly like
+  one that is in force.
+- `ActionRequest.signals` carries the material a policy reads: an approval,
+  evidence claims, a failure count.
+- `PolicyDecision.matched_policy_ids` names the typed policies that were
+  evaluated, and `policy_detail` says which one refused and what was missing.
+  Both appear in the audit event. The field has been reserved and empty since
+  0.6.0, when a fabricated version of it was removed.
+- `hlinor-registry compile` prints, per agent, which declared policies are
+  enforced and which have no compiled policy behind them. Dropping a policy
+  file from the manifest otherwise removes enforcement with nothing in the
+  agent file changing.
+- `hlinor-registry check` prints the policy detail on a denial, so an action
+  that needs an approval nobody attached is distinguishable from one that is
+  simply forbidden.
 - **Action list entries may be patterns, so a permission can name the resources
   it covers.** An entry is matched against `action:resource`, built from
   `ActionRequest.resource`, and `*` and `?` are the whole vocabulary:
@@ -29,8 +64,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `hlinor-registry lint` warns — and fails — when `allowed_actions` contains
   `*`, which is permissive enforcement written in the allow list.
 
+### Fixed
+
+- **A bare block-list entry stopped covering scoped requests.** Introduced
+  earlier in this release by the action pattern work: with the block list
+  matched only against `action:resource`, `blocked_actions: [delete_records]`
+  kept refusing the unscoped call and began permitting `delete_records` on
+  `customer/5`. Permissive mode is where it bit, since there the block list is
+  the only thing saying no, and it triggered on nothing more than a caller
+  populating `ActionRequest.resource` -- a field that has existed since 0.4.
+  The block list is now matched against the action alone as well as the full
+  key, which can only widen it. Found by running a pre-existing bundle rather
+  than by reading the diff.
+
 ### Changed
 
+- Policies are evaluated after the allow list and can only refuse. A satisfied
+  policy can never re-enable something the block list refuses or the allow list
+  omits, so the action lists remain readable as the outer bound of what an
+  agent can do.
+- `validate-policy` checks the enforceable part of a policy file: handler kind,
+  trigger syntax, and the fields each kind cannot work without. A policy with
+  no `kind` remains valid prose.
 - Authoring validation no longer rejects `*` and `?` in action names. Anything
   outside the supported syntax — `**`, character classes, alternation,
   negation — is still rejected, now with a message naming the construct and
@@ -38,10 +93,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Compatibility
 
-Additive. An entry with no wildcard is an exact match, so every action list
-written before this release decides exactly as it did, including the rule that
-a bare `read` does not match a request that names a resource. Callers that
-never set `ActionRequest.resource` see no change at all.
+An action list entry with no wildcard is an exact match, so every list written
+before this release decides as it did. An agent's `policies:` entries behave
+exactly as before unless a typed policy with that id is compiled into the same
+bundle, so upgrading turns no existing documentation into a denial. Callers
+that never set `resource` or `signals` see the same decisions, with the digest
+caveat above.
 
 ## [0.7.0] - 2026-07-27
 

@@ -194,9 +194,11 @@ through. Allow-list matching is exact, so an approval is never extended to a
 spelling that was not literally approved. Both directions resolve toward
 denial, and authoring validation rejects action names that differ only by case.
 
-The `policies` list on an agent is declarative context for reviewers. It is not
-evaluated by `PolicyChecker`, so `decision.matched_policy_ids` is reserved and
-currently always empty. See [Known Limitations](SECURITY.md#known-limitations).
+A `policies` entry with a compiled typed policy behind it is evaluated at
+runtime and appears in `decision.matched_policy_ids` — see
+[Require an approval, evidence, or a failure budget](#require-an-approval-evidence-or-a-failure-budget).
+An entry naming no compiled policy stays declarative context for reviewers, as
+every entry was before 0.8.0.
 
 ### Scope an action to the resources it may touch
 
@@ -276,7 +278,93 @@ Notes for agent.yaml:
   as `allowed_actions: ["*"]` under `enforcement_mode: strict`.
 
 Block-list matching still ignores case and allow-list matching is still exact,
-in both directions resolving toward denial.
+in both directions resolving toward denial. A block entry with no wildcard also
+covers every resource: `blocked_actions: [delete_records]` refuses
+`delete_records` on anything, which is what it looks like it says.
+
+### Require an approval, evidence, or a failure budget
+
+Action lists answer *may this agent touch this resource at all*. A **policy**
+answers the question that comes next: given that it may, what must be true of
+this particular request. A policy is its own file, compiled into the same
+bundle, and an agent opts in by naming it:
+
+```yaml
+# refund-requires-approval.yaml
+type: policy
+id: refund-requires-approval
+name: Refund Requires Approval
+description: A refund needs a recent approval naming that refund.
+enforcement: Enforced by PolicyChecker; the adapter supplies the approval.
+kind: requires_approval
+trigger:
+  - refund_payment:*
+requires:
+  approver_role: support-lead
+  max_age_seconds: 900
+```
+
+```yaml
+# refund-agent.yaml
+policies: [refund-requires-approval]
+allowed_actions: [refund_payment:ticket/*]
+```
+
+```python
+decision = checker.evaluate(
+    ActionRequest(
+        agent_id="refund-agent",
+        action="refund_payment",
+        resource="ticket/1234",
+        signals={
+            "approval": {
+                "approver_role": "support-lead",
+                "granted_for": "refund_payment:ticket/1234",
+                "granted_at": "2026-07-27T11:58:00Z",
+            }
+        },
+    )
+)
+assert decision.allowed
+assert decision.matched_policy_ids == ("refund-requires-approval",)
+```
+
+Without that approval the same request is denied, and `decision.policy_detail`
+says which policy refused and what was missing. `matched_policy_ids` now names
+the policies that were actually evaluated — it was a reserved, always-empty
+field until this release.
+
+Three handler kinds ship today:
+
+| `kind` | Reads from `signals` | Refuses when |
+| :--- | :--- | :--- |
+| `requires_approval` | `approval` | no approval, wrong role, approval granted for a different request, or older than `max_age_seconds` |
+| `requires_evidence` | `evidence` | a required claim type is absent, is about another resource, or is stale |
+| `failure_threshold` | `failure_counts` | the reported consecutive-failure count reaches `max_consecutive_failures` |
+
+Two properties hold for all of them:
+
+- **Policies only restrict.** They run after the allow list has already
+  permitted the action, so a satisfied policy can never re-enable something the
+  block list refuses or the allow list omits. Reading the action lists still
+  tells you the widest thing an agent can do.
+- **A policy an agent names but that nobody compiled stays declarative**, as
+  every `policies:` entry was before this release. `hlinor-registry compile`
+  prints the split so the difference is visible before signing:
+
+```
+Agent 'refund-agent' enforces: refund-requires-approval
+Agent 'refund-agent' declares but does not enforce: no-customer-pii-in-logs (no compiled policy with that id)
+```
+
+**What this does not establish.** Signals are asserted by the caller.
+`PolicyChecker` runs inside the process it governs and cannot tell whether an
+approval was really granted. What it enforces is that the action does not
+proceed unless the obligation is claimed, in a form that is recorded and
+digested, and that the claim is internally consistent — bound to this request,
+inside the window, about this resource. Those catch the mistakes that actually
+happen. They do not stop an adapter that fabricates signals. See
+[Known Limitations](SECURITY.md#known-limitations).
 
 ### Block unauthorized actions
 Use a strict allowlist for agents that should only perform a narrow set of operations. Everything outside the list is denied by `PolicyChecker`:
@@ -328,25 +416,33 @@ something. Read this table before you rely on any of it.
 | :--- | :---: | :---: |
 | Action allow list and block list | yes | **yes** |
 | Resource scope via action patterns (`read:report:*`) | yes | **yes** |
+| Typed policies: approval, evidence, failure threshold | yes | **yes** |
 | Unknown agent, unknown action | yes | **yes** |
 | Bundle integrity, signature, issuer, validity window | yes | **yes** |
 | Rollback floor (`minimum_bundle_revision`) | — | **yes** |
 | Enforcement mode (`strict` / `permissive`) | yes | **yes** |
 | Budgets and rate limits | yes | no |
-| Approval levels and human-in-the-loop | yes | no |
+| Approval levels, as a `requires_approval` policy | yes | **yes** |
+| Approval levels, as `approval-*` schema fields | yes | no |
 | `protected-resource-boundary` schema | yes | no |
-| Evidence binding and claim freshness | yes | no |
-| Circuit breakers and failure thresholds | yes | no |
+| Evidence binding, as a `requires_evidence` policy | yes | **yes** |
+| Circuit breakers, as a `failure_threshold` policy | yes | **yes** |
+| `evidence-claim-binding` / `failure-circuit-breaker` schemas | yes | no |
 | Execution context and capability verification | yes | no |
 | Lifecycle modes and transition gates | yes | no |
-| Named `policies:` on an agent | yes | no |
+| Named `policies:` entry with no compiled policy behind it | yes | no |
 | Declared capabilities | yes | inventory only |
 
-`PolicyChecker.evaluate()` answers exactly one question: *may this agent
-perform an action with this name, according to the compiled allow and block
-lists of a bundle whose integrity and signature check out?* Everything in the
+`PolicyChecker.evaluate()` answers two questions. May this agent perform this
+action on this resource, according to the compiled allow and block lists of a
+bundle whose integrity and signature check out? And if it may, do the typed
+policies the agent declares accept this particular request? Everything in the
 "no" column is a contract your own code, a preflight step, or a human review
 has to act on.
+
+The second question is answered from signals the caller supplies. That is a
+real gate — the action does not proceed unless the obligation is claimed — but
+it is a gate against omission and mistake, not against a caller that lies.
 
 Capabilities are a third category: compiled into the bundle and readable
 through `checker.capabilities` and `checker.get_capability_info()`, but never

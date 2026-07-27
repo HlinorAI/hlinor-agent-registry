@@ -118,10 +118,29 @@ implemented.
   pattern covers a block pattern beside it, but the warning is advisory:
   nothing prevents compiling a bundle whose allow list is broader than its
   author intended.
-- Policy attribution is not implemented. Decisions are produced by the compiled
-  allow and block lists, so the `matched_policy_ids` field on a decision and its
-  audit event is reserved and always empty. Treat it as absent rather than as
-  evidence that no declared policy applied.
+- Policy attribution covers typed policies only. `matched_policy_ids` names the
+  compiled policies whose trigger matched the request. An agent's `policies:`
+  entry with no compiled policy behind it is documentation and never appears
+  there, so an empty list means "no typed policy applied", not "no declared
+  constraint was relevant". `hlinor-registry compile` prints which entries are
+  enforced and which are not.
+- **Policy signals are asserted by the caller, not verified.** A
+  `requires_approval` policy enforces that the request carries an approval
+  bound to it and inside the freshness window; it cannot establish that a human
+  ever granted that approval. `PolicyChecker` runs inside the process it
+  governs and has no independent channel to an approval system. The same holds
+  for evidence claims and failure counts. These gates stop omissions and
+  mistakes -- an adapter that forgot to wire approval, an approval replayed
+  onto a different request, a stale claim -- and do not stop an adapter that
+  fabricates the signal. Making them resistant to that requires the approval to
+  be independently verifiable, for example a signed token checked against a
+  trust store the way bundles already are, which is not implemented.
+- A `failure_threshold` policy compares a count the caller reports. The checker
+  keeps no state between requests, deliberately: an in-process counter would
+  reset on restart and would not be shared between workers, so it would report
+  a protection that a second process does not have. What the bundle contributes
+  is the threshold as a reviewed, signed number rather than a constant in
+  application code.
 - YAML alias expansion is not bounded. Size limits cap the input, but a small
   file with nested anchors can still expand disproportionately. Policy sources
   are named explicitly in a manifest the deployment controls, so this is a

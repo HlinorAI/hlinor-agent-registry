@@ -1,0 +1,39 @@
+# A typed policy. Unlike no-customer-pii-in-logs, which is prose for reviewers,
+# this one is compiled into the bundle and evaluated by PolicyChecker: an
+# action matching `trigger` is denied unless the request carries an approval
+# that satisfies `requires`.
+#
+# Read `kind` first. It names the handler, and the handler decides which signal
+# the request must supply. A misspelled kind is refused at compile time rather
+# than ignored, because a policy that silently applies to nothing looks exactly
+# like one that is in force.
+id: refund-requires-approval
+type: policy
+name: Refund Requires Approval
+description: >-
+  A refund may only proceed when a support lead has approved this specific
+  refund within the last fifteen minutes.
+
+enforcement: >-
+  Enforced by PolicyChecker. The adapter must place the approval in
+  ActionRequest.signals['approval']; the checker verifies the approver role,
+  that the approval names this request, and that it is inside the window. It
+  cannot verify that the approval is genuine -- see SECURITY.md.
+
+kind: requires_approval
+
+# Matched against "action:resource" with the same syntax the action lists use,
+# so '*' crosses ':' here too. A trigger that is broader than intended makes a
+# policy apply to more requests, which is the safe direction for something that
+# can only add obligations.
+trigger:
+  - refund_payment:*
+
+requires:
+  approver_role: support-lead
+  # The approval must name what it approved. Without this an approval obtained
+  # for a two-dollar refund is a token that unlocks every refund the agent may
+  # attempt. On by default; spelled out here because it is the check most worth
+  # knowing about.
+  bind_to_request: true
+  max_age_seconds: 900
