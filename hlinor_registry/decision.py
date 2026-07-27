@@ -40,6 +40,10 @@ class PolicyDecision:
     request_id: str = ""
     bundle_digest: str = ""
     request_digest: str = ""
+    #: The action-list entry that produced this decision, or None when nothing
+    #: matched. "Denied by send:email:external:*" is reviewable; "denied" is
+    #: not. Unlike matched_policy_ids this is computed, not guessed.
+    matched_pattern: str | None = None
     matched_policy_ids: tuple[str, ...] = ()
     enforcement_mode: str = "strict"
     environment: str | None = None

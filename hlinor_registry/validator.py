@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 
 from ._limits import MAX_SOURCE_BYTES, read_text_capped
+from ._matching import pattern_errors
 
 REQUIRED_EXECUTION_CONTEXT_FIELDS = [
     "context_id",
@@ -525,14 +526,9 @@ def validate_agent(path: str | Path) -> list[str]:
                 errors.append(
                     f"Invalid action in {action_field}[{index}]: expected a non-empty string"
                 )
-            elif action != action.strip():
-                errors.append(
-                    f"Invalid action in {action_field}[{index}]: surrounding whitespace"
-                )
-            elif "*" in action:
-                errors.append(
-                    f"Invalid action in {action_field}[{index}]: wildcards are unsupported"
-                )
+                continue
+            for problem in pattern_errors(action):
+                errors.append(f"Invalid action in {action_field}[{index}]: {problem}")
 
     errors.extend(_validate_action_name_collisions(data))
 

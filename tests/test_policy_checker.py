@@ -466,3 +466,142 @@ def test_capability_info_is_a_defensive_copy(tmp_path: Path) -> None:
     info["config"]["tampered"] = True
 
     assert checker.capabilities["injected"]["config"] == {}
+
+
+def test_resource_scoped_allow_and_block(tmp_path: Path) -> None:
+    """A pattern scopes an action to the resources it may touch."""
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["read:report:quarterly/*", "classify:ticket:*"],
+        blocked_actions=["read:report:quarterly/secret*"],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    def decide(action: str, resource: str | None = None):
+        return checker.evaluate(
+            ActionRequest(agent_id="test-agent", action=action, resource=resource)
+        )
+
+    assert decide("read", "report:quarterly/q1").allowed
+    assert decide("classify", "ticket:1234").allowed
+
+    # Blocked wins even though the allow pattern also covers it.
+    blocked = decide("read", "report:quarterly/secret-q1")
+    assert blocked.denied
+    assert blocked.reason_code is ReasonCode.ACTION_BLOCKLISTED
+
+    # A resource outside every allow pattern is denied in strict mode.
+    outside = decide("read", "report:annual/2026")
+    assert outside.denied
+    assert outside.reason_code is ReasonCode.ACTION_NOT_ALLOWLISTED
+
+
+def test_decision_records_which_pattern_matched(tmp_path: Path) -> None:
+    """Provenance a reviewer can act on, computed rather than guessed.
+
+    This is the field matched_policy_ids pretended to be. The difference is
+    that this one is derived from the comparison that produced the decision.
+    """
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["read:report:*"],
+        blocked_actions=["send:email:external:*"],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    allowed = checker.evaluate(
+        ActionRequest(agent_id="test-agent", action="read", resource="report:q1")
+    )
+    assert allowed.matched_pattern == "read:report:*"
+
+    denied = checker.evaluate(
+        ActionRequest(
+            agent_id="test-agent",
+            action="send",
+            resource="email:external:someone@example.invalid",
+        )
+    )
+    assert denied.matched_pattern == "send:email:external:*"
+
+    # Nothing matched, so there is nothing to point at.
+    unmatched = checker.evaluate(
+        ActionRequest(agent_id="test-agent", action="delete", resource="report:q1")
+    )
+    assert unmatched.denied
+    assert unmatched.matched_pattern is None
+
+    event = checker.audit_event(denied)
+    assert event["matched_pattern"] == "send:email:external:*"
+
+
+def test_existing_bare_action_lists_are_unchanged(tmp_path: Path) -> None:
+    """Every bundle written before patterns existed must decide as it did."""
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["read", "analyze"],
+        blocked_actions=["delete_records"],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    assert checker.check_action("test-agent", "read").allowed
+    assert checker.check_action("test-agent", "analyze").allowed
+    assert checker.check_action("test-agent", "delete_records").denied
+    assert checker.check_action("test-agent", "something_else").denied
+
+    # A bare entry does not silently widen into a prefix match.
+    scoped = checker.evaluate(
+        ActionRequest(agent_id="test-agent", action="read", resource="anything")
+    )
+    assert scoped.denied
+    assert scoped.reason_code is ReasonCode.ACTION_NOT_ALLOWLISTED
+
+
+def test_block_patterns_ignore_case_and_allow_patterns_do_not(
+    tmp_path: Path,
+) -> None:
+    """The asymmetry from 0.6.0 survives the move to patterns."""
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["read:report:*"],
+        blocked_actions=["send:email:External:*"],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    for spelling in ("email:external:x", "email:EXTERNAL:x", "email:External:x"):
+        decision = checker.evaluate(
+            ActionRequest(agent_id="test-agent", action="send", resource=spelling)
+        )
+        assert decision.denied, spelling
+        assert decision.reason_code is ReasonCode.ACTION_BLOCKLISTED
+
+    # The allow side stays exact: a case variant is not an approval.
+    wrong_case = checker.evaluate(
+        ActionRequest(agent_id="test-agent", action="Read", resource="report:q1")
+    )
+    assert wrong_case.denied
+
+
+def test_a_broad_allow_pattern_relies_on_the_block_list(tmp_path: Path) -> None:
+    """Documents the sharp edge rather than pretending it is not there.
+
+    '*' crosses ':', so 'send:email:*' covers external sends too. What keeps
+    them out is the block list, and that is worth an explicit test so the
+    behaviour is not discovered in production.
+    """
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["send:email:*"],
+        blocked_actions=["send:email:external:*"],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    internal = checker.evaluate(
+        ActionRequest(agent_id="test-agent", action="send", resource="email:internal:x")
+    )
+    assert internal.allowed
+
+    external = checker.evaluate(
+        ActionRequest(agent_id="test-agent", action="send", resource="email:external:x")
+    )
+    assert external.denied
+    assert external.matched_pattern == "send:email:external:*"

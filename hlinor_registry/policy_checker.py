@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from ._limits import MAX_BUNDLE_BYTES, read_text_capped
+from ._matching import find_match, request_key
 from .action_request import ActionRequest
 from .decision import PolicyDecision
 from .enums import ReasonCode
@@ -385,6 +386,7 @@ class PolicyChecker:
             "reason_code": decision.reason_code,
             "policy_bundle_digest": decision.bundle_digest,
             "request_digest": decision.request_digest,
+            "matched_pattern": decision.matched_pattern,
             "matched_policy_ids": list(decision.matched_policy_ids),
             "enforcement_mode": decision.enforcement_mode,
             "environment": decision.environment,
@@ -404,12 +406,14 @@ class PolicyChecker:
         self,
         request: ActionRequest,
         enforcement_mode: str,
+        matched_pattern: str | None = None,
     ) -> dict[str, Any]:
         signature = self.verified_signature
         return {
             "request_id": request.request_id,
             "bundle_digest": self.bundle_digest,
             "request_digest": request.request_digest,
+            "matched_pattern": matched_pattern,
             # Reserved for real policy attribution. ``PolicyChecker`` is an
             # action-name gate: decisions come from the allow and block lists,
             # not from evaluating the named policies declared on an agent.
@@ -453,24 +457,26 @@ class PolicyChecker:
         allowed = agent_config["data"].get("allowed_actions") or []
         blocked = agent_config["data"].get("blocked_actions") or []
 
-        # Block-list matching is case-insensitive and allow-list matching is
-        # exact. The asymmetry is deliberate and always resolves toward denial:
-        # a case variant of a blocked name must not slip past the block, and an
-        # approval is never extended to a spelling that was not literally
-        # approved. Authoring-time validation rejects case collisions, but the
-        # requested action can also arrive from a caller at runtime.
-        if any(
-            isinstance(entry, str) and entry.casefold() == request.action.casefold()
-            for entry in blocked
-        ):
+        # The key an action list is matched against. Without a resource it is
+        # the action alone, so an agent written before resources existed keeps
+        # matching exactly as before.
+        key = request_key(request.action, request.resource)
+
+        # Block matching ignores case and allow matching does not. The
+        # asymmetry is deliberate and always resolves toward denial: no
+        # spelling of a blocked name gets through, and an approval is never
+        # extended to a spelling nobody approved.
+        blocked_by = find_match(blocked, key, ignore_case=True)
+        if blocked_by is not None:
             return PolicyDecision.deny(
                 request.agent_id,
                 request.action,
                 ReasonCode.ACTION_BLOCKLISTED,
-                **self._decision_provenance(request, mode),
+                **self._decision_provenance(request, mode, blocked_by),
             )
 
-        if mode == "strict" and request.action not in allowed:
+        allowed_by = find_match(allowed, key)
+        if mode == "strict" and allowed_by is None:
             return PolicyDecision.deny(
                 request.agent_id,
                 request.action,
@@ -478,21 +484,21 @@ class PolicyChecker:
                 **self._decision_provenance(request, mode),
             )
 
-        # Two different facts, recorded as two different codes. An action named
-        # in the allow list was permitted by a decision someone made. An action
+        # Two different facts, recorded as two different codes. An action the
+        # allow list covers was permitted by a decision someone made. An action
         # permitted in permissive mode was permitted because the policy is
         # silent about it. Recording the second as EXPLICITLY_ALLOWED puts a
         # claim in the audit record that the policy does not support.
         reason = (
             ReasonCode.EXPLICITLY_ALLOWED
-            if request.action in allowed
+            if allowed_by is not None
             else ReasonCode.ALLOWED_NOT_BLOCKLISTED
         )
         return PolicyDecision.allow(
             request.agent_id,
             request.action,
             reason,
-            **self._decision_provenance(request, mode),
+            **self._decision_provenance(request, mode, allowed_by),
         )
 
     def check_action(self, agent_id: str, action: str) -> PolicyDecision:
