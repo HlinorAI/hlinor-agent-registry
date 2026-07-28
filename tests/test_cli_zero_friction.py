@@ -18,6 +18,7 @@ from hlinor_registry.cli import (
     cmd_lint,
     main,
 )
+from hlinor_registry.enums import DecisionResult, ReasonCode
 
 
 @pytest.fixture
@@ -160,8 +161,8 @@ def test_cmd_explain_denied_action(
     captured = capsys.readouterr()
     assert "❌ DENIED" in captured.out
     assert "← THIS ONE" in captured.out
-    assert " Action is explicitly listed in blocked_actions" in captured.out
-    assert "HOW TO FIX:" in captured.out
+    assert "Denied by the block list entry 'send_email'" in captured.out
+    assert "WHAT THIS MEANS:" in captured.out
 
 
 def test_cmd_explain_allowed_action(
@@ -176,7 +177,7 @@ def test_cmd_explain_allowed_action(
 
     captured = capsys.readouterr()
     assert "✅ ALLOWED" in captured.out
-    assert "✓ Action is explicitly allowed" in captured.out
+    assert "Allowed by the allow list entry 'read_data'" in captured.out
 
 
 def test_cmd_explain_unknown_agent(
@@ -231,7 +232,7 @@ def test_cmd_explain_jsonl_emits_only_one_json_record(
 
     event = json.loads(capsys.readouterr().out)
     assert event["result"] == "denied"
-    assert event["explanation"] == "Action blocked by policy"
+    assert event["explanation"] == "Denied by the block list entry 'send_email'"
     assert event["policy_bundle_digest"]
 
 
@@ -677,3 +678,159 @@ def test_a_missing_signals_file_is_an_error_not_a_denial(tmp_path: Path) -> None
         )
         == 2
     )
+
+
+class TestExplanationCoversEveryReasonCode:
+    """`explain` must describe the decision that happened, not the one it assumed.
+
+    The original text knew two shapes: denials came from the action lists, and
+    allowances were explicit. Typed policies, resource patterns and permissive
+    mode broke both. In a governance tool wrong remediation advice is worse
+    than none -- telling an operator denied for a missing approval to widen the
+    allow list removes a control to work around a control that was working.
+    """
+
+    def explain(self, **fields: object):
+        from hlinor_registry.cli import _decision_explanation
+        from hlinor_registry.decision import PolicyDecision
+
+        defaults: dict[str, object] = {
+            "decision_id": "d",
+            "agent_id": "a",
+            "action": "act",
+            "checked_at": "2026-07-27T12:00:00+00:00",
+        }
+        defaults.update(fields)
+        return _decision_explanation(PolicyDecision(**defaults))
+
+    #: Codes `evaluate()` can attach to a decision, and therefore the codes
+    #: `explain` can be handed. The rest are raised while loading a bundle, so
+    #: no decision carrying them ever exists.
+    REACHABLE = (
+        ReasonCode.EXPLICITLY_ALLOWED,
+        ReasonCode.ALLOWED_NOT_BLOCKLISTED,
+        ReasonCode.ACTION_BLOCKLISTED,
+        ReasonCode.ACTION_NOT_ALLOWLISTED,
+        ReasonCode.UNKNOWN_AGENT,
+        ReasonCode.POLICY_SIGNAL_MISSING,
+        ReasonCode.APPROVAL_REQUIRED,
+        ReasonCode.EVIDENCE_REQUIRED,
+        ReasonCode.FAILURE_THRESHOLD_REACHED,
+    )
+
+    def test_every_reachable_reason_code_has_its_own_branch(self):
+        """No reachable code may fall through to the generic sentence.
+
+        A code wired into evaluate() without a branch here would be described
+        by whatever the fallback says, which is how a decision starts being
+        explained wrongly rather than not at all.
+        """
+        summaries = set()
+        for code in self.REACHABLE:
+            allowed = code in (
+                ReasonCode.EXPLICITLY_ALLOWED,
+                ReasonCode.ALLOWED_NOT_BLOCKLISTED,
+            )
+            summary, _ = self.explain(
+                result=DecisionResult.ALLOWED if allowed else DecisionResult.DENIED,
+                reason_code=code,
+            )
+            assert summary, code
+            assert not summary.startswith("Decision reported"), (
+                f"{code} has no explanation branch"
+            )
+            summaries.add(summary)
+        assert len(summaries) == len(self.REACHABLE), "two codes share one sentence"
+
+    def test_the_reachable_set_matches_what_evaluate_can_produce(self):
+        """Guard the list above against the enum growing past it."""
+        load_time_only = {
+            ReasonCode.BUNDLE_INTEGRITY_FAILED,
+            ReasonCode.SIGNATURE_INVALID,
+            ReasonCode.POLICY_EVALUATION_ERROR,
+        }
+        assert set(self.REACHABLE) | load_time_only == set(ReasonCode)
+
+    def test_an_unhandled_code_still_produces_text_rather_than_raising(self):
+        """The fallback exists for the load-time codes; it must not crash."""
+        summary, _ = self.explain(
+            result=DecisionResult.DENIED,
+            reason_code=ReasonCode.BUNDLE_INTEGRITY_FAILED,
+        )
+        assert "BUNDLE_INTEGRITY_FAILED" in summary
+
+    def test_a_missing_signal_never_advises_widening_the_allow_list(self):
+        summary, remedy = self.explain(
+            result=DecisionResult.DENIED,
+            reason_code=ReasonCode.POLICY_SIGNAL_MISSING,
+            matched_policy_ids=("needs-approval",),
+            policy_detail="policy 'needs-approval' requires signals['approval']",
+        )
+        text = " ".join([summary, *remedy])
+        assert "needs-approval" in text
+        assert "will not help" in text
+        assert "Add an entry to" not in text
+
+    def test_a_blocklist_denial_names_the_pattern_that_refused(self):
+        summary, remedy = self.explain(
+            result=DecisionResult.DENIED,
+            reason_code=ReasonCode.ACTION_BLOCKLISTED,
+            matched_pattern="send:email:external:*",
+        )
+        assert "send:email:external:*" in summary
+        assert any("block list always wins" in line for line in remedy)
+
+    def test_a_scoped_allowance_names_the_matching_pattern(self):
+        summary, _ = self.explain(
+            result=DecisionResult.ALLOWED,
+            reason_code=ReasonCode.EXPLICITLY_ALLOWED,
+            matched_pattern="read:report:quarterly/*",
+        )
+        assert "read:report:quarterly/*" in summary
+
+    def test_a_permissive_allowance_is_not_called_explicit(self):
+        summary, remedy = self.explain(
+            result=DecisionResult.ALLOWED,
+            reason_code=ReasonCode.ALLOWED_NOT_BLOCKLISTED,
+        )
+        assert "explicit" not in summary.lower()
+        assert "permissive" in summary.lower()
+        assert any("strict mode" in line for line in remedy)
+
+    def test_a_breaker_denial_does_not_suggest_raising_the_threshold(self):
+        summary, remedy = self.explain(
+            result=DecisionResult.DENIED,
+            reason_code=ReasonCode.FAILURE_THRESHOLD_REACHED,
+            matched_policy_ids=("payment-breaker",),
+            policy_detail="payment-api reported 3 consecutive failures, limit is 3",
+        )
+        text = " ".join([summary, *remedy])
+        assert "do not raise the" in text
+        assert "payment-breaker" in text
+
+    def test_text_and_jsonl_describe_the_same_decision(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        """One source of truth, so the two outputs cannot disagree."""
+        bundle = _decision_bundle(tmp_path)
+        capsys.readouterr()  # discard the fixture's compile output
+        base = [
+            "explain",
+            "--bundle",
+            str(bundle),
+            "--agent",
+            "test-agent",
+            "--action",
+            "send",
+            "--resource",
+            "email:external:bob",
+        ]
+
+        main([*base, "--format", "jsonl"])
+        event = json.loads(capsys.readouterr().out)
+
+        main(base)
+        text = capsys.readouterr().out
+
+        assert event["explanation"] in text
+        assert event["reason_code"] == "POLICY_SIGNAL_MISSING"

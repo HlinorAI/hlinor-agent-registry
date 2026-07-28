@@ -17,6 +17,7 @@ from hlinor_registry import __version__
 from hlinor_registry._limits import MAX_SOURCE_BYTES, read_text_capped
 from hlinor_registry._matching import overlapping_allow_patterns
 from hlinor_registry.action_request import ActionRequest
+from hlinor_registry.enums import ReasonCode
 from hlinor_registry.policies import POLICY_KINDS
 from hlinor_registry.signing import (
     BundleSignatureError,
@@ -589,6 +590,126 @@ def cmd_check(args) -> int:
     return EXIT_ALLOWED if decision.allowed else EXIT_DENIED
 
 
+def _decision_explanation(decision: Any) -> tuple[str, list[str]]:
+    """Describe a decision from its reason code, and say what to do about it.
+
+    The previous version assumed two shapes: every denial came from the action
+    lists, and every allowance was explicit. Neither holds. A denial can now
+    come from a typed policy, and permissive mode can allow an action nobody
+    listed.
+
+    Wrong remediation advice is worse than none in a governance tool. An
+    operator denied for a missing approval must not be told to widen the allow
+    list -- that removes a control to work around a control that was doing its
+    job. So the text is derived from ``reason_code``, ``matched_pattern`` and
+    ``policy_detail`` rather than re-deducing the decision from the YAML.
+    """
+    code = ReasonCode(decision.reason_code)
+    pattern = decision.matched_pattern
+    detail = decision.policy_detail
+    policies = ", ".join(decision.matched_policy_ids)
+
+    if code is ReasonCode.ACTION_BLOCKLISTED:
+        return (
+            f"Denied by the block list entry {pattern!r}",
+            [
+                "The block list always wins, so no allow entry can override this.",
+                f"To permit it, remove or narrow {pattern!r} in blocked_actions,",
+                "then recompile the bundle.",
+            ],
+        )
+
+    if code is ReasonCode.ACTION_NOT_ALLOWLISTED:
+        return (
+            "Denied because no allow pattern matched this action and resource",
+            [
+                "Strict enforcement denies anything not named. Add an entry to",
+                "allowed_actions covering it -- remember the entry is matched",
+                "against 'action:resource', so a bare name does not cover a",
+                "request that names a resource. Then recompile.",
+            ],
+        )
+
+    if code is ReasonCode.UNKNOWN_AGENT:
+        return (
+            "Denied because the bundle contains no agent with this ID",
+            [
+                "Check the spelling, or add the agent's file to the manifest",
+                "and recompile.",
+            ],
+        )
+
+    if code is ReasonCode.POLICY_SIGNAL_MISSING:
+        return (
+            f"Denied by policy {policies}: the request carried no such signal",
+            [
+                detail,
+                "The action lists permit this action; a policy requires the",
+                "request to supply something and it was absent. Widening",
+                "allowed_actions will not help and would remove a control.",
+                "Supply the signal from the adapter, or via --signals-file.",
+            ],
+        )
+
+    if code is ReasonCode.APPROVAL_REQUIRED:
+        return (
+            f"Denied by policy {policies}: the approval did not satisfy it",
+            [
+                detail,
+                "An approval arrived but does not meet the policy. Check the",
+                "approver role, that granted_for names this request, and that",
+                "granted_at is inside the freshness window and not in the future.",
+            ],
+        )
+
+    if code is ReasonCode.EVIDENCE_REQUIRED:
+        return (
+            f"Denied by policy {policies}: the evidence did not satisfy it",
+            [
+                detail,
+                "Check that a claim of each required type is present, names the",
+                "same resource as the request, and carries a timezone-aware",
+                "observed_at inside the window.",
+            ],
+        )
+
+    if code is ReasonCode.FAILURE_THRESHOLD_REACHED:
+        return (
+            (
+                f"Denied by policy {policies}: the reported failure count "
+                f"reached its limit"
+            ),
+            [
+                detail,
+                "This is the breaker working. Resolve the underlying failures",
+                "and reset the counter the adapter reports; do not raise the",
+                "threshold to get past it.",
+            ],
+        )
+
+    if code is ReasonCode.ALLOWED_NOT_BLOCKLISTED:
+        return (
+            "Allowed because permissive enforcement does not require a match",
+            [
+                "Nothing allowed this action explicitly and nothing blocked it.",
+                "In strict mode the same request would be denied.",
+            ],
+        )
+
+    if code is ReasonCode.EXPLICITLY_ALLOWED:
+        summary = (
+            f"Allowed by the allow list entry {pattern!r}"
+            if pattern
+            else "Allowed by the allow list"
+        )
+        remedy = []
+        if policies:
+            remedy.append(f"Policies evaluated and satisfied: {policies}.")
+        return summary, remedy
+
+    return (f"Decision reported {code}", [detail] if detail else [])
+
+
 def cmd_explain(args) -> int:
     """Explain why an action is allowed or denied for an agent."""
     from pathlib import Path
@@ -611,9 +732,8 @@ def cmd_explain(args) -> int:
     decision = checker.evaluate(request)
     output_format = getattr(args, "format", "text")
     event = checker.audit_event(decision)
-    event["explanation"] = (
-        "Action explicitly allowed" if decision.allowed else "Action blocked by policy"
-    )
+    summary, remedy = _decision_explanation(decision)
+    event["explanation"] = summary
 
     try:
         _append_audit_event(event, getattr(args, "audit_log", None))
@@ -675,25 +795,15 @@ def cmd_explain(args) -> int:
     print("ANALYSIS")
     print("-" * 60)
 
-    if decision.denied:
-        if args.action in blocked:
-            print("✗ Action is explicitly listed in blocked_actions")
-        else:
-            print("✗ Action is NOT in allowed_actions (fail-closed enforcement)")
+    print(f"{'✗' if decision.denied else '✓'} {summary}")
+    if decision.matched_policy_ids:
+        print(f"  Policies evaluated: {', '.join(decision.matched_policy_ids)}")
+    if remedy:
         print()
-        print("HOW TO FIX:")
-        print("  1. If this action should be allowed:")
-        print("     - Add it to allowed_actions in the agent YAML")
-        print("     - Ensure it's NOT in blocked_actions")
-        print(
-            "     - Recompile: hlinor-registry compile --manifest registry.yaml --output bundle.json"
-        )
-        print()
-        print("  2. If this action should remain blocked:")
-        print("     - No changes needed - governance is working correctly")
-    else:
-        print("✓ Action is explicitly allowed")
-        print("✓ Agent can perform this action safely")
+        print("WHAT THIS MEANS:")
+        for line in remedy:
+            if line:
+                print(f"  {line}")
 
     print("=" * 60)
     return EXIT_ALLOWED if decision.allowed else EXIT_DENIED
