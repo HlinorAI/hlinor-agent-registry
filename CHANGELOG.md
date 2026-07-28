@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`init` shipped a template that the next command complained about.** The
+  generated agent declared a policy, a validator and a skill that nothing
+  evaluated, so running `compile` -- the command `init` tells you to run --
+  reported that the file just written declares a policy it does not enforce.
+  The template also predated 0.8.0 and showed neither resource patterns nor
+  typed policies, so a short evaluation came away with the model the project
+  had two releases ago. `init` now writes a manifest, an agent with a scoped
+  allow list, and a typed policy the agent opts into; compiling them reports an
+  enforced policy instead of a warning.
+
+### Added
+
+- **`resource` and `signals` on `@governed`, `GovernedTool` and
+  `GovernedCrewTool`.** The wrappers built every request from an agent id and
+  an action name, so an agent whose allow list scopes an action to a resource,
+  or whose policy requires an approval, could not be governed through them at
+  all: both 0.8.0 features were reachable only by calling `PolicyChecker`
+  directly. A decorated call against `refund_payment:order/*` was denied
+  `ACTION_NOT_ALLOWLISTED` -- the wrong reason, indistinguishable from
+  enforcement working. Either parameter may be a fixed value or a callable
+  receiving the invocation, so the resource can be derived from the arguments
+  of the call being authorized. Combining them with a `request_factory` raises,
+  because a factory builds the whole request and silently dropping a
+  configured resource is the defect class this project keeps closing.
+
+### Changed
+
+- The quickstart ends at a governed function rather than a CLI answer, and
+  bundle signing moves out of the newcomer's path into a Production hardening
+  section. Both python examples in the new step were executed to confirm they
+  behave as their comments claim.
+
 ## [0.8.0] - 2026-07-28
 
 Two layers of the same idea. An action list entry can now name the resources it
