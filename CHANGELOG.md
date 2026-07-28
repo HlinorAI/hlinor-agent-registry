@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-07-28
+
+A patch release, and the reason it is one: three of the findings below are in
+code 0.8.0 shipped, and the release pipeline that published it ran no tests.
+
+`resource` and `signals` on the framework wrappers are new parameters, which by
+a strict reading is a minor version. They are here because without them the two
+features 0.8.0 added could not be reached through the integrations this project
+tells people to use -- repairing something unreachable rather than adding
+something new. Getting the security fixes out quickly won the argument.
+
 ### Security
 
 Found by a read-only review of the published 0.8.0 and reproduced before being
@@ -47,6 +58,10 @@ touched. All are in code shipped by 0.8.0.
   is worse than the one it prevented: move a tag to different source, re-run,
   and PyPI correctly refuses to replace the published version while the
   workflow reports success, leaving tag and artifact disagreeing silently.
+- The quickstart ends at a governed function rather than a CLI answer, and
+  bundle signing moves out of the newcomer's path into a Production hardening
+  section. Both python examples in the new step were executed to confirm they
+  behave as their comments claim.
 
 ### Fixed
 
@@ -74,13 +89,6 @@ touched. All are in code shipped by 0.8.0.
   of the call being authorized. Combining them with a `request_factory` raises,
   because a factory builds the whole request and silently dropping a
   configured resource is the defect class this project keeps closing.
-
-### Changed
-
-- The quickstart ends at a governed function rather than a CLI answer, and
-  bundle signing moves out of the newcomer's path into a Production hardening
-  section. Both python examples in the new step were executed to confirm they
-  behave as their comments claim.
 
 ## [0.8.0] - 2026-07-28
 
