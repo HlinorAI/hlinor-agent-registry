@@ -245,6 +245,13 @@ PROJECT_CONTEXT.md
 # what was removed reproduces the leak they exist to close.
 AUDIT.md
 docs/internal/
+# Release-planning and review documents. Working artifacts, not documentation:
+# they describe defects while they are still open, which is not something to
+# publish alongside the fix.
+docs/*-release-blockers.md
+# macOS directory metadata. Harmless, but it reached a commit once.
+.DS_Store
+**/.DS_Store
 
 # Local, project-specific path patterns for scripts/check_public_scope.py.
 .public-scope-denylist

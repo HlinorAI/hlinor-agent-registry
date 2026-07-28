@@ -69,8 +69,41 @@ could verify afterwards.
 - `hlinor-registry lint` warns — and fails — when `allowed_actions` contains
   `*`, which is permissive enforcement written in the allow list.
 
+### Security
+
+Three fail-open cases in the typed-policy work, all found by an external review
+of the unreleased branch and all reproduced before being fixed. None of them
+reached a published package.
+
+- **A future-dated timestamp satisfied every freshness check.** Age is computed
+  as `now - timestamp`, so a timestamp ahead of the clock produced a negative
+  age and `age > max_age_seconds` was false for it: an approval dated a year
+  from now read as fresher than one issued a second ago. Freshness is now a
+  window with both ends, sharing one helper between approvals and evidence, and
+  allowing 30 seconds of clock skew. A negative age is reported rather than
+  clamped, so the audit record says the timestamp was wrong instead of calling
+  it fresh.
+- **`same_resource: true` switched itself off when the request named no
+  resource.** The comparison was skipped instead of failing, so an action with
+  no resource accepted evidence about anything — the binding disappeared in
+  exactly the case where nothing else constrained the claim. The request must
+  now name a resource for the policy to be satisfiable.
+- **Boolean policy switches were read with Python truthiness.**
+  `bind_to_request: 0` disabled request binding, and `same_resource: ""`
+  disabled resource binding, without being valid booleans. Both are now
+  rejected during authoring validation and when a compiled bundle is loaded,
+  because a bundle can be produced by another implementation or edited by hand
+  and a runtime that trusts the artifact it verifies verifies nothing.
+
 ### Fixed
 
+- **`explain` described a decision model that no longer existed.** It assumed
+  every denial came from the action lists and every allowance was explicit, so
+  an operator denied for a missing approval was told to add the action to
+  `allowed_actions` — advice that removes a control to work around a control
+  that was working. Explanation text is now derived from `reason_code`,
+  `matched_pattern` and `policy_detail`, with a branch per reason code the
+  runtime can produce and a test that fails if one is added without it.
 - **A bare block-list entry stopped covering scoped requests.** Introduced
   earlier in this release by the action pattern work: with the block list
   matched only against `action:resource`, `blocked_actions: [delete_records]`

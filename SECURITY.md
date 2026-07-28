@@ -135,6 +135,12 @@ implemented.
   fabricates the signal. Making them resistant to that requires the approval to
   be independently verifiable, for example a signed token checked against a
   trust store the way bundles already are, which is not implemented.
+- Freshness is bounded on both sides. A signal timestamp more than 30 seconds
+  ahead of the checker's clock is refused rather than treated as very fresh;
+  the allowance exists because machines disagree by seconds, not because a
+  future timestamp is acceptable. `bind_to_request` and `same_resource` must be
+  real booleans in both the authored file and the compiled bundle, so a binding
+  check cannot be disabled by a value that is merely falsy.
 - A `failure_threshold` policy compares a count the caller reports. The checker
   keeps no state between requests, deliberately: an in-process counter would
   reset on restart and would not be shared between workers, so it would report

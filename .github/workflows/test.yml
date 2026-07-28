@@ -140,6 +140,88 @@ jobs:
             exit 1
           }
 
+      # Unit tests cover the policy handlers. This covers the path a user
+      # actually takes: author YAML, compile, ask the CLI. Every release that
+      # broke so far broke somewhere along that path while unit tests stayed
+      # green.
+      - name: Smoke test typed policy enforcement
+        run: |
+          set -euo pipefail
+          hlinor-registry compile \
+            --manifest registry.yaml \
+            --output "${RUNNER_TEMP}/typed-bundle.json"
+
+          expect() {
+            local want="$1"; shift
+            local out status
+            set +e
+            out=$("$@" 2>&1)
+            status=$?
+            set -e
+            if [ "$status" -ne "$want" ]; then
+              echo "Expected exit $want, got $status for: $*" >&2
+              echo "$out" >&2
+              exit 1
+            fi
+            printf '%s\n' "$out"
+          }
+
+          approval() {
+            cat > "${RUNNER_TEMP}/approval.json" <<JSON
+          {"approval": {"approver_role": "support-lead",
+                        "granted_for": "$1",
+                        "granted_at": "$2"}}
+          JSON
+          }
+
+          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          future=$(date -u -d '+1 year' +%Y-%m-%dT%H:%M:%SZ)
+
+          # No approval attached: denied by the policy, not by the action list.
+          out=$(expect 1 hlinor-registry check \
+            --bundle "${RUNNER_TEMP}/typed-bundle.json" \
+            --agent refund-agent --action refund_payment --resource ticket/1234)
+          grep -q "POLICY_SIGNAL_MISSING" <<<"$out"
+          grep -q "refund-requires-approval" <<<"$out"
+
+          # A correctly bound, current approval is allowed.
+          approval "refund_payment:ticket/1234" "$now"
+          expect 0 hlinor-registry check \
+            --bundle "${RUNNER_TEMP}/typed-bundle.json" \
+            --agent refund-agent --action refund_payment --resource ticket/1234 \
+            --signals-file "${RUNNER_TEMP}/approval.json" > /dev/null
+
+          # A future-dated approval must not satisfy freshness.
+          approval "refund_payment:ticket/1234" "$future"
+          out=$(expect 1 hlinor-registry check \
+            --bundle "${RUNNER_TEMP}/typed-bundle.json" \
+            --agent refund-agent --action refund_payment --resource ticket/1234 \
+            --signals-file "${RUNNER_TEMP}/approval.json")
+          grep -q "APPROVAL_REQUIRED" <<<"$out"
+          grep -q "future" <<<"$out"
+
+          # An approval for another ticket must not be replayable onto this one.
+          approval "refund_payment:ticket/9999" "$now"
+          out=$(expect 1 hlinor-registry check \
+            --bundle "${RUNNER_TEMP}/typed-bundle.json" \
+            --agent refund-agent --action refund_payment --resource ticket/1234 \
+            --signals-file "${RUNNER_TEMP}/approval.json")
+          grep -q "APPROVAL_REQUIRED" <<<"$out"
+
+          # The audit event must name the matched pattern and the policy.
+          approval "refund_payment:ticket/1234" "$now"
+          event=$(hlinor-registry check \
+            --bundle "${RUNNER_TEMP}/typed-bundle.json" \
+            --agent refund-agent --action refund_payment --resource ticket/1234 \
+            --signals-file "${RUNNER_TEMP}/approval.json" --format jsonl)
+          python -c "
+          import json, sys
+          event = json.loads(sys.argv[1])
+          assert event['matched_pattern'] == 'refund_payment:ticket/*', event
+          assert event['matched_policy_ids'] == ['refund-requires-approval'], event
+          assert event['result'] == 'allowed', event
+          " "$event"
+
       - name: Smoke test signed bundle verification
         run: |
           set -euo pipefail

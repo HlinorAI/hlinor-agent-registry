@@ -351,9 +351,20 @@ Three handler kinds ship today:
 
 | `kind` | Reads from `signals` | Refuses when |
 | :--- | :--- | :--- |
-| `requires_approval` | `approval` | no approval, wrong role, approval granted for a different request, or older than `max_age_seconds` |
-| `requires_evidence` | `evidence` | a required claim type is absent, is about another resource, or is stale |
+| `requires_approval` | `approval` | no approval, wrong role, approval granted for a different request, or outside the freshness window |
+| `requires_evidence` | `evidence` | a required claim type is absent, does not name the request's resource, or is outside the window |
 | `failure_threshold` | `failure_counts` | the reported consecutive-failure count reaches `max_consecutive_failures` |
+
+Freshness is a window with two ends. A timestamp older than `max_age_seconds`
+is stale; one dated more than 30 seconds ahead of the checker's clock is
+refused rather than treated as very fresh. `bind_to_request` and
+`same_resource` default to `true` and must be written as real YAML booleans —
+`0` or `"false"` is refused at compile time and by the runtime, so a binding
+check cannot be switched off by something that merely looks false.
+
+`same_resource` fails closed: if it is on, the request itself must name a
+resource. A request with no resource is denied rather than having the
+comparison skipped.
 
 Two properties hold for all of them:
 

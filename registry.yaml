@@ -13,6 +13,12 @@ policies:
   - path: "examples/secure_financial_agent.yaml"
   - path: "examples/budget_limited_research_agent.yaml"
   - path: "examples/funding_intelligence.yaml"
+  # A typed policy and the agent that opts into it. Present so the repository's
+  # own bundle demonstrates runtime policy enforcement, and so CI exercises the
+  # public path -- author YAML, compile, ask the CLI -- rather than only the
+  # handlers underneath it.
+  - path: "registry/policies/refund-requires-approval.yaml"
+  - path: "registry/agents/refund-agent.yaml"
 metadata:
   environment: "development"
   compiled_by: "hlinor-registry-cli"

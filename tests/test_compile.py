@@ -78,8 +78,16 @@ def test_root_manifest_compiles_real_examples(tmp_path: Path) -> None:
     assert compile_manifest(Path("registry.yaml"), output_path) == 0
 
     bundle = json.loads(output_path.read_text(encoding="utf-8"))
-    assert set(bundle["agents"]) == {"financial-audit-agent", "web-research-agent"}
+    assert set(bundle["agents"]) == {
+        "financial-audit-agent",
+        "web-research-agent",
+        "refund-agent",
+    }
     assert set(bundle["capabilities"]) == {"funding-intelligence"}
+    # The repository's own bundle carries an enforced typed policy, so the
+    # demo artifact demonstrates runtime policy evaluation rather than only
+    # action lists, and CI exercises it end to end.
+    assert set(bundle["policies"]) == {"refund-requires-approval"}
     assert bundle["schema_version"] == "1.0"
     assert bundle["compiler_version"] == __version__
     assert bundle["bundle_revision"] == 1

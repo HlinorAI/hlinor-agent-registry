@@ -15,12 +15,24 @@ the model explains itself:
 | `validators/ticket-input-validator.yaml` | Checks an input must pass before the agent acts on it |
 | `policies/no-customer-pii-in-logs.yaml` | A named constraint and how it is meant to be enforced |
 
+`policies/refund-requires-approval.yaml` and `agents/refund-agent.yaml` are the
+typed-policy pair: a policy compiled into the bundle and evaluated at runtime,
+and the agent that opts into it. Compare `refund-agent` with
+`ticket-triage-agent`, which blocks `refund_payment` outright. Blocking is
+right when an agent must never do a thing; a policy is the third option for an
+agent whose job is the thing, but only with an approval naming it.
+
 ## What is enforced and what is not
 
-Only `allowed_actions` and `blocked_actions` on an agent are evaluated at
-runtime by `PolicyChecker`. Skills, validators and the `policies` list are
-authoring contracts: validated when you compile, useful as a shared vocabulary
-for review, and read by no decision.
+Two things are evaluated at runtime by `PolicyChecker`: an agent's action
+lists, and any policy it names that has a compiled typed policy behind it.
+
+Everything else is an authoring contract — validated when you compile, useful
+as a shared vocabulary for review, and read by no decision. That includes
+skills, validators, and a `policies` entry with no compiled policy behind it,
+such as `no-customer-pii-in-logs`. `hlinor-registry compile` prints which of an
+agent's declared policies fall on each side, so the difference is visible
+before a bundle is signed rather than inferred from behaviour afterwards.
 
 This is stated at length in
 [What is enforced at runtime](../README.md#what-is-enforced-at-runtime). It is
