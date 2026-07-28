@@ -385,10 +385,25 @@ class TestLoadPolicyRules:
         assert rules["gate"].trigger == ("send:*",)
         assert rules["gate"].spec["approver_role"] == "lead"
 
-    def test_malformed_entries_are_skipped_rather_than_raising(self):
-        """Bundle shape is checked at load; a rule builder must not throw."""
+    def test_a_non_mapping_argument_yields_no_rules(self):
+        """A bundle with no policies section at all is not an error."""
         assert load_policy_rules(None) == {}
-        assert load_policy_rules({"a": None, "b": {"config": None}}) == {}
+        assert load_policy_rules({}) == {}
+
+    def test_malformed_entries_raise_rather_than_being_skipped(self):
+        """This assertion is the reverse of what it originally said.
+
+        The first version required that a malformed entry be skipped, on the
+        reasoning that "bundle shape is checked at load, so a rule builder must
+        not throw". The reasoning was circular: this function *is* the load,
+        and nothing downstream re-checked the shapes it dropped. What the rule
+        actually produced was a typed policy disappearing from an agent while
+        the agent file still declared it.
+        """
+        with pytest.raises((ValueError, TypeError)):
+            load_policy_rules({"a": None})
+        with pytest.raises((ValueError, TypeError)):
+            load_policy_rules({"b": {"config": None}})
 
 
 class TestFreshnessWindow:
@@ -572,7 +587,10 @@ class TestBooleanOptionsAreStrict:
         A bundle can be produced by another implementation or edited by hand.
         A runtime that trusts the artifact it is verifying verifies nothing.
         """
-        with pytest.raises(TypeError, match="must be a boolean"):
+        # Authoring validation now runs first during load and produces a
+        # ValueError naming the field, which is a better message than the
+        # runtime TypeError it used to reach. Either way the bundle is refused.
+        with pytest.raises((TypeError, ValueError), match="must be a boolean"):
             load_policy_rules(
                 {
                     "gate": {
@@ -585,3 +603,127 @@ class TestBooleanOptionsAreStrict:
                     }
                 }
             )
+
+
+class TestMalformedCompiledPoliciesFailClosed:
+    """A typed policy that cannot become a rule must reject the bundle.
+
+    The first version treated every unusable shape as though it were prose: an
+    unknown kind, a trigger that was not a list, a config that was not an
+    object. Each one made the policy vanish from the agent's rules while the
+    agent file still declared it, so the action it was meant to gate was simply
+    allowed. Not a weaker control -- no control, reported as an allowance.
+
+    The official compiler refuses these, so the path is not reachable by
+    authoring a YAML file. It is reachable by another implementation, a custom
+    signing pipeline, a hand-edited development bundle, or a version skew
+    between compiler and runtime. A signature proves who produced the bytes,
+    not that the policy inside them can be enforced.
+    """
+
+    def bundle(self, **config: object) -> dict:
+        base = {
+            "id": "gate",
+            "kind": "requires_approval",
+            "trigger": ["send:*"],
+            "requires": {"approver_role": "lead"},
+        }
+        base.update(config)
+        return {"gate": {"config": base}}
+
+    @pytest.mark.parametrize(
+        ("label", "config"),
+        [
+            ("unknown kind", {"kind": "requires_aproval"}),
+            ("trigger is not a list", {"trigger": "send:*"}),
+            ("trigger is empty", {"trigger": []}),
+            ("trigger holds a non-string", {"trigger": [123]}),
+            ("invalid freshness window", {"requires": {"max_age_seconds": 0}}),
+        ],
+    )
+    def test_an_unusable_typed_policy_rejects_the_bundle(self, label, config):
+        with pytest.raises((ValueError, TypeError), match="gate"):
+            load_policy_rules(self.bundle(**config))
+
+    @pytest.mark.parametrize(
+        ("label", "policies"),
+        [
+            ("entry is not an object", {"gate": "oops"}),
+            ("config is not an object", {"gate": {"config": "oops"}}),
+            ("config is missing", {"gate": {}}),
+            ("policy id is empty", {"": {"config": {"kind": "requires_approval"}}}),
+        ],
+    )
+    def test_a_malformed_bundle_entry_rejects_the_bundle(self, label, policies):
+        with pytest.raises((ValueError, TypeError)):
+            load_policy_rules(policies)
+
+    def test_a_missing_required_field_rejects_the_bundle(self):
+        with pytest.raises(ValueError, match="counter"):
+            load_policy_rules(
+                {
+                    "breaker": {
+                        "config": {
+                            "id": "breaker",
+                            "kind": "failure_threshold",
+                            "trigger": ["call:*"],
+                            "threshold": {},
+                        }
+                    }
+                }
+            )
+
+    def test_a_trigger_is_never_narrowed_by_filtering(self):
+        """Dropping the entries that do not fit is not a fix.
+
+        Filtering a bad trigger item would turn an invalid policy into a valid
+        one covering fewer actions -- the silent weakening this whole check
+        exists to stop, wearing the costume of robustness.
+        """
+        with pytest.raises(ValueError):
+            load_policy_rules(self.bundle(trigger=[None, "send:*"]))
+
+    def test_a_policy_with_no_kind_is_still_prose(self):
+        """The one shape that legitimately produces no rule."""
+        rules = load_policy_rules(
+            {"documented": {"config": {"id": "documented", "enforcement": "by review"}}}
+        )
+        assert rules == {}
+
+    def test_a_valid_typed_policy_still_loads(self):
+        rules = load_policy_rules(self.bundle())
+        assert rules["gate"].trigger == ("send:*",)
+
+
+class TestNonFiniteNumbersAreRefused:
+    """`value <= 0` does not reject NaN, because no comparison with NaN is true.
+
+    PyYAML parses `.nan` and `.inf` as floats, so a freshness window could be
+    authored as either and pass validation. Canonical JSON refuses non-finite
+    numbers later, so the official compile path stopped it -- but validation
+    and compilation disagreeing about what is valid is its own defect, and the
+    error the user got named neither the field nor the reason.
+    """
+
+    def errors_for(self, value: object) -> list[str]:
+        return policy_definition_errors(
+            {
+                "kind": "requires_approval",
+                "trigger": ["send"],
+                "requires": {"max_age_seconds": value},
+            }
+        )
+
+    @pytest.mark.parametrize(
+        "value",
+        [float("nan"), float("inf"), float("-inf"), 0, -5, True, "900", None],
+    )
+    def test_rejected(self, value):
+        errors = self.errors_for(value)
+        assert errors, f"{value!r} was accepted"
+        assert any("max_age_seconds" in error for error in errors)
+        assert any("finite positive" in error for error in errors)
+
+    @pytest.mark.parametrize("value", [1, 900, 0.5, 3600.0])
+    def test_accepted(self, value):
+        assert self.errors_for(value) == []

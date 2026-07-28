@@ -273,7 +273,17 @@ class PolicyChecker:
                 raise TypeError(
                     f"Invalid policies for agent '{agent_id}': expected a list"
                 )
-            named = [item for item in declared if isinstance(item, str)]
+            # Filtering non-strings here would drop a declared contract on the
+            # floor. Whatever it was meant to be, it was written down on
+            # purpose, and a governance file that does not parse must not
+            # quietly become a shorter governance file.
+            for item in declared:
+                if not isinstance(item, str) or not item.strip():
+                    raise TypeError(
+                        f"Invalid policies entry for agent '{agent_id}': "
+                        f"expected a non-empty string, got {type(item).__name__}"
+                    )
+            named = list(declared)
             agent_entry["rules"] = tuple(
                 loaded_rules[policy_id]
                 for policy_id in named
