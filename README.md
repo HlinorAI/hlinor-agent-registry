@@ -15,161 +15,143 @@ Hlinor Agent Registry is a declarative governance layer for agent systems. It tu
 
 ---
 
-## ⚡ Quickstart (Zero Friction)
+## ⚡ Quickstart
 
-Get up and running in 3 simple steps:
+Four steps. The fourth is the one that matters: at the end of it, a function in
+your own code cannot run an action the policy does not allow.
 
 ### 1. Install
 ```bash
 pip install hlinor-registry
 ```
 
-### 2. Initialize Templates
-Generate a ready-to-use registry manifest and agent policy file with safe defaults:
+### 2. Write the boundary
 ```bash
 hlinor-registry init
 ```
-*(This creates `registry.yaml` and `my_agent.yaml` in your current directory)*
 
-### 3. Compile and Test
-Compile your policies into an integrity-checked JSON bundle:
+Three files, meant to be read: `registry.yaml` lists what gets compiled,
+`my_agent.yaml` holds one agent's action boundary, and
+`refund-needs-approval.yaml` is a policy that gates refunds behind a human
+approval.
+
+### 3. Compile it
 ```bash
 hlinor-registry compile --manifest registry.yaml --output bundle.json
 ```
 
-New manifests should declare `schema_version`, `metadata.environment`,
-`metadata.bundle_revision`, and `metadata.policy_revision`. The legacy
-top-level `version` field remains accepted for migration compatibility.
+Compilation reads only the files the manifest names, so what runs is always
+something someone listed on purpose. It reports which declared policies are
+actually enforced:
 
-Test the governance enforcement directly from the CLI:
+```
+Successfully compiled 2 entries to bundle.json
+Agent 'my-agent' enforces: refund-needs-approval
+```
+
+Ask the bundle a few questions before wiring anything up:
+
 ```bash
-# Test an allowed action
 hlinor-registry check --bundle bundle.json --agent my-agent --action read_database
-
-# Test a blocked action (Fail-closed in action)
 hlinor-registry check --bundle bundle.json --agent my-agent --action send_external_email
+hlinor-registry check --bundle bundle.json --agent my-agent --action read_database --resource reports/q1
+hlinor-registry check --bundle bundle.json --agent my-agent --action read_database --resource customers/pii
+hlinor-registry check --bundle bundle.json --agent my-agent --action refund_payment --resource order/1234
 ```
 
-`--resource` and `--signals-file` reach the parts of a bundle a bare action
-name cannot, so an agent whose permission is scoped to a resource or gated
-behind a policy can be exercised from the terminal:
+Allowed, denied, allowed, denied, denied. The fourth is the resource pattern
+doing its job — `read_database` is permitted, but only over `reports/*`. The
+fifth is the policy: the action is allowed, and the request carried no
+approval.
 
-```bash
-hlinor-registry check --bundle bundle.json \
-  --agent refund-agent --action refund_payment --resource ticket/1234 \
-  --signals-file approval.json
-```
+Exit codes are `0` allowed, `1` denied, `2` no decision reached. An unreadable
+bundle or an unusable signals file is the third, never the second, because a
+caller that cannot tell those apart reads a broken deployment as working
+governance.
 
-Exit codes are `0` allowed, `1` denied, `2` no decision reached — an unreadable
-bundle or an unusable signals file is the third, never the second.
+### 4. Govern a real function
 
-For an auditable machine-readable decision, emit JSONL and optionally append
-the same provenance-aware event to a durable log file:
-
-```bash
-hlinor-registry check \
-  --bundle bundle.json \
-  --agent my-agent \
-  --action read_database \
-  --format jsonl \
-  --audit-log logs/governance-decisions.jsonl
-```
-
-Each event includes the decision ID, timestamp, reason code, and SHA-256
-digest of the policy bundle used to make the decision. It also binds the
-decision to a canonical request digest.
-
-For context-rich evaluation, use the immutable request API:
+Everything above is a rehearsal. This is the part that changes what your code
+can do:
 
 ```python
-from hlinor_registry import ActionRequest, PolicyChecker
+from hlinor_registry import GovernanceDeniedError
+from hlinor_registry.integrations.decorators import governed
 
-request = ActionRequest(
-    agent_id="financial-audit-agent",
-    action="read",
-    actor_id="service:finance-prod",
-    resource="report:quarterly",
-    attributes={"classification": "confidential"},
-    environment="production",
+
+@governed(
+    agent_id="my-agent",
+    action="refund_payment",
+    bundle_path="bundle.json",
+    resource=lambda call: f"order/{call.kwargs['order_id']}",
+    signals=lambda call: call.kwargs.get("approval", {}),
 )
-decision = PolicyChecker("bundle.json").evaluate(request)
+def refund(*, order_id: str, amount: int, approval=None) -> str:
+    return charge_api.refund(order_id, amount)
+
+
+try:
+    refund(order_id="1234", amount=5000)
+except GovernanceDeniedError as denial:
+    print(denial.decision.reason_code)  # POLICY_SIGNAL_MISSING
+    print(denial.decision.policy_detail)  # which policy refused, and why
 ```
 
-**Configure trust roots and signatures become mandatory.** Passing
-`trust_store` or `trusted_keys` upgrades the default `signature_policy="auto"`
-to `"required"`. Without that, whether a signature was required would come from
-`metadata.environment` inside the bundle being verified — so anyone able to
-rewrite the deployed file could strip the signature, declare the bundle a
-development build, and disable authentication.
+The call raises before the function body runs. Nothing reaches
+`charge_api.refund` unless the bundle permits it.
 
-With no trust roots configured there is nothing to verify against, and unsigned
-bundles are accepted only when the manifest declares `development`, `test`, or
-`local`. `signature_policy="optional"` remains an explicit override for
-controlled migration.
+`resource` and `signals` are what connect the decorator to the rest of the
+bundle. Either can be a fixed value, or a callable receiving the invocation so
+the resource can be read off the arguments of the call being authorized.
+Without them a decorated function can only ever ask about a bare action name,
+which no scoped allow list and no policy will match.
 
-### Sign production bundles
+Give the same refund an approval that names it and the call goes through; give
+it one granted for another order and it does not:
 
-Generate an Ed25519 key pair outside the repository:
+```python
+from datetime import datetime, timezone
 
-```bash
-openssl genpkey -algorithm ED25519 -out policy-signing-key.pem
-openssl pkey \
-  -in policy-signing-key.pem \
-  -pubout \
-  -out policy-signing-key.pub.pem
-```
-
-Never commit the private key. Compile deterministically with an explicit
-validity window:
-
-```bash
-hlinor-registry compile \
-  --manifest registry.yaml \
-  --output bundle.json \
-  --signing-key policy-signing-key.pem \
-  --key-id prod-policy-2026-01 \
-  --issuer hlinor-policy-ci \
-  --issued-at 2026-07-26T00:00:00Z \
-  --expires-at 2026-08-26T00:00:00Z
-```
-
-Configure the runtime trust root in a deployment-owned file:
-
-```json
-{
-  "schema_version": "1.0",
-  "keys": {
-    "prod-policy-2026-01": {
-      "algorithm": "Ed25519",
-      "public_key_path": "policy-signing-key.pub.pem",
-      "issuer": "hlinor-policy-ci"
+approval = {
+    "approval": {
+        "approver_role": "support-lead",
+        "granted_for": "refund_payment:order/1234",
+        # The policy allows 900 seconds. A fixed timestamp here would work
+        # once and then stop, which is the point of a freshness window.
+        "granted_at": datetime.now(timezone.utc).isoformat(),
     }
-  }
 }
+
+refund(order_id="1234", amount=5000, approval=approval)  # runs
+refund(order_id="9999", amount=5000, approval=approval)  # APPROVAL_REQUIRED
 ```
 
-Verify the artifact before deployment:
-
-```bash
-hlinor-registry verify-bundle \
-  --bundle bundle.json \
-  --trust-store trust-store.json \
-  --signature-policy required \
-  --required-issuer hlinor-policy-ci \
-  --minimum-bundle-revision 42
-```
-
-The same trust requirements are available through `PolicyChecker`:
+If your agent is a LangChain or CrewAI tool, wrap the tool instead of the
+function — same parameters:
 
 ```python
-checker = PolicyChecker(
-    "bundle.json",
-    trust_store="trust-store.json",
-    signature_policy="required",
-    required_issuer="hlinor-policy-ci",
-    minimum_bundle_revision=42,
+from hlinor_registry.integrations.langchain import GovernedTool
+
+safe_tool = GovernedTool(
+    tool=my_langchain_tool,
+    agent_id="my-agent",
+    bundle_path="bundle.json",
+    resource=lambda call: call.kwargs.get("order_id"),
 )
 ```
+
+Both need the matching extra: `pip install "hlinor-registry[langchain]"` or
+`[crewai]`. Runnable versions of all three are in
+[`examples/`](examples/).
+
+### Where to go next
+
+- Scope actions to resources and gate them behind policies:
+  [Use cases](#%EF%B8%8F-use-cases) below.
+- Know exactly what the runtime does and does not enforce:
+  [What is enforced at runtime](#%EF%B8%8F-what-is-enforced-at-runtime).
+- Ship it: [Production hardening](#-production-hardening) covers signing,
+  trust roots, and rollback floors.
 
 ---
 
@@ -512,6 +494,90 @@ Signed bundles bind the policy payload, digest, issuer, key ID, issuance time,
 and expiration time to an Ed25519 signature. Runtime trust comes from
 deployment-configured public keys, never from a key embedded in the bundle.
 Use a trusted minimum bundle revision to enforce a rollback floor.
+
+---
+
+## 🔐 Production hardening
+
+Everything below is for the deployment, not the first five minutes.
+
+**Configure trust roots and signatures become mandatory.** Passing
+`trust_store` or `trusted_keys` upgrades the default `signature_policy="auto"`
+to `"required"`. Without that, whether a signature was required would come from
+`metadata.environment` inside the bundle being verified — so anyone able to
+rewrite the deployed file could strip the signature, declare the bundle a
+development build, and disable authentication.
+
+With no trust roots configured there is nothing to verify against, and unsigned
+bundles are accepted only when the manifest declares `development`, `test`, or
+`local`. `signature_policy="optional"` remains an explicit override for
+controlled migration.
+
+### Sign production bundles
+
+Generate an Ed25519 key pair outside the repository:
+
+```bash
+openssl genpkey -algorithm ED25519 -out policy-signing-key.pem
+openssl pkey \
+  -in policy-signing-key.pem \
+  -pubout \
+  -out policy-signing-key.pub.pem
+```
+
+Never commit the private key. Compile deterministically with an explicit
+validity window:
+
+```bash
+hlinor-registry compile \
+  --manifest registry.yaml \
+  --output bundle.json \
+  --signing-key policy-signing-key.pem \
+  --key-id prod-policy-2026-01 \
+  --issuer hlinor-policy-ci \
+  --issued-at 2026-07-26T00:00:00Z \
+  --expires-at 2026-08-26T00:00:00Z
+```
+
+Configure the runtime trust root in a deployment-owned file:
+
+```json
+{
+  "schema_version": "1.0",
+  "keys": {
+    "prod-policy-2026-01": {
+      "algorithm": "Ed25519",
+      "public_key_path": "policy-signing-key.pub.pem",
+      "issuer": "hlinor-policy-ci"
+    }
+  }
+}
+```
+
+Verify the artifact before deployment:
+
+```bash
+hlinor-registry verify-bundle \
+  --bundle bundle.json \
+  --trust-store trust-store.json \
+  --signature-policy required \
+  --required-issuer hlinor-policy-ci \
+  --minimum-bundle-revision 42
+```
+
+The same trust requirements are available through `PolicyChecker`:
+
+```python
+checker = PolicyChecker(
+    "bundle.json",
+    trust_store="trust-store.json",
+    signature_policy="required",
+    required_issuer="hlinor-policy-ci",
+    minimum_bundle_revision=42,
+)
+```
+
+---
 
 ---
 
