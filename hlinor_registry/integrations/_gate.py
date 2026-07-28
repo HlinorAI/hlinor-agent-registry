@@ -30,6 +30,19 @@ class InvocationContext:
 
 RequestFactory = Callable[[InvocationContext], ActionRequest]
 
+#: A resource or a signal set may be fixed for the governed target, or derived
+#: from the arguments of the call being authorized.
+ResourceSpec = str | Callable[[InvocationContext], str | None] | None
+SignalsSpec = (
+    Mapping[str, Any] | Callable[[InvocationContext], Mapping[str, Any]] | None
+)
+
+
+def _resolve(spec: Any, context: InvocationContext) -> Any:
+    """Return a static spec unchanged, or call it with the invocation context."""
+    return spec(context) if callable(spec) else spec
+
+
 _checker_locks: weakref.WeakKeyDictionary[PolicyChecker, threading.RLock] = (
     weakref.WeakKeyDictionary()
 )
@@ -58,7 +71,21 @@ class GovernanceGate:
         checker: PolicyChecker | None = None,
         decision_sink: DecisionSink | None = None,
         request_factory: RequestFactory | None = None,
+        resource: ResourceSpec = None,
+        signals: SignalsSpec = None,
     ) -> None:
+        # A request factory owns the whole request. Accepting resource or
+        # signals alongside one would mean silently dropping them, which is
+        # the failure mode this project keeps having to fix: a setting that
+        # looks configured and does nothing.
+        if request_factory is not None and (
+            resource is not None or signals is not None
+        ):
+            raise ValueError(
+                "Pass either request_factory or resource/signals, not both: "
+                "a request factory builds the whole request itself."
+            )
+
         self.agent_id = agent_id
         self.action = action
         self.tool_id = tool_id
@@ -66,6 +93,8 @@ class GovernanceGate:
         self._checker = checker
         self._decision_sink = decision_sink
         self._request_factory = request_factory
+        self._resource = resource
+        self._signals = signals
         self._lock = threading.RLock()
 
     @property
@@ -96,16 +125,17 @@ class GovernanceGate:
                     args=tuple(args),
                     kwargs=frozen_kwargs,
                 )
-                request = (
-                    self._request_factory(context)
-                    if self._request_factory is not None
-                    else ActionRequest(
+                if self._request_factory is not None:
+                    request = self._request_factory(context)
+                else:
+                    request = ActionRequest(
                         agent_id=self.agent_id,
                         action=self.action,
                         tool_id=self.tool_id,
                         environment=checker.environment,
+                        resource=_resolve(self._resource, context),
+                        signals=_resolve(self._signals, context) or {},
                     )
-                )
                 self._validate_request(request)
                 decision = checker.evaluate(request)
                 if self._decision_sink is not None:
