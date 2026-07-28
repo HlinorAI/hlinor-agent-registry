@@ -1,6 +1,7 @@
 """Tests for bundle-based PolicyChecker enforcement."""
 
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -898,3 +899,147 @@ def test_a_scoped_block_entry_still_only_blocks_its_scope(tmp_path: Path) -> Non
     assert read("secret/keys").denied
     assert read("public/report").allowed
     assert read(None).allowed
+
+
+def evidence_policy(policy_id: str = "needs-evidence", **requires: object) -> dict:
+    return {
+        "type": "policy",
+        "id": policy_id,
+        "name": "Needs Evidence",
+        "description": "Publishing requires a source document about this report.",
+        "enforcement": "Denied unless the request carries bound evidence.",
+        "kind": "requires_evidence",
+        "trigger": ["publish:*", "publish"],
+        "requires": {"evidence_types": ["source_document"], **requires},
+    }
+
+
+def test_a_future_dated_approval_cannot_satisfy_a_policy(tmp_path: Path) -> None:
+    """End to end, through a compiled bundle and the real clock.
+
+    The unit tests pin a fixed `now`; this one uses the system clock to prove
+    the window is enforced on the path a deployment actually takes.
+    """
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["send:email:external:*"],
+        policies=["needs-approval"],
+        policy_files=[approval_policy(max_age_seconds=900)],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    def send(granted_at: datetime):
+        return checker.evaluate(
+            ActionRequest(
+                agent_id="test-agent",
+                action="send",
+                resource="email:external:bob",
+                signals={
+                    "approval": {
+                        "approver_role": "security-lead",
+                        "granted_for": "send:email:external:*",
+                        "granted_at": granted_at.isoformat(),
+                    }
+                },
+            )
+        )
+
+    now = datetime.now(timezone.utc)
+    future = send(now + timedelta(days=365))
+    assert future.denied
+    assert future.reason_code is ReasonCode.APPROVAL_REQUIRED
+    assert "future" in future.policy_detail
+
+    assert send(now).allowed
+
+
+def test_same_resource_evidence_denies_a_request_that_names_no_resource(
+    tmp_path: Path,
+) -> None:
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["publish", "publish:*"],
+        policies=["needs-evidence"],
+        policy_files=[evidence_policy()],
+    )
+    checker = PolicyChecker(str(bundle_path))
+
+    unscoped = checker.evaluate(
+        ActionRequest(
+            agent_id="test-agent",
+            action="publish",
+            signals={
+                "evidence": [{"type": "source_document", "resource": "report:q4"}]
+            },
+        )
+    )
+    assert unscoped.denied
+    assert unscoped.reason_code is ReasonCode.EVIDENCE_REQUIRED
+    assert unscoped.matched_policy_ids == ("needs-evidence",)
+
+    wrong_resource = checker.evaluate(
+        ActionRequest(
+            agent_id="test-agent",
+            action="publish",
+            resource="report:q1",
+            signals={
+                "evidence": [{"type": "source_document", "resource": "report:q4"}]
+            },
+        )
+    )
+    assert wrong_resource.denied
+
+    correct = checker.evaluate(
+        ActionRequest(
+            agent_id="test-agent",
+            action="publish",
+            resource="report:q1",
+            signals={
+                "evidence": [{"type": "source_document", "resource": "report:q1"}]
+            },
+        )
+    )
+    assert correct.allowed
+
+
+def test_a_bundle_whose_binding_switch_is_not_a_boolean_will_not_load(
+    tmp_path: Path,
+) -> None:
+    """Fail at load, not at decision time.
+
+    A checker must never come into existence holding a policy whose binding
+    switch is a string, and the failure must not arrive as an exception in the
+    middle of evaluating a request.
+    """
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["send:email:external:*"],
+        policies=["needs-approval"],
+        policy_files=[approval_policy()],
+    )
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    bundle["policies"]["needs-approval"]["config"]["requires"]["bind_to_request"] = 0
+    # Recompute the digest so the tampering is not caught by integrity alone;
+    # the point is that the policy invariant catches it on its own.
+    bundle["digest"] = ""
+    from hlinor_registry.signing import compute_bundle_digest
+
+    bundle["digest"] = compute_bundle_digest(bundle)
+    bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+
+    with pytest.raises(TypeError, match="must be a boolean"):
+        PolicyChecker(str(bundle_path))
+
+
+def test_compile_refuses_a_policy_file_with_a_non_boolean_switch(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """The bad value must never reach a bundle in the first place."""
+    with pytest.raises(AssertionError):
+        write_bundle(
+            tmp_path,
+            allowed_actions=["send:email:external:*"],
+            policies=["needs-approval"],
+            policy_files=[approval_policy(bind_to_request="yes")],
+        )
+    assert "bind_to_request must be a boolean" in capsys.readouterr().err

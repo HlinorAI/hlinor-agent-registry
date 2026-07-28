@@ -222,7 +222,7 @@ class TestEvidence:
             now=NOW,
         )
         assert not outcome.satisfied
-        assert "different resource" in outcome.detail
+        assert "does not name resource" in outcome.detail
 
     def test_a_self_declared_fresh_flag_does_not_substitute_for_a_timestamp(self):
         outcome = evidence_rule(max_age_seconds=3600).check(
@@ -389,3 +389,199 @@ class TestLoadPolicyRules:
         """Bundle shape is checked at load; a rule builder must not throw."""
         assert load_policy_rules(None) == {}
         assert load_policy_rules({"a": None, "b": {"config": None}}) == {}
+
+
+class TestFreshnessWindow:
+    """Both ends of the window, at the boundary, against a fixed clock.
+
+    The upper bound alone was shipped first. Age is `now - timestamp`, so a
+    future timestamp gives a negative age and `age > max_age` is false for it:
+    an approval dated a year ahead read as fresher than one issued a second
+    ago. The whole control inverted by a minus sign, and no test noticed
+    because every test used a past timestamp.
+    """
+
+    def approval_at(self, moment: datetime) -> ActionRequest:
+        return request_with(
+            approval={
+                "approver_role": "security-lead",
+                "granted_for": "send:email:external:*",
+                "granted_at": moment.isoformat(),
+            }
+        )
+
+    def test_a_timestamp_a_year_ahead_cannot_satisfy_freshness(self):
+        rule = approval_rule(max_age_seconds=900)
+        outcome = rule.check(self.approval_at(NOW + timedelta(days=365)), now=NOW)
+        assert not outcome.satisfied
+        assert outcome.reason_code is ReasonCode.APPROVAL_REQUIRED
+        assert "future" in outcome.detail
+
+    @pytest.mark.parametrize(
+        ("offset_seconds", "accepted"),
+        [
+            (0, True),  # exactly now
+            (29, True),  # inside the clock-skew allowance
+            (30, True),  # exactly at the allowance
+            (31, False),  # past it
+            (-899, True),  # inside the window
+            (-900, True),  # exactly at max age
+            (-901, False),  # past max age
+        ],
+    )
+    def test_both_boundaries_are_inclusive_on_the_accepting_side(
+        self, offset_seconds, accepted
+    ):
+        """Boundary values, not sleeps: a clock-dependent test proves nothing."""
+        rule = approval_rule(max_age_seconds=900)
+        outcome = rule.check(
+            self.approval_at(NOW + timedelta(seconds=offset_seconds)), now=NOW
+        )
+        assert outcome.satisfied is accepted, outcome.detail
+
+    def test_evidence_uses_the_same_window_as_approval(self):
+        """One helper for both, so the two cannot drift apart."""
+        rule = evidence_rule(max_age_seconds=3600)
+        future = publish_request(
+            {
+                "type": "source_document",
+                "resource": "report:q1",
+                "observed_at": (NOW + timedelta(days=365)).isoformat(),
+            }
+        )
+        assert not rule.check(future, now=NOW).satisfied
+
+        inside_skew = publish_request(
+            {
+                "type": "source_document",
+                "resource": "report:q1",
+                "observed_at": (NOW + timedelta(seconds=20)).isoformat(),
+            }
+        )
+        assert rule.check(inside_skew, now=NOW).satisfied
+
+    def test_a_negative_age_is_reported_not_clamped_to_zero(self):
+        """Clamping would let a fabricated timestamp read as merely fresh."""
+        rule = approval_rule(max_age_seconds=900)
+        outcome = rule.check(self.approval_at(NOW + timedelta(hours=5)), now=NOW)
+        assert "18000s in the future" in outcome.detail
+
+
+class TestSameResourceFailsClosed:
+    def test_a_request_with_no_resource_cannot_satisfy_same_resource(self):
+        """Missing data must deny, not switch the binding off.
+
+        Skipping the comparison when the request named no resource meant the
+        check disabled itself in exactly the case where nothing else
+        constrained which object the evidence was about.
+        """
+        rule = evidence_rule()
+        request = ActionRequest(
+            agent_id="writer",
+            action="publish",
+            signals={"evidence": [{"type": "source_document", "resource": "anything"}]},
+        )
+        outcome = rule.check(request, now=NOW)
+        assert not outcome.satisfied
+        assert outcome.reason_code is ReasonCode.EVIDENCE_REQUIRED
+        assert "must name a resource" in outcome.detail
+
+    def test_an_evidence_claim_with_no_resource_is_refused(self):
+        outcome = evidence_rule().check(
+            publish_request({"type": "source_document"}), now=NOW
+        )
+        assert not outcome.satisfied
+
+    def test_a_wrong_resource_claim_cannot_hide_behind_a_right_typed_one(self):
+        """Only the wrong-resource claim carries the required type."""
+        outcome = evidence_rule().check(
+            publish_request(
+                {"type": "source_document", "resource": "report:q4"},
+                {"type": "screenshot", "resource": "report:q1"},
+            ),
+            now=NOW,
+        )
+        assert not outcome.satisfied
+        assert "does not name resource" in outcome.detail
+
+    def test_same_resource_false_does_not_require_a_request_resource(self):
+        rule = evidence_rule(same_resource=False)
+        request = ActionRequest(
+            agent_id="writer",
+            action="publish",
+            signals={"evidence": [{"type": "source_document"}]},
+        )
+        assert rule.check(request, now=NOW).satisfied
+
+
+class TestBooleanOptionsAreStrict:
+    @pytest.mark.parametrize("bad", [0, 1, "false", "yes", None, [], {}])
+    @pytest.mark.parametrize(
+        ("kind", "field"),
+        [
+            ("requires_approval", "bind_to_request"),
+            ("requires_evidence", "same_resource"),
+        ],
+    )
+    def test_authoring_rejects_anything_that_is_not_a_boolean(self, kind, field, bad):
+        """Truthiness is not a governance contract.
+
+        `bind_to_request: 0` reads, to Python, as "turn the binding off". A
+        file that says that is either a mistake or an attempt to disable a
+        security check while appearing to configure one.
+        """
+        spec: dict[str, object] = {field: bad}
+        if kind == "requires_evidence":
+            spec["evidence_types"] = ["doc"]
+        errors = policy_definition_errors(
+            {"kind": kind, "trigger": ["send:*"], "requires": spec}
+        )
+        assert any(field in error and "boolean" in error for error in errors), errors
+
+    @pytest.mark.parametrize("good", [True, False])
+    def test_real_booleans_are_accepted(self, good):
+        assert (
+            policy_definition_errors(
+                {
+                    "kind": "requires_approval",
+                    "trigger": ["send:*"],
+                    "requires": {"bind_to_request": good},
+                }
+            )
+            == []
+        )
+
+    def test_omitting_the_field_keeps_the_secure_default(self):
+        assert (
+            policy_definition_errors(
+                {"kind": "requires_approval", "trigger": ["send:*"], "requires": {}}
+            )
+            == []
+        )
+        assert approval_rule().spec.get("bind_to_request") is None
+        # Absence still binds: the check runs.
+        outcome = approval_rule().check(
+            request_with(approval={"approver_role": "security-lead"}), now=NOW
+        )
+        assert not outcome.satisfied
+
+    @pytest.mark.parametrize("bad", [0, "yes", None])
+    def test_a_compiled_bundle_carrying_a_non_boolean_fails_to_load(self, bad):
+        """Authoring validation is not the last word.
+
+        A bundle can be produced by another implementation or edited by hand.
+        A runtime that trusts the artifact it is verifying verifies nothing.
+        """
+        with pytest.raises(TypeError, match="must be a boolean"):
+            load_policy_rules(
+                {
+                    "gate": {
+                        "config": {
+                            "id": "gate",
+                            "kind": "requires_approval",
+                            "trigger": ["send:*"],
+                            "requires": {"bind_to_request": bad},
+                        }
+                    }
+                }
+            )

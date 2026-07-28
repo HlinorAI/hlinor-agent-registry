@@ -118,13 +118,70 @@ def _parse_timestamp(value: Any) -> datetime | None:
     return parsed
 
 
-def _age_seconds(timestamp: datetime, *, now: datetime | None = None) -> float:
+#: How far ahead of the checker's clock a signal timestamp may sit before it is
+#: treated as wrong rather than merely early. Machines disagree by seconds; a
+#: signal dated further ahead than this is a broken clock or a fabricated
+#: value, and either way it must not extend a freshness window.
+ALLOWED_CLOCK_SKEW_SECONDS = 30.0
+
+
+def _freshness_error(
+    timestamp: datetime,
+    *,
+    max_age_seconds: float,
+    now: datetime | None = None,
+    allowed_clock_skew_seconds: float = ALLOWED_CLOCK_SKEW_SECONDS,
+) -> str | None:
+    """Check both ends of the accepted window, or return why it failed.
+
+    A window with only an upper bound is not a window. Age is ``now -
+    timestamp``, so a timestamp in the future produces a *negative* age, and a
+    check that only asks ``age > max_age`` accepts a signal dated a year from
+    now as though it were seconds old. That is the whole freshness control
+    inverted by a minus sign, and it is why this helper exists rather than the
+    comparison living inline in each handler where it can drift.
+
+    Negative age is reported, not clamped to zero. Clamping would let a
+    malformed or fabricated timestamp pass as merely fresh, and the audit
+    record would say nothing about it.
+    """
     reference = now or datetime.now(timezone.utc)
-    return (reference - timestamp).total_seconds()
+    age = (reference - timestamp).total_seconds()
+
+    if age < -allowed_clock_skew_seconds:
+        return (
+            f"timestamp is {-age:.0f}s in the future, beyond the "
+            f"{allowed_clock_skew_seconds:.0f}s clock-skew allowance"
+        )
+    if age > max_age_seconds:
+        return f"timestamp is {age:.0f}s old, limit is {max_age_seconds}s"
+    return None
 
 
 def _as_mapping(value: Any) -> Mapping[str, Any] | None:
     return value if isinstance(value, Mapping) else None
+
+
+def _require_bool(spec: Mapping[str, Any], field: str) -> bool:
+    """Read a security-sensitive switch that must be an actual boolean.
+
+    ``spec.get(field, True)`` under Python truthiness lets ``0``, ``""`` or
+    ``null`` turn a binding check off. These two switches decide whether an
+    approval is tied to its request and whether evidence must concern the
+    resource being acted on, so a governance file must not be able to disable
+    them by writing something that merely looks false.
+
+    Authoring validation rejects these values too. This is the second line:
+    a compiled bundle can be produced by another implementation or edited by
+    hand, and a runtime that trusts the artifact it is verifying is not a
+    runtime that verifies anything.
+    """
+    value = spec.get(field, True)
+    if not isinstance(value, bool):
+        raise TypeError(
+            f"compiled policy {field} must be a boolean, got {type(value).__name__}"
+        )
+    return value
 
 
 @dataclass(frozen=True)
@@ -201,7 +258,7 @@ def _check_approval(
     # Bind the approval to the request it was granted for. Without this an
     # approval legitimately obtained for a harmless action can be attached to
     # any other action the same agent is permitted to attempt.
-    if rule.spec.get("bind_to_request", True):
+    if _require_bool(rule.spec, "bind_to_request"):
         granted_for = approval.get("granted_for")
         if not isinstance(granted_for, str) or not granted_for.strip():
             return refuse("approval must name the request it was granted for")
@@ -214,9 +271,9 @@ def _check_approval(
         granted_at = _parse_timestamp(approval.get("granted_at"))
         if granted_at is None:
             return refuse("approval must carry granted_at as a timezone-aware instant")
-        age = _age_seconds(granted_at, now=now)
-        if age > float(max_age):
-            return refuse(f"approval is {age:.0f}s old, limit is {max_age}s")
+        problem = _freshness_error(granted_at, max_age_seconds=float(max_age), now=now)
+        if problem is not None:
+            return refuse(f"approval {problem}")
 
     return PolicyOutcome(rule.policy_id, True)
 
@@ -249,36 +306,50 @@ def _check_evidence(
     # The schema in registry/schema/evidence-claim-binding.yaml carries a
     # same_object_verified boolean. A claim asserting its own correctness is
     # worth nothing, so the comparison is computed here instead.
-    same_resource = rule.spec.get("same_resource", True)
+    same_resource = _require_bool(rule.spec, "same_resource")
     resource = getattr(request, "resource", None)
+
+    # Missing data must deny, not disable the binding. Skipping the comparison
+    # when the request names no resource meant an action with no resource
+    # accepted evidence about anything at all -- the check switched itself off
+    # in exactly the case where nothing else constrained the claim.
+    if same_resource and (not isinstance(resource, str) or not resource.strip()):
+        return refuse(
+            "request must name a resource for evidence bound with same_resource"
+        )
 
     for required_type in rule.spec.get("evidence_types") or []:
         candidates = [claim for claim in claims if claim.get("type") == required_type]
         if not candidates:
             return refuse(f"no evidence claim of type {required_type!r}")
 
-        if same_resource and resource is not None:
+        if same_resource:
             candidates = [
                 claim for claim in candidates if claim.get("resource") == resource
             ]
             if not candidates:
                 return refuse(
-                    f"evidence of type {required_type!r} is about a different "
-                    f"resource than {resource!r}"
+                    f"evidence of type {required_type!r} does not name resource "
+                    f"{resource!r}"
                 )
 
         if max_age is not None:
             fresh = []
             for claim in candidates:
                 observed_at = _parse_timestamp(claim.get("observed_at"))
-                if observed_at is not None and _age_seconds(observed_at, now=now) <= (
-                    float(max_age)
+                if observed_at is None:
+                    continue
+                if (
+                    _freshness_error(
+                        observed_at, max_age_seconds=float(max_age), now=now
+                    )
+                    is None
                 ):
                     fresh.append(claim)
             if not fresh:
                 return refuse(
-                    f"no evidence of type {required_type!r} observed within "
-                    f"{max_age}s carrying a timezone-aware observed_at"
+                    f"no evidence of type {required_type!r} carries a "
+                    f"timezone-aware observed_at inside the {max_age}s window"
                 )
 
     return PolicyOutcome(rule.policy_id, True)
@@ -346,6 +417,13 @@ _HANDLERS = {
 #: at compile time rather than ignored at runtime, because a policy that is
 #: silently skipped is worse than one that was never written.
 POLICY_KINDS = frozenset(_HANDLERS)
+
+#: Switches that decide whether a binding check runs at all. They must be real
+#: booleans in both the authored file and the compiled bundle.
+_BOOLEAN_SPEC_FIELDS: dict[str, tuple[str, ...]] = {
+    "requires_approval": ("bind_to_request",),
+    "requires_evidence": ("same_resource",),
+}
 
 _REQUIRED_SPEC_FIELDS: dict[str, tuple[str, ...]] = {
     "requires_approval": (),
@@ -433,6 +511,16 @@ def _spec_field_errors(kind: str, section: str, spec: Mapping[str, Any]) -> list
                 f"policy: {section}.evidence_types must be a non-empty list of strings"
             )
 
+    # Truthiness is not a governance contract. A file that writes `0` or
+    # "false" here is either a mistake or an attempt to disable a binding
+    # check while looking like it configured one; both are refused by name.
+    for boolean_field in _BOOLEAN_SPEC_FIELDS.get(kind, ()):
+        if boolean_field in spec and not isinstance(spec[boolean_field], bool):
+            errors.append(
+                f"policy: {section}.{boolean_field} must be a boolean "
+                f"(true or false), not {type(spec[boolean_field]).__name__}"
+            )
+
     if kind == "failure_threshold":
         counter = spec.get("counter")
         if counter is not None and (
@@ -475,6 +563,18 @@ def load_policy_rules(policies: Any) -> dict[str, PolicyRule]:
         if not isinstance(trigger, list):
             continue
         spec = _as_mapping(config.get(_SPEC_SECTION[kind])) or {}
+        # Refuse the bundle rather than the request. A compiled artifact can
+        # come from another implementation or be edited by hand, so authoring
+        # validation is not the last word; raising here means a checker never
+        # comes into existence holding a policy whose binding switch is a
+        # string. Failing at load is also the only place this can fail loudly
+        # without turning a denial into an exception mid-decision.
+        for boolean_field in _BOOLEAN_SPEC_FIELDS.get(kind, ()):
+            if boolean_field in spec and not isinstance(spec[boolean_field], bool):
+                raise TypeError(
+                    f"Policy '{policy_id}': {boolean_field} must be a boolean, "
+                    f"got {type(spec[boolean_field]).__name__}"
+                )
         rules[policy_id] = PolicyRule(
             policy_id=policy_id,
             kind=kind,
