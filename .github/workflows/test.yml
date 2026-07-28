@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Callable so the release workflow can require these exact jobs before it
+  # publishes. A tag push does not match a branch filter, so before this the
+  # release ran no tests at all -- the ones that gave anyone confidence had
+  # run earlier, against a branch, in a workflow the release did not consult.
+  workflow_call:
 
 jobs:
   # This repository is a public specification. Internal tooling and operational

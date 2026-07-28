@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+Found by a read-only review of the published 0.8.0 and reproduced before being
+touched. All are in code shipped by 0.8.0.
+
+- **A typed policy that could not be enforced disappeared instead of failing.**
+  `load_policy_rules` skipped every unusable compiled shape -- unknown handler
+  kind, non-list trigger, malformed config -- so the policy vanished from the
+  agent's rules while the agent file still declared it, and the gated action
+  was allowed and recorded `EXPLICITLY_ALLOWED`. Two shapes were worse: an
+  empty trigger produced a rule that matched nothing, and a trigger holding a
+  non-string was filtered down to its valid entries, turning an invalid policy
+  into a valid narrower one. All of these now reject the bundle. A policy with
+  no `kind` remains prose and still produces no rule.
+  The compiler refuses these shapes, so no YAML written through the official
+  path reaches them; a bundle from another implementation, a custom signing
+  pipeline, a hand-edited development bundle, or a compiler/runtime version
+  skew does.
+- **Non-string entries in an agent's `policies` list were filtered out.** A
+  declared contract could be dropped without anything being said. The bundle is
+  now refused.
+- **`max_age_seconds` accepted NaN and infinity.** Every ordered comparison
+  with NaN is false, and the check was `value <= 0`. PyYAML parses `.nan` and
+  `.inf` as floats, so both were writable in a policy file. Canonical JSON
+  refused them at compile time, so validation and compilation disagreed about
+  what is valid and the resulting error named neither the field nor the reason.
+  The check now requires a finite positive number, and a key present with a
+  null value is an error rather than an absent window.
+
+### Changed
+
+- **A release no longer publishes before its tests run.** `Tests & Validation`
+  triggers on `push: branches: [main]`, which a tag push does not match, so the
+  release workflow reached PyPI having run nothing. The test workflow is now
+  callable and the publish job depends on it against the tagged commit.
+- **`skip-existing` removed from the PyPI publish step.** It was added when
+  tags were still being force-pushed during a history rewrite. Its failure mode
+  is worse than the one it prevented: move a tag to different source, re-run,
+  and PyPI correctly refuses to replace the published version while the
+  workflow reports success, leaving tag and artifact disagreeing silently.
+
 ### Fixed
 
 - **`init` shipped a template that the next command complained about.** The
