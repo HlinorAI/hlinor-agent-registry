@@ -245,10 +245,17 @@ PROJECT_CONTEXT.md
 # what was removed reproduces the leak they exist to close.
 AUDIT.md
 docs/internal/
-# Release-planning and review documents. Working artifacts, not documentation:
-# they describe defects while they are still open, which is not something to
-# publish alongside the fix.
-docs/*-release-blockers.md
+# Review and release-planning documents. Working artifacts, not documentation:
+# they describe defects while those defects are still open, which is not
+# something to publish alongside the fix.
+#
+# The first version of this rule named one filename shape, and the next review
+# document arrived with a different one and went straight to a public branch.
+# Match the directory, not the name someone happens to choose.
+docs/internal/**
+docs/*-review*.md
+docs/*-recommendations.md
+docs/*-blockers.md
 # macOS directory metadata. Harmless, but it reached a commit once.
 .DS_Store
 **/.DS_Store
