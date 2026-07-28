@@ -58,6 +58,7 @@ omissions, not against a hostile adapter.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -487,16 +488,33 @@ def policy_definition_errors(data: Mapping[str, Any]) -> list[str]:
     return errors
 
 
+def _is_finite_positive(value: Any) -> bool:
+    """True for a real, finite, positive number.
+
+    ``value <= 0`` is not enough. Every ordered comparison with NaN is false,
+    so a freshness window written as ``.nan`` -- which PyYAML happily parses as
+    a float -- passed the old check and produced a policy whose window can
+    never be satisfied or can never expire, depending on which side of the
+    comparison it lands. Canonical JSON refuses non-finite numbers later, so
+    the official compile path stopped it; validation and compilation
+    disagreeing about what is valid is its own defect.
+    """
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    return math.isfinite(value) and value > 0
+
+
 def _spec_field_errors(kind: str, section: str, spec: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
 
-    max_age = spec.get("max_age_seconds")
-    if max_age is not None and (
-        not isinstance(max_age, (int, float))
-        or isinstance(max_age, bool)
-        or max_age <= 0
-    ):
-        errors.append(f"policy: {section}.max_age_seconds must be a positive number")
+    # Presence, not `is not None`. In YAML, `max_age_seconds:` with nothing
+    # after it parses as None, and in a compiled bundle it is an explicit null.
+    # Both read as "I meant to set a window here", so treating them as absent
+    # would silently drop the control the author was reaching for.
+    if "max_age_seconds" in spec and not _is_finite_positive(spec["max_age_seconds"]):
+        errors.append(
+            f"policy: {section}.max_age_seconds must be a finite positive number"
+        )
 
     if kind == "requires_evidence":
         evidence_types = spec.get("evidence_types")
@@ -550,35 +568,43 @@ def load_policy_rules(policies: Any) -> dict[str, PolicyRule]:
         return rules
 
     for policy_id, entry in policies.items():
+        if not isinstance(policy_id, str) or not policy_id.strip():
+            raise ValueError("Policy bundle contains an invalid policy ID")
+
         bundle_entry = _as_mapping(entry)
         if bundle_entry is None:
-            continue
+            raise TypeError(f"Policy '{policy_id}': bundle entry must be an object")
+
         config = _as_mapping(bundle_entry.get("config"))
         if config is None:
+            raise TypeError(f"Policy '{policy_id}': config must be an object")
+
+        # No kind at all is a prose policy, which is a legitimate thing to
+        # write and produces no rule. A kind that is present and unusable is
+        # not prose -- it is a control someone believed they had.
+        if config.get("kind") is None:
             continue
-        kind = config.get("kind")
-        if kind not in POLICY_KINDS:
-            continue
+
+        problems = policy_definition_errors(config)
+        if problems:
+            raise ValueError(
+                f"Invalid compiled policy '{policy_id}': " + "; ".join(problems)
+            )
+
+        kind = config["kind"]
         trigger = config.get("trigger")
         if not isinstance(trigger, list):
-            continue
+            raise TypeError(f"Policy '{policy_id}': trigger must be a list")
+
         spec = _as_mapping(config.get(_SPEC_SECTION[kind])) or {}
-        # Refuse the bundle rather than the request. A compiled artifact can
-        # come from another implementation or be edited by hand, so authoring
-        # validation is not the last word; raising here means a checker never
-        # comes into existence holding a policy whose binding switch is a
-        # string. Failing at load is also the only place this can fail loudly
-        # without turning a denial into an exception mid-decision.
-        for boolean_field in _BOOLEAN_SPEC_FIELDS.get(kind, ()):
-            if boolean_field in spec and not isinstance(spec[boolean_field], bool):
-                raise TypeError(
-                    f"Policy '{policy_id}': {boolean_field} must be a boolean, "
-                    f"got {type(spec[boolean_field]).__name__}"
-                )
         rules[policy_id] = PolicyRule(
             policy_id=policy_id,
             kind=kind,
-            trigger=tuple(item for item in trigger if isinstance(item, str)),
+            # tuple(trigger), not a filtered comprehension. Dropping the
+            # entries that do not fit would turn an invalid policy into a
+            # valid narrower one, which is the same silent weakening this
+            # function exists to stop.
+            trigger=tuple(trigger),
             spec=spec,
         )
     return rules

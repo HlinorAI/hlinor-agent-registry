@@ -12,7 +12,13 @@ from langchain_core.tools import BaseTool
 from pydantic import PrivateAttr
 
 from ..policy_checker import PolicyChecker
-from ._gate import DecisionSink, GovernanceGate, RequestFactory
+from ._gate import (
+    DecisionSink,
+    GovernanceGate,
+    RequestFactory,
+    ResourceSpec,
+    SignalsSpec,
+)
 
 
 def _tool_input(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str | dict[str, Any]:
@@ -45,6 +51,8 @@ class GovernedTool(BaseTool):
         checker: PolicyChecker | None = None,
         decision_sink: DecisionSink | None = None,
         request_factory: RequestFactory | None = None,
+        resource: ResourceSpec = None,
+        signals: SignalsSpec = None,
     ) -> None:
         resolved_bundle_path = registry_dir or bundle_path
         action_candidate = (
@@ -100,6 +108,8 @@ class GovernedTool(BaseTool):
             checker=checker,
             decision_sink=decision_sink,
             request_factory=request_factory,
+            resource=resource,
+            signals=signals,
         )
 
     @property
@@ -187,6 +197,8 @@ class GovernedAgent:
         checker: PolicyChecker | None = None,
         decision_sink: DecisionSink | None = None,
         request_factory: RequestFactory | None = None,
+        resource: ResourceSpec = None,
+        signals: SignalsSpec = None,
     ) -> None:
         self.agent_executor = agent_executor
         self.agent_id = agent_id
@@ -194,6 +206,8 @@ class GovernedAgent:
         self._checker = checker
         self._decision_sink = decision_sink
         self._request_factory = request_factory
+        self._resource = resource
+        self._signals = signals
         self._wrap_tools()
 
     def _wrap_tools(self) -> None:
@@ -229,6 +243,8 @@ class GovernedAgent:
                 checker=self._checker,
                 decision_sink=self._decision_sink,
                 request_factory=self._request_factory,
+                resource=self._resource,
+                signals=self._signals,
             )
             for tool in tools
         ]

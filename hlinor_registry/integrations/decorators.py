@@ -9,7 +9,13 @@ from typing import Any
 
 from ..decision import GovernanceDeniedError
 from ..policy_checker import PolicyChecker
-from ._gate import DecisionSink, GovernanceGate, RequestFactory
+from ._gate import (
+    DecisionSink,
+    GovernanceGate,
+    RequestFactory,
+    ResourceSpec,
+    SignalsSpec,
+)
 
 # Compatibility alias retained for callers importing the former subclass.
 PolicyViolationError = GovernanceDeniedError
@@ -24,8 +30,17 @@ def governed(
     decision_sink: DecisionSink | None = None,
     request_factory: RequestFactory | None = None,
     tool_id: str | None = None,
+    resource: ResourceSpec = None,
+    signals: SignalsSpec = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Decorate a sync or async function with one governance evaluation."""
+    """Decorate a sync or async function with one governance evaluation.
+
+    ``resource`` and ``signals`` are what let a decorated function reach the
+    parts of a bundle that a bare action name cannot: an allow list scoped with
+    ``read:report:*``, or a policy that demands an approval. Either may be a
+    fixed value, or a callable receiving the ``InvocationContext`` so it can be
+    derived from the arguments of the call being authorized.
+    """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         gate = GovernanceGate(
@@ -36,6 +51,8 @@ def governed(
             checker=checker,
             decision_sink=decision_sink,
             request_factory=request_factory,
+            resource=resource,
+            signals=signals,
         )
 
         if inspect.iscoroutinefunction(func):

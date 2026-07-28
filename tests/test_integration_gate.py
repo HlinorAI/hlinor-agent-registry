@@ -201,3 +201,87 @@ def test_gate_rejects_request_factory_target_changes(
         gate.authorize()
 
     assert checker.requests == []
+
+
+class TestResourceAndSignalsReachTheRequest:
+    """Without these, the wrappers cannot use what 0.8.0 added.
+
+    `@governed` and the framework wrappers built every request with an action
+    name and nothing else. An agent whose allow list scopes an action to a
+    resource, or whose policy requires an approval, was therefore unreachable
+    through the integrations the README recommends -- the two headline
+    features of the release could only be used by calling PolicyChecker
+    directly. Both were denied for the wrong reason, which is the worst kind of
+    working: it looks like enforcement.
+    """
+
+    def gate(self, checker: RecordingChecker, **kwargs: Any) -> GovernanceGate:
+        return GovernanceGate(
+            agent_id="agent",
+            action="refund_payment",
+            bundle_path="unused.json",
+            checker=checker,
+            **kwargs,
+        )
+
+    def test_a_static_resource_reaches_the_request(self) -> None:
+        checker = RecordingChecker()
+        self.gate(checker, resource="order/1234").authorize()
+        assert checker.requests[-1].resource == "order/1234"
+
+    def test_a_resource_can_be_derived_from_the_call(self) -> None:
+        """The common case: the resource is an argument, not a constant."""
+        checker = RecordingChecker()
+        gate = self.gate(
+            checker, resource=lambda call: f"order/{call.kwargs['order_id']}"
+        )
+        gate.authorize(kwargs={"order_id": "9999"})
+        assert checker.requests[-1].resource == "order/9999"
+
+    def test_signals_reach_the_request(self) -> None:
+        checker = RecordingChecker()
+        approval = {"approval": {"approver_role": "support-lead"}}
+        self.gate(checker, signals=approval).authorize()
+        assert checker.requests[-1].signals["approval"]["approver_role"] == (
+            "support-lead"
+        )
+
+    def test_signals_can_be_derived_from_the_call(self) -> None:
+        checker = RecordingChecker()
+        gate = self.gate(checker, signals=lambda call: call.kwargs["signals"])
+        gate.authorize(kwargs={"signals": {"failure_counts": {"api": 3}}})
+        assert checker.requests[-1].signals["failure_counts"]["api"] == 3
+
+    def test_omitting_them_still_produces_a_valid_request(self) -> None:
+        checker = RecordingChecker()
+        self.gate(checker).authorize()
+        request = checker.requests[-1]
+        assert request.resource is None
+        assert dict(request.signals) == {}
+
+    def test_combining_a_request_factory_with_resource_is_refused(self) -> None:
+        """Silently dropping one of them is the defect class, not the fix.
+
+        A request factory builds the whole request. Accepting a resource
+        alongside it would mean the resource is configured and ignored, which
+        is exactly the shape of every fail-open case in this codebase's
+        history.
+        """
+        checker = RecordingChecker()
+        with pytest.raises(ValueError, match="not both"):
+            self.gate(
+                checker,
+                request_factory=lambda call: ActionRequest(
+                    agent_id="agent", action="refund_payment"
+                ),
+                resource="order/1234",
+            )
+
+        with pytest.raises(ValueError, match="not both"):
+            self.gate(
+                checker,
+                request_factory=lambda call: ActionRequest(
+                    agent_id="agent", action="refund_payment"
+                ),
+                signals={"approval": {}},
+            )

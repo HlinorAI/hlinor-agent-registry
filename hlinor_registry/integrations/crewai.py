@@ -11,7 +11,13 @@ from crewai.tools import BaseTool
 from pydantic import Field, PrivateAttr
 
 from ..policy_checker import PolicyChecker
-from ._gate import DecisionSink, GovernanceGate, RequestFactory
+from ._gate import (
+    DecisionSink,
+    GovernanceGate,
+    RequestFactory,
+    ResourceSpec,
+    SignalsSpec,
+)
 
 
 class GovernedCrewTool(BaseTool):
@@ -35,6 +41,8 @@ class GovernedCrewTool(BaseTool):
         checker: PolicyChecker | None = None,
         decision_sink: DecisionSink | None = None,
         request_factory: RequestFactory | None = None,
+        resource: ResourceSpec = None,
+        signals: SignalsSpec = None,
         **kwargs: Any,
     ) -> None:
         if isinstance(executor, BaseTool):
@@ -59,6 +67,8 @@ class GovernedCrewTool(BaseTool):
             checker=checker,
             decision_sink=decision_sink,
             request_factory=request_factory,
+            resource=resource,
+            signals=signals,
         )
 
     def _authorize(self, args: tuple[Any, ...], kwargs: dict[str, Any]) -> None:

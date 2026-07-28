@@ -1027,7 +1027,10 @@ def test_a_bundle_whose_binding_switch_is_not_a_boolean_will_not_load(
     bundle["digest"] = compute_bundle_digest(bundle)
     bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
 
-    with pytest.raises(TypeError, match="must be a boolean"):
+    # Authoring validation runs during load now, so the message names the
+    # field before the runtime type check is reached. Either exception means
+    # the checker was never created from the tampered bundle.
+    with pytest.raises((TypeError, ValueError), match="must be a boolean"):
         PolicyChecker(str(bundle_path))
 
 
@@ -1043,3 +1046,59 @@ def test_compile_refuses_a_policy_file_with_a_non_boolean_switch(
             policy_files=[approval_policy(bind_to_request="yes")],
         )
     assert "bind_to_request must be a boolean" in capsys.readouterr().err
+
+
+def test_a_bundle_with_an_unusable_policy_will_not_load(tmp_path: Path) -> None:
+    """End to end: the control vanished and the action was simply allowed.
+
+    Before this, changing a compiled policy's kind to something the runtime
+    does not implement made the rule disappear. The agent still declared the
+    policy, matched_policy_ids came back empty, and the refund went through
+    reported as EXPLICITLY_ALLOWED. Reproduced here through a real bundle with
+    the digest recomputed, so integrity checking cannot be what catches it.
+    """
+    from hlinor_registry.signing import compute_bundle_digest
+
+    bundle_path = write_bundle(
+        tmp_path,
+        allowed_actions=["send:email:external:*"],
+        policies=["needs-approval"],
+        policy_files=[approval_policy()],
+    )
+
+    # The bundle is sound to start with, and the policy is enforced.
+    baseline = PolicyChecker(str(bundle_path)).evaluate(
+        ActionRequest(
+            agent_id="test-agent", action="send", resource="email:external:bob"
+        )
+    )
+    assert baseline.denied
+    assert baseline.matched_policy_ids == ("needs-approval",)
+
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    bundle["policies"]["needs-approval"]["config"]["kind"] = "requires_aproval"
+    bundle["digest"] = ""
+    bundle["digest"] = compute_bundle_digest(bundle)
+    bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+
+    with pytest.raises((ValueError, TypeError), match="needs-approval"):
+        PolicyChecker(str(bundle_path))
+
+
+def test_an_agent_policy_reference_that_is_not_a_string_will_not_load(
+    tmp_path: Path,
+) -> None:
+    """Filtering it out would drop a declared contract without saying so."""
+    from hlinor_registry.signing import compute_bundle_digest
+
+    bundle_path = write_bundle(
+        tmp_path, allowed_actions=["read"], policies=["a-policy"]
+    )
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    bundle["agents"]["test-agent"]["config"]["policies"] = [{"id": "a-policy"}]
+    bundle["digest"] = ""
+    bundle["digest"] = compute_bundle_digest(bundle)
+    bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+
+    with pytest.raises(TypeError, match="policies entry"):
+        PolicyChecker(str(bundle_path))

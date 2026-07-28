@@ -69,6 +69,7 @@ def test_cmd_init_creates_templates(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
     assert (tmp_path / "registry.yaml").exists()
     assert (tmp_path / "my_agent.yaml").exists()
+    assert (tmp_path / "refund-needs-approval.yaml").exists()
 
     # Verify content
     with open(tmp_path / "my_agent.yaml") as f:
@@ -834,3 +835,93 @@ class TestExplanationCoversEveryReasonCode:
 
         assert event["explanation"] in text
         assert event["reason_code"] == "POLICY_SIGNAL_MISSING"
+
+
+class TestInitTemplateFirstRun:
+    """`init` then `compile` is the first thing a new user does.
+
+    The starter template used to declare a policy, a validator and a skill that
+    nothing evaluated, so `compile` -- the very next command -- warned about
+    the file `init` had just written. The template taught the wrong model at
+    the moment the user forms one, and the first output was a complaint about
+    the tool's own output.
+    """
+
+    def init_and_compile(self, tmp_path: Path, monkeypatch, capsys) -> str:
+        monkeypatch.chdir(tmp_path)
+        assert cmd_init(argparse.Namespace()) == 0
+        capsys.readouterr()
+        assert (
+            main(
+                [
+                    "compile",
+                    "--manifest",
+                    "registry.yaml",
+                    "--output",
+                    "bundle.json",
+                ]
+            )
+            == 0
+        )
+        return capsys.readouterr().out
+
+    def test_compiling_the_template_produces_no_unenforced_warning(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ) -> None:
+        output = self.init_and_compile(tmp_path, monkeypatch, capsys)
+        assert "does not enforce" not in output, output
+
+    def test_the_template_demonstrates_an_enforced_policy(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ) -> None:
+        """A first run should show the runtime doing something, not a warning."""
+        output = self.init_and_compile(tmp_path, monkeypatch, capsys)
+        assert "enforces: refund-needs-approval" in output
+
+    def test_the_template_uses_the_current_syntax(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Otherwise a two-minute evaluation sees the tool as it was two releases ago."""
+        monkeypatch.chdir(tmp_path)
+        assert cmd_init(argparse.Namespace()) == 0
+
+        agent = (tmp_path / "my_agent.yaml").read_text(encoding="utf-8")
+        policy = (tmp_path / "refund-needs-approval.yaml").read_text(encoding="utf-8")
+
+        assert "read_database:reports/*" in agent, "no resource pattern in the template"
+        assert "kind: requires_approval" in policy, "no typed policy in the template"
+
+    def test_the_generated_files_pass_the_tools_own_checks(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        assert cmd_init(argparse.Namespace()) == 0
+        capsys.readouterr()
+
+        assert main(["validate-agent", "my_agent.yaml"]) == 0
+        assert main(["validate-policy", "refund-needs-approval.yaml"]) == 0
+        assert main(["lint", "my_agent.yaml"]) == 0
+
+    def test_the_documented_first_decisions_behave_as_written(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ) -> None:
+        """The commands the quickstart tells a newcomer to run.
+
+        Exit codes are the contract: 0 allowed, 1 denied. A quickstart whose
+        printed commands do not do what the text says is worse than none.
+        """
+        self.init_and_compile(tmp_path, monkeypatch, capsys)
+        base = ["check", "--bundle", "bundle.json", "--agent", "my-agent"]
+
+        assert main([*base, "--action", "read_database"]) == 0
+        assert main([*base, "--action", "send_external_email"]) == 1
+        assert (
+            main([*base, "--action", "read_database", "--resource", "reports/q1"]) == 0
+        )
+        assert (
+            main([*base, "--action", "read_database", "--resource", "customers/pii"])
+            == 1
+        )
+        assert (
+            main([*base, "--action", "refund_payment", "--resource", "order/1234"]) == 1
+        )

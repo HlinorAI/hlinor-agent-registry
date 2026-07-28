@@ -10,8 +10,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Everything the push and pull-request pipeline runs, against the tagged
+  # commit, before anything is built for PyPI. A PyPI version is immutable:
+  # publishing first and discovering a failure afterwards leaves nothing to
+  # undo.
+  verify-source:
+    name: Verify the tagged commit
+    uses: ./.github/workflows/test.yml
+
   publish:
     name: Build and publish to PyPI
+    needs: verify-source
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: pypi
@@ -51,15 +60,14 @@ jobs:
           python -m twine check dist/*
 
       - name: Publish distributions to PyPI
+        # skip-existing was set here when tags were still being force-pushed
+        # during a history rewrite. That situation is over, and the setting has
+        # a worse failure mode than the one it prevented: move a tag to
+        # different source, re-run, and PyPI correctly refuses to replace the
+        # published version while the workflow reports success. The tag and the
+        # artifact then disagree and nothing says so. A duplicate publish
+        # should be loud.
         uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # release/v1
-        with:
-          # A tag can be pushed more than once: a history rewrite moves it, and
-          # the workflow runs again. PyPI refuses to replace an existing
-          # version, which is correct, but failing the job for it turns a
-          # no-op into a red run and hides real failures. Treat an already
-          # published version as success; the verify job below still checks
-          # that what is on PyPI matches the tag.
-          skip-existing: true
 
   verify:
     name: Verify published package from PyPI
