@@ -484,47 +484,111 @@ def _policy_binding_report(bundle: dict[str, Any]) -> list[str]:
     return lines
 
 
+#: Files written by `init`. The starter template is the first and often only
+#: thing a new user reads closely, so it demonstrates what the runtime actually
+#: enforces and nothing else. An earlier version declared a policy, a validator
+#: and a skill that nothing evaluated, which meant the very next command --
+#: `compile` -- warned about the file `init` had just written.
+INIT_TEMPLATES: dict[str, str] = {
+    "registry.yaml": """\
+# registry.yaml -- the manifest. Compilation reads exactly these files and
+# nothing else, so what runs is always a file someone listed on purpose.
+schema_version: "1.0"
+policies:
+  - path: "my_agent.yaml"
+  - path: "refund-needs-approval.yaml"
+metadata:
+  environment: development
+  bundle_revision: 1
+  policy_revision: "local"
+""",
+    "my_agent.yaml": """\
+# my_agent.yaml -- one agent and its action boundary.
+id: my-agent
+type: agent
+name: My First Agent
+department: engineering
+description: An example agent for testing governance
+
+# An entry is matched against "action:resource". With no wildcard it is an
+# exact match, so `read_database` permits the action with no resource named
+# and nothing more. With `*` it scopes the action to what it may touch:
+# reports are readable, anything else under the database is not.
+allowed_actions:
+  - read_database
+  - read_database:reports/*
+  - refund_payment:order/*
+
+# Blocked always wins over allowed, and a bare entry here covers every
+# resource. This agent can never send external email, whatever it is asked.
+blocked_actions:
+  - send_external_email
+
+# Enforced: the policy below is compiled into the bundle and evaluated on
+# every matching request. Try `refund_payment` without an approval and see.
+policies:
+  - refund-needs-approval
+
+# Declarative: skills and validators are context for whoever reviews this
+# file. PolicyChecker does not read them. See "What is enforced at runtime"
+# in the README.
+skills:
+  - read_database
+validators:
+  - input_sanitization
+
+enforcement_mode: strict
+""",
+    "refund-needs-approval.yaml": """\
+# refund-needs-approval.yaml -- a typed policy.
+#
+# The action lists above answer "may this agent touch this resource at all".
+# A policy answers what must be true of the particular request once it may:
+# here, that a human approved this specific refund, recently.
+id: refund-needs-approval
+type: policy
+name: Refund Needs Approval
+description: A refund requires a recent approval naming that order.
+enforcement: >-
+  Enforced by PolicyChecker. The caller supplies the approval in
+  ActionRequest.signals["approval"].
+
+kind: requires_approval
+
+# Matched with the same syntax as the action lists.
+trigger:
+  - refund_payment:*
+
+requires:
+  approver_role: support-lead
+  # The approval must name what it approved, so one obtained for a small
+  # refund cannot be replayed onto a larger one.
+  bind_to_request: true
+  max_age_seconds: 900
+""",
+}
+
+
 def cmd_init(args) -> int:
-    """Generate template registry.yaml and agent policy files."""
-    from pathlib import Path
+    """Generate a starter manifest, agent, and typed policy."""
+    created = []
+    for filename, contents in INIT_TEMPLATES.items():
+        path = Path(filename)
+        if path.exists():
+            print(f"{path} already exists, skipping")
+            continue
+        path.write_text(contents, encoding="utf-8")
+        print(f"Created {path}")
+        created.append(filename)
 
-    registry_template = (
-        '# registry.yaml\nschema_version: "1.0"\npolicies:\n'
-        '  - path: "my_agent.yaml"\nmetadata:\n'
-        "  environment: development\n  bundle_revision: 1\n"
-        '  policy_revision: "local"\n'
-    )
-    agent_template = (
-        "# my_agent.yaml\n"
-        "id: my-agent\n"
-        "type: agent\n"
-        "name: My First Agent\n"
-        "department: engineering\n"
-        "description: An example agent for testing governance\n"
-        "skills:\n  - read_database\n"
-        "validators:\n  - input_sanitization\n"
-        "policies:\n  - no_pii_in_logs\n"
-        "allowed_actions:\n  - read_database\n"
-        "blocked_actions:\n  - send_external_email\n"
-        "enforcement_mode: strict\n"
-    )
-
-    registry_path = Path("registry.yaml")
-    agent_path = Path("my_agent.yaml")
-
-    if not registry_path.exists():
-        with open(registry_path, "w") as f:
-            f.write(registry_template)
-        print(f"Created {registry_path}")
-    else:
-        print(f"{registry_path} already exists, skipping")
-
-    if not agent_path.exists():
-        with open(agent_path, "w") as f:
-            f.write(agent_template)
-        print(f"Created {agent_path}")
-    else:
-        print(f"{agent_path} already exists, skipping")
+    if created:
+        print()
+        print("Next: compile the manifest, then ask the bundle a question.")
+        print("  hlinor-registry compile --manifest registry.yaml --output bundle.json")
+        print(
+            "  hlinor-registry check --bundle bundle.json "
+            "--agent my-agent --action refund_payment --resource order/1234"
+        )
 
     return 0
 
