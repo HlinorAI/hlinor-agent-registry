@@ -7,8 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Prepared as 0.8.0. Not tagged and not on PyPI; `pip install hlinor-registry`
-still gives 0.7.0 until a `v0.8.0` tag is pushed.
+## [0.8.0] - 2026-07-28
 
 Two layers of the same idea. An action list entry can now name the resources it
 covers, and a policy can require that a permitted action still discharge an
