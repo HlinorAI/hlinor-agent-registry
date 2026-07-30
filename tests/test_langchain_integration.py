@@ -17,9 +17,14 @@ from hlinor_registry import (
     GovernanceDeniedError,
     PolicyChecker,
     PolicyDecision,
+    ToolGovernance,
 )
 from hlinor_registry.cli import main
-from hlinor_registry.integrations.langchain import GovernedTool
+from hlinor_registry.integrations.langchain import (
+    GovernedTool,
+    export_langchain_tool_contract,
+)
+from hlinor_registry.tool_contract import tool_contract_errors
 
 
 class FakeTool:
@@ -314,3 +319,92 @@ def test_real_langchain_async_allow_and_deny_have_parity(tmp_path: Path) -> None
     assert side_effects == ["allowed"]
     assert len(emitted) == 2
     assert emitted[1].denied
+
+
+def test_langchain_export_reads_schema_without_executing_tool() -> None:
+    side_effects: list[str] = []
+
+    def search(query: str, limit: int = 10) -> str:
+        """Search a controlled test index."""
+        side_effects.append(query)
+        return query
+
+    search_tool = StructuredTool.from_function(
+        func=search,
+        name="search_records",
+        description="Search a controlled test index.",
+    )
+
+    contract = export_langchain_tool_contract(
+        [search_tool],
+        contract_id="langchain-tools",
+        name="LangChain Tools",
+        description="Tools exported from a LangChain runtime.",
+        version="1.0.0",
+        owner="Integration Test Team",
+        governance={
+            "search_records": ToolGovernance(
+                read_only=True,
+                destructive=False,
+                idempotent=True,
+                resource_patterns=("record/*",),
+                effects=("database_read",),
+                action="search",
+                tool_id="record.search",
+            )
+        },
+        revision="test-revision",
+    )
+
+    assert tool_contract_errors(contract) == []
+    assert side_effects == []
+    assert contract["tools"][0]["id"] == "record.search"
+    assert contract["tools"][0]["action"] == "search"
+    assert contract["tools"][0]["input_schema"]["required"] == ["query"]
+    assert set(contract["tools"][0]["input_schema"]["properties"]) == {
+        "query",
+        "limit",
+    }
+    assert contract["metadata"] == {
+        "owner": "Integration Test Team",
+        "source": "langchain",
+        "revision": "test-revision",
+    }
+
+
+def test_langchain_export_requires_explicit_governance_for_every_tool() -> None:
+    def search(query: str) -> str:
+        """Search a controlled test index."""
+        return query
+
+    search_tool = StructuredTool.from_function(func=search, name="search")
+
+    with pytest.raises(ValueError, match="missing governance for: search"):
+        export_langchain_tool_contract(
+            [search_tool],
+            contract_id="langchain-tools",
+            name="LangChain Tools",
+            description="Tools exported from a LangChain runtime.",
+            version="1.0.0",
+            owner="Integration Test Team",
+            governance={},
+        )
+
+
+def test_langchain_export_rejects_stale_governance_entries() -> None:
+    with pytest.raises(ValueError, match="references absent tools: removed"):
+        export_langchain_tool_contract(
+            [],
+            contract_id="langchain-tools",
+            name="LangChain Tools",
+            description="Tools exported from a LangChain runtime.",
+            version="1.0.0",
+            owner="Integration Test Team",
+            governance={
+                "removed": ToolGovernance(
+                    read_only=True,
+                    destructive=False,
+                    idempotent=True,
+                )
+            },
+        )

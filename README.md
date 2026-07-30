@@ -685,7 +685,8 @@ safe_search_tool = GovernedCrewTool(
 ```
 
 See the [integration compatibility matrix](docs/integration-compatibility.md)
-and [`examples/`](examples/) for complete contracts and runnable examples.
+and [framework exporter guide](docs/framework-exporters.md) for governed
+wrappers, Tool Contract export, and CI drift gates.
 
 ### Development dependencies
 ```bash
@@ -769,6 +770,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Signed bundles and trust stores](docs/signed-bundles.md)
 - [Integration compatibility](docs/integration-compatibility.md)
 - [Tool Contracts](docs/tool-contracts.md)
+- [Framework Tool Exporters](docs/framework-exporters.md)
 - [Control Layer architecture](docs/architecture/control-layer-overview.md)
 - [Project isolation](docs/architecture/project-isolation.md)
 - [Task workspace](docs/architecture/task-workspace.md)

@@ -22,6 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and JSON reports plus CI-friendly aligned, drift, and input-error exit codes.
 - Added governance-shape comparison for tool additions, removals, actions,
   input schemas, resource scopes, effects, annotations, and contract identity.
+- Added LangChain and CrewAI Tool Contract exporters that read framework tool
+  names, descriptions, and argument schemas without invoking tools.
+- Added explicit `ToolGovernance` metadata for effects, resource scopes, action
+  mapping, stable tool IDs, and safety annotations that frameworks cannot
+  infer reliably.
+- Added validated, atomic YAML and JSON output through
+  `write_tool_contract`.
 
 ### Security
 
@@ -42,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of producing a partial descriptor.
 - Contract drift commands validate every input before comparison and return a
   distinct error exit code instead of reporting invalid data as policy drift.
+- Framework export fails when governance is missing or stale, tool identities
+  collide, input schemas are unusable, or the final contract is invalid.
 
 ### Changed
 
