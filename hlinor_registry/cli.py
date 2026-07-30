@@ -17,6 +17,12 @@ from hlinor_registry import __version__
 from hlinor_registry._limits import MAX_SOURCE_BYTES, read_text_capped
 from hlinor_registry._matching import overlapping_allow_patterns
 from hlinor_registry.action_request import ActionRequest
+from hlinor_registry.contract_drift import (
+    ContractDriftReport,
+    check_contract_drift_files,
+    diff_tool_contract_files,
+    format_contract_drift_text,
+)
 from hlinor_registry.enums import ReasonCode
 from hlinor_registry.policies import POLICY_KINDS
 from hlinor_registry.signing import (
@@ -113,6 +119,35 @@ def _compact_error(error: Exception) -> str:
 def _runtime_error(message: str) -> int:
     print(f"Error: {message}", file=sys.stderr)
     return EXIT_ERROR
+
+
+def _print_contract_drift(
+    report: ContractDriftReport,
+    output_format: str,
+) -> int:
+    if output_format == "json":
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(format_contract_drift_text(report))
+    return EXIT_DENIED if report.findings else EXIT_ALLOWED
+
+
+def cmd_contract_check(args: argparse.Namespace) -> int:
+    """Check whether an agent declaration covers every exported tool scope."""
+    try:
+        report = check_contract_drift_files(args.agent, args.tools)
+    except (OSError, TypeError, ValueError, yaml.YAMLError) as error:
+        return _runtime_error(_compact_error(error))
+    return _print_contract_drift(report, args.format)
+
+
+def cmd_contract_diff(args: argparse.Namespace) -> int:
+    """Compare expected and observed Tool Contracts."""
+    try:
+        report = diff_tool_contract_files(args.expected, args.observed)
+    except (OSError, TypeError, ValueError, yaml.YAMLError) as error:
+        return _runtime_error(_compact_error(error))
+    return _print_contract_drift(report, args.format)
 
 
 def _run_validation(label: str, validator, path: str) -> int:
@@ -1198,6 +1233,57 @@ def main(argv: list[str] | None = None) -> int:
     )
     _add_trust_arguments(verify_bundle_parser)
 
+    contract_parser = subparsers.add_parser(
+        "contract",
+        help="Detect drift in agent permissions and Tool Contracts",
+    )
+    contract_subparsers = contract_parser.add_subparsers(
+        dest="contract_command",
+        required=True,
+    )
+
+    contract_check_parser = contract_subparsers.add_parser(
+        "check",
+        help="Compare an agent declaration with a Tool Contract",
+    )
+    contract_check_parser.add_argument(
+        "--agent",
+        required=True,
+        help="Path to the agent YAML file",
+    )
+    contract_check_parser.add_argument(
+        "--tools",
+        required=True,
+        help="Path to the Tool Contract YAML or JSON file",
+    )
+    contract_check_parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format",
+    )
+
+    contract_diff_parser = contract_subparsers.add_parser(
+        "diff",
+        help="Compare expected and observed Tool Contracts",
+    )
+    contract_diff_parser.add_argument(
+        "--expected",
+        required=True,
+        help="Path to the reviewed Tool Contract",
+    )
+    contract_diff_parser.add_argument(
+        "--observed",
+        required=True,
+        help="Path to the currently exported Tool Contract",
+    )
+    contract_diff_parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format",
+    )
+
     # Register validation commands
 
     for command in VALIDATION_COMMANDS:
@@ -1267,6 +1353,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "verify-bundle":
         return cmd_verify_bundle(args)
+
+    if args.command == "contract":
+        if args.contract_command == "check":
+            return cmd_contract_check(args)
+        if args.contract_command == "diff":
+            return cmd_contract_diff(args)
 
     if args.command == "compile":
         return cmd_compile(args)

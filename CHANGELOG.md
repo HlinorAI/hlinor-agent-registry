@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `load_tool_contract` Python API for YAML and JSON contracts.
 - Added a packaged JSON Schema Draft 2020-12 artifact and a synthetic customer
   support contract example.
+- Added deterministic agent-to-tool drift detection for undeclared tool scopes,
+  stale allow permissions, and stale block permissions.
+- Added `hlinor-registry contract check` and `contract diff` with stable text
+  and JSON reports plus CI-friendly aligned, drift, and input-error exit codes.
+- Added governance-shape comparison for tool additions, removals, actions,
+  input schemas, resource scopes, effects, annotations, and contract identity.
 
 ### Security
 
@@ -34,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   non-JSON YAML values, invalid nested argument schemas, case-colliding IDs,
   malformed resource patterns, and contradictory safety annotations instead
   of producing a partial descriptor.
+- Contract drift commands validate every input before comparison and return a
+  distinct error exit code instead of reporting invalid data as policy drift.
 
 ### Changed
 

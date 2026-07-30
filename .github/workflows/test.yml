@@ -97,6 +97,16 @@ jobs:
           hlinor-registry validate-tool-contract \
             examples/tool-contracts/customer-support-tools.yaml
 
+      - name: Smoke test contract drift detection
+        run: |
+          set -euo pipefail
+          hlinor-registry contract check \
+            --agent examples/tool-contracts/customer-support-agent.yaml \
+            --tools examples/tool-contracts/customer-support-tools.yaml
+          hlinor-registry contract diff \
+            --expected examples/tool-contracts/customer-support-tools.yaml \
+            --observed examples/tool-contracts/customer-support-tools.yaml
+
       # The documented quickstart is compile -> check -> explain. Validation
       # alone passed while that path was broken on a fresh clone, so exercise
       # the whole path against the repository's own manifest.

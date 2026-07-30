@@ -739,9 +739,22 @@ hlinor-registry validate-protected-resource-boundary <path>
 hlinor-registry validate-evidence-claim <path>
 hlinor-registry validate-circuit-breaker <path>
 
+# Detect undeclared tool scopes and stale agent permissions
+hlinor-registry contract check \
+  --agent examples/tool-contracts/customer-support-agent.yaml \
+  --tools examples/tool-contracts/customer-support-tools.yaml
+
+# Compare a reviewed Tool Contract with a fresh runtime export
+hlinor-registry contract diff \
+  --expected tool-contract.yaml \
+  --observed exported-tool-contract.yaml
+
 # Inspect a YAML file without changing it
 hlinor-registry inspect <path>
 ```
+
+Contract commands return `0` when aligned, `1` when drift is found, and `2`
+when an input cannot be validated. Add `--format json` for stable CI output.
 
 ---
 

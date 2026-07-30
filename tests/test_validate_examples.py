@@ -69,6 +69,11 @@ def test_tool_contract_example_is_valid():
     assert errors == []
 
 
+def test_tool_contract_agent_example_is_valid():
+    errors = validate_agent("examples/tool-contracts/customer-support-agent.yaml")
+    assert errors == []
+
+
 def test_wrong_type_for_list_field_produces_error(tmp_path):
     path = tmp_path / "skill.yaml"
     path.write_text(

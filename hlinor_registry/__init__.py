@@ -1,5 +1,14 @@
 from ._version import __version__
 from .action_request import ActionRequest
+from .contract_drift import (
+    ContractDriftInputError,
+    ContractDriftReport,
+    DriftFinding,
+    check_contract_drift_files,
+    compare_agent_contract,
+    compare_tool_contracts,
+    diff_tool_contract_files,
+)
 from .decision import (
     DecisionResult,
     GovernanceDeniedError,
@@ -17,7 +26,10 @@ from .tool_contract import (
 __all__ = [
     "ActionRequest",
     "BundleSignatureError",
+    "ContractDriftInputError",
+    "ContractDriftReport",
     "DecisionResult",
+    "DriftFinding",
     "GovernanceDeniedError",
     "PolicyChecker",
     "PolicyDecision",
@@ -26,6 +38,10 @@ __all__ = [
     "TrustedKey",
     "VerifiedSignature",
     "__version__",
+    "check_contract_drift_files",
+    "compare_agent_contract",
+    "compare_tool_contracts",
+    "diff_tool_contract_files",
     "load_tool_contract",
     "validate_tool_contract",
 ]
