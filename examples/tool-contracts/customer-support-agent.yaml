@@ -1,0 +1,18 @@
+id: customer-support-agent
+type: agent
+name: Customer Support Agent
+department: support
+description: Synthetic agent governed against the customer support Tool Contract.
+skills:
+  - customer-lookup
+  - ticket-reply
+validators:
+  - support-input-validator
+policies:
+  - no-sensitive-data-in-replies
+allowed_actions:
+  - "read_customer:customer/active/*"
+  - "send_ticket_reply:ticket/*"
+blocked_actions:
+  - "send_ticket_reply:ticket/restricted/*"
+enforcement_mode: strict

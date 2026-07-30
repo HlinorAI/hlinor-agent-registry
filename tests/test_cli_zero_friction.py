@@ -400,11 +400,11 @@ def test_no_subcommand_is_registered_twice():
     import argparse
     from unittest.mock import patch
 
-    registered: list[str] = []
+    registered: list[tuple[int, str]] = []
     original = argparse._SubParsersAction.add_parser
 
     def recording_add_parser(self, name, **kwargs):
-        registered.append(name)
+        registered.append((id(self), name))
         return original(self, name, **kwargs)
 
     with (
@@ -413,7 +413,13 @@ def test_no_subcommand_is_registered_twice():
     ):
         main(["--help"])
 
-    duplicates = sorted({n for n in registered if registered.count(n) > 1})
+    duplicates = sorted(
+        {
+            name
+            for parser_id, name in registered
+            if registered.count((parser_id, name)) > 1
+        }
+    )
     assert not duplicates, f"subcommands registered more than once: {duplicates}"
 
 
