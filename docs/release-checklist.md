@@ -16,15 +16,23 @@ truth; GitHub Releases and PyPI artifacts must be produced from that tag.
 
 ## Publication
 
-- Create the GitHub Release and `vX.Y.Z` tag from the reviewed commit, using the
-  matching changelog section as the release notes.
-- Build the wheel and sdist in CI from that exact tag.
-- Publish to PyPI through OIDC Trusted Publishing.
-- Let the separate verification job install the exact published version from
-  PyPI in a clean environment. The check makes up to 12 bounded attempts with a
-  10-second interval to accommodate normal index propagation. Keeping
-  verification separate allows it to be retried without attempting to
-  republish immutable files.
+- Merge the reviewed release commit before creating `vX.Y.Z`.
+- Create the tag once. Repository rules protect release tags from update and
+  deletion; never force-push or recreate one.
+- Let CI build the wheel and source distribution once from that exact tag.
+- CI installs and smoke-tests that wheel before publication, records SHA-256
+  digests, creates GitHub build provenance, and transfers the immutable
+  artifacts between jobs.
+- Publish those same files to PyPI through OIDC Trusted Publishing with PyPI
+  attestations enabled. The `pypi` environment accepts only `v*` deployment
+  refs.
+- Let the separate verification job compare PyPI's SHA-256 digest for every
+  file with the CI-built files, then install the exact published version in a
+  clean environment. The check uses bounded retries for normal index
+  propagation.
+- Let CI create the GitHub Release only after PyPI verification. The release
+  contains the same wheel, source distribution, and `SHA256SUMS` manifest and
+  refuses to overwrite an existing release.
 
 ## Verification
 
@@ -32,4 +40,16 @@ truth; GitHub Releases and PyPI artifacts must be produced from that tag.
   version are identical.
 - Confirm the automated post-publish installation, dependency check, CLI
   smoke test, and import/package version comparison all passed.
-- Verify release artifact provenance and retain the CI run URL.
+- Confirm the GitHub artifact attestation is present and PyPI displays
+  provenance for both distributions.
+- Download the GitHub Release assets and run
+  `sha256sum --check SHA256SUMS`.
+- Retain the CI run URL as part of the release record.
+
+## Repository controls
+
+- Keep the `v*` tag ruleset active with update and deletion blocked.
+- Keep the `pypi` environment restricted to release tags.
+- Require an independent environment reviewer as soon as a second trusted
+  maintainer is available. Do not enable this with only one maintainer: GitHub
+  prevents self-review and the release would be permanently blocked.

@@ -18,15 +18,15 @@ jobs:
     name: Verify the tagged commit
     uses: ./.github/workflows/test.yml
 
-  publish:
-    name: Build and publish to PyPI
+  build:
+    name: Build and attest release artifacts
     needs: verify-source
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: pypi
     permissions:
       contents: read
       id-token: write
+      attestations: write
 
     steps:
       - name: Checkout tagged source
@@ -59,29 +59,181 @@ jobs:
           python -m build
           python -m twine check dist/*
 
+      - name: Test the release wheel in a clean environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_venv="${RUNNER_TEMP}/hlinor-release-wheel"
+          version="${GITHUB_REF_NAME#v}"
+
+          python -m venv "$release_venv"
+          "$release_venv/bin/python" -m pip install --upgrade pip
+          "$release_venv/bin/python" -m pip install dist/*.whl
+          "$release_venv/bin/python" -m pip check
+          "$release_venv/bin/hlinor-registry" --version | grep -Fx "$version"
+          "$release_venv/bin/hlinor-registry" --help | grep -q "verify-bundle"
+
+      - name: Generate SHA-256 checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-metadata
+          sha256sum dist/* > release-metadata/SHA256SUMS
+          cat release-metadata/SHA256SUMS
+
+      - name: Attest release artifacts
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: "dist/*"
+
+      - name: Upload release distributions
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-distributions
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload checksum manifest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-distribution-hashes
+          path: release-metadata/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish attested artifacts to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download release distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-distributions
+          path: dist
+
+      - name: Download checksum manifest
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-distribution-hashes
+          path: release-metadata
+
+      - name: Verify downloaded artifacts
+        run: sha256sum --check release-metadata/SHA256SUMS
+
       - name: Publish distributions to PyPI
-        # skip-existing was set here when tags were still being force-pushed
-        # during a history rewrite. That situation is over, and the setting has
-        # a worse failure mode than the one it prevented: move a tag to
-        # different source, re-run, and PyPI correctly refuses to replace the
-        # published version while the workflow reports success. The tag and the
-        # artifact then disagree and nothing says so. A duplicate publish
-        # should be loud.
         uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # release/v1
+        with:
+          packages-dir: dist
+          attestations: true
 
   verify:
-    name: Verify published package from PyPI
+    name: Verify PyPI artifacts and installation
     needs: publish
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
 
     steps:
+      - name: Download release distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-distributions
+          path: dist
+
+      - name: Download checksum manifest
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-distribution-hashes
+          path: release-metadata
+
       - name: Set up Python 3.11
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
+
+      - name: Verify PyPI SHA-256 digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check release-metadata/SHA256SUMS
+          version="${GITHUB_REF_NAME#v}"
+
+          for attempt in {1..12}; do
+            set +e
+            VERSION="$version" python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import sys
+          import urllib.error
+          import urllib.request
+
+          version = os.environ["VERSION"]
+          local = {
+              path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in Path("dist").iterdir()
+              if path.is_file()
+          }
+
+          try:
+              with urllib.request.urlopen(
+                  f"https://pypi.org/pypi/hlinor-registry/{version}/json",
+                  timeout=15,
+              ) as response:
+                  payload = json.load(response)
+          except urllib.error.HTTPError as exc:
+              if exc.code == 404:
+                  raise SystemExit(75)
+              raise
+
+          published = {
+              item["filename"]: item["digests"]["sha256"]
+              for item in payload["urls"]
+          }
+          if local.keys() != published.keys():
+              raise SystemExit(75)
+
+          mismatches = {
+              name: (local[name], published[name])
+              for name in local
+              if local[name] != published[name]
+          }
+          if mismatches:
+              print(f"PyPI SHA-256 mismatch: {mismatches}", file=sys.stderr)
+              raise SystemExit(1)
+
+          for name, digest in sorted(local.items()):
+              print(f"Verified PyPI artifact: {name} sha256={digest}")
+          PY
+            status=$?
+            set -e
+
+            if [[ "$status" -eq 0 ]]; then
+              break
+            fi
+            if [[ "$status" -ne 75 ]]; then
+              exit "$status"
+            fi
+            if [[ "$attempt" -eq 12 ]]; then
+              echo "PyPI did not expose the complete release after 12 attempts." >&2
+              exit 1
+            fi
+
+            echo "Waiting for complete PyPI release metadata (attempt $attempt/12)."
+            sleep 10
+          done
 
       - name: Install and verify published package
         shell: bash
@@ -146,6 +298,18 @@ jobs:
       - name: Checkout tagged source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      - name: Download release distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-distributions
+          path: dist
+
+      - name: Download checksum manifest
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-distribution-hashes
+          path: release-metadata
+
       - name: Extract this version's changelog section
         id: notes
         shell: bash
@@ -185,15 +349,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # Idempotent: a re-run of an existing tag updates the release rather
-          # than failing, matching skip-existing on the PyPI step.
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release edit "$GITHUB_REF_NAME" \
-              --notes-file "${{ steps.notes.outputs.path }}" \
-              --latest
-          else
-            gh release create "$GITHUB_REF_NAME" \
-              --title "$GITHUB_REF_NAME" \
-              --notes-file "${{ steps.notes.outputs.path }}" \
-              --latest
+            echo "Release $GITHUB_REF_NAME already exists and is immutable." >&2
+            exit 1
           fi
+
+          gh release create "$GITHUB_REF_NAME" \
+            dist/* \
+            release-metadata/SHA256SUMS \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "${{ steps.notes.outputs.path }}" \
+            --latest
