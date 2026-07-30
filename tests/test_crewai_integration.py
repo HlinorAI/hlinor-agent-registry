@@ -16,9 +16,14 @@ from hlinor_registry import (
     GovernanceDeniedError,
     PolicyChecker,
     PolicyDecision,
+    ToolGovernance,
 )
 from hlinor_registry.cli import main
-from hlinor_registry.integrations.crewai import GovernedCrewTool
+from hlinor_registry.integrations.crewai import (
+    GovernedCrewTool,
+    export_crewai_tool_contract,
+)
+from hlinor_registry.tool_contract import tool_contract_errors
 
 
 def write_bundle(tmp_path: Path) -> Path:
@@ -228,3 +233,75 @@ def test_governed_crewai_async_allow_and_deny_have_parity(tmp_path: Path) -> Non
     assert len(emitted) == 2
     assert emitted[0].allowed
     assert emitted[1].denied
+
+
+def test_crewai_export_reads_schema_without_executing_tool() -> None:
+    side_effects: list[str] = []
+
+    class SearchInput(BaseModel):
+        query: str
+        limit: int = 10
+
+    class SearchTool(BaseTool):
+        name: str = "search_records"
+        description: str = "Search a controlled test index."
+        args_schema: type[BaseModel] = SearchInput
+
+        def _run(self, query: str, limit: int = 10) -> str:
+            side_effects.append(query)
+            return query
+
+    contract = export_crewai_tool_contract(
+        [SearchTool()],
+        contract_id="crewai-tools",
+        name="CrewAI Tools",
+        description="Tools exported from a CrewAI runtime.",
+        version="1.0.0",
+        owner="Integration Test Team",
+        governance={
+            "search_records": ToolGovernance(
+                read_only=True,
+                destructive=False,
+                idempotent=True,
+                resource_patterns=("record/*",),
+                effects=("database_read",),
+                action="search",
+                tool_id="record.search",
+            )
+        },
+    )
+
+    assert tool_contract_errors(contract) == []
+    assert side_effects == []
+    assert contract["tools"][0]["id"] == "record.search"
+    assert contract["tools"][0]["action"] == "search"
+    assert contract["tools"][0]["input_schema"]["required"] == ["query"]
+    assert set(contract["tools"][0]["input_schema"]["properties"]) == {
+        "query",
+        "limit",
+    }
+    assert contract["metadata"]["source"] == "crewai"
+
+
+def test_crewai_export_requires_explicit_governance_for_every_tool() -> None:
+    class EmptyInput(BaseModel):
+        pass
+
+    class EmptyTool(BaseTool):
+        name: str = "empty"
+        description: str = "Synthetic empty tool."
+        args_schema: type[BaseModel] = EmptyInput
+
+        def _run(self) -> str:
+            return "empty"
+
+    with pytest.raises(ValueError, match="missing governance for: empty"):
+        export_crewai_tool_contract(
+            [EmptyTool()],
+            contract_id="crewai-tools",
+            name="CrewAI Tools",
+            description="Tools exported from a CrewAI runtime.",
+            version="1.0.0",
+            owner="Integration Test Team",
+            governance={},
+        )

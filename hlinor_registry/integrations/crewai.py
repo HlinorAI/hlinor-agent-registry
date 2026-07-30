@@ -4,13 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from crewai.tools import BaseTool
 from pydantic import Field, PrivateAttr
 
 from ..policy_checker import PolicyChecker
+from ..tool_export import (
+    ToolGovernance,
+    _export_framework_tool_contract,
+    _framework_tool,
+)
 from ._gate import (
     DecisionSink,
     GovernanceGate,
@@ -18,6 +23,42 @@ from ._gate import (
     ResourceSpec,
     SignalsSpec,
 )
+
+
+def export_crewai_tool_contract(
+    tools: Sequence[BaseTool],
+    *,
+    contract_id: str,
+    name: str,
+    description: str,
+    version: str,
+    owner: str,
+    governance: Mapping[str, ToolGovernance],
+    repository: str | None = None,
+    revision: str | None = None,
+) -> dict[str, Any]:
+    """Export CrewAI tool schemas without invoking the tools."""
+
+    def descriptor(tool: object):
+        return _framework_tool(
+            tool,
+            framework="crewai",
+            schema_source=getattr(tool, "args_schema", None),
+        )
+
+    return _export_framework_tool_contract(
+        list(tools),
+        framework="crewai",
+        contract_id=contract_id,
+        name=name,
+        description=description,
+        version=version,
+        owner=owner,
+        governance=governance,
+        descriptor=descriptor,
+        repository=repository,
+        revision=revision,
+    )
 
 
 class GovernedCrewTool(BaseTool):

@@ -295,6 +295,12 @@ jobs:
       - name: Run CrewAI integration tests
         run: python -m pytest tests/test_crewai_integration.py -v
 
+      - name: Smoke test CrewAI Tool Contract export
+        run: |
+          cd "${RUNNER_TEMP}"
+          python "${GITHUB_WORKSPACE}/examples/crewai_tool_export.py"
+          hlinor-registry validate-tool-contract dist/crewai-tools.yaml
+
   langchain-integration:
     runs-on: ubuntu-latest
 
@@ -328,6 +334,12 @@ jobs:
 
       - name: Run LangChain integration tests
         run: python -m pytest tests/test_langchain_integration.py -v
+
+      - name: Smoke test LangChain Tool Contract export
+        run: |
+          cd "${RUNNER_TEMP}"
+          python "${GITHUB_WORKSPACE}/examples/langchain_tool_export.py"
+          hlinor-registry validate-tool-contract dist/langchain-tools.yaml
 
   package:
     runs-on: ubuntu-latest

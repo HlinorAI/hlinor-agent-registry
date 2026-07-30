@@ -13,8 +13,8 @@ Hlinor integrations share one invocation contract:
 
 | Integration | Tested version | Python in CI | Contract |
 | --- | --- | --- | --- |
-| LangChain Core | 1.4.9 | 3.11 | `BaseTool`, sync/async, args schema, metadata, callbacks |
-| CrewAI | 1.15.6 | 3.11 | `BaseTool`, sync/async, Pydantic lifecycle, args schema |
+| LangChain Core | 1.4.9 | 3.11 | `BaseTool`, sync/async, args schema, metadata, callbacks, Tool Contract export |
+| CrewAI | 1.15.6 | 3.11 | `BaseTool`, sync/async, Pydantic lifecycle, args schema, Tool Contract export |
 | Pydantic | 2.12.5 (CrewAI), 2.13.4 (LangChain) | 3.11 | Framework model lifecycle and private adapter state |
 | Python decorator | Standard library | 3.10–3.13 | Native sync/async wrapper and checker injection |
 
@@ -72,6 +72,10 @@ safe_search = GovernedTool(
 a mutable `tools` collection. New applications should wrap each `BaseTool`
 explicitly before agent construction.
 
+`export_langchain_tool_contract` reads the same `BaseTool` objects without
+invoking them and produces a validated Tool Contract. Governance properties
+that LangChain cannot know must be supplied explicitly with `ToolGovernance`.
+
 ## CrewAI
 
 Pass the complete CrewAI `BaseTool` when possible so Hlinor can preserve its
@@ -90,6 +94,12 @@ safe_search = GovernedCrewTool(
 
 Plain sync and async callables remain supported when callers provide `name` and
 `description`.
+
+`export_crewai_tool_contract` reads each `BaseTool.args_schema` without
+invoking the tool. Governance properties that CrewAI cannot know must be
+supplied explicitly with `ToolGovernance`.
+
+See [Framework Tool Exporters](framework-exporters.md) for complete examples.
 
 ## Decorator
 

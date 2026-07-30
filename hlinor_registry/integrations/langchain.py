@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
@@ -12,6 +13,11 @@ from langchain_core.tools import BaseTool
 from pydantic import PrivateAttr
 
 from ..policy_checker import PolicyChecker
+from ..tool_export import (
+    ToolGovernance,
+    _export_framework_tool_contract,
+    _framework_tool,
+)
 from ._gate import (
     DecisionSink,
     GovernanceGate,
@@ -19,6 +25,45 @@ from ._gate import (
     ResourceSpec,
     SignalsSpec,
 )
+
+
+def export_langchain_tool_contract(
+    tools: Sequence[BaseTool],
+    *,
+    contract_id: str,
+    name: str,
+    description: str,
+    version: str,
+    owner: str,
+    governance: Mapping[str, ToolGovernance],
+    repository: str | None = None,
+    revision: str | None = None,
+) -> dict[str, Any]:
+    """Export LangChain tool schemas without invoking the tools."""
+
+    def descriptor(tool: object):
+        schema_source = getattr(tool, "args_schema", None)
+        if schema_source is None and callable(getattr(tool, "get_input_schema", None)):
+            schema_source = tool.get_input_schema()  # type: ignore[attr-defined]
+        return _framework_tool(
+            tool,
+            framework="langchain",
+            schema_source=schema_source,
+        )
+
+    return _export_framework_tool_contract(
+        list(tools),
+        framework="langchain",
+        contract_id=contract_id,
+        name=name,
+        description=description,
+        version=version,
+        owner=owner,
+        governance=governance,
+        descriptor=descriptor,
+        repository=repository,
+        revision=revision,
+    )
 
 
 def _tool_input(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str | dict[str, Any]:

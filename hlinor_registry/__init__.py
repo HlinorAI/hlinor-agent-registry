@@ -22,6 +22,11 @@ from .tool_contract import (
     load_tool_contract,
     validate_tool_contract,
 )
+from .tool_export import (
+    ToolContractExportError,
+    ToolGovernance,
+    write_tool_contract,
+)
 
 __all__ = [
     "ActionRequest",
@@ -34,7 +39,9 @@ __all__ = [
     "PolicyChecker",
     "PolicyDecision",
     "ReasonCode",
+    "ToolContractExportError",
     "ToolContractValidationError",
+    "ToolGovernance",
     "TrustedKey",
     "VerifiedSignature",
     "__version__",
@@ -44,4 +51,5 @@ __all__ = [
     "diff_tool_contract_files",
     "load_tool_contract",
     "validate_tool_contract",
+    "write_tool_contract",
 ]

@@ -189,3 +189,6 @@ permissions.
 
 Framework exporters for LangChain and CrewAI can now target this stable
 comparison format without coupling the drift engine to either framework.
+
+See [Framework Tool Exporters](framework-exporters.md) for complete export and
+CI drift-check examples.
