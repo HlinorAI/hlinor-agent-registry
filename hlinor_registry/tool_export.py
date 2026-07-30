@@ -38,6 +38,22 @@ class ToolGovernance:
 
 
 @dataclass(frozen=True)
+class CustomToolDescriptor:
+    """Framework-neutral metadata for one custom Python tool.
+
+    The callable is retained as identity and documentation context only. Export
+    never invokes it. ``input_schema`` is explicit because Python annotations
+    alone cannot describe every validation rule enforced by a real tool.
+    """
+
+    callable: Callable[..., object]
+    input_schema: Mapping[str, Any]
+    name: str | None = None
+    description: str | None = None
+    action_name: str | None = None
+
+
+@dataclass(frozen=True)
 class _FrameworkTool:
     name: str
     description: str

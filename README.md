@@ -650,7 +650,7 @@ pip install hlinor-registry
 ```
 The core package requires Python 3.10 or newer, PyYAML, `jsonschema`, and
 `cryptography` for Ed25519 bundle signatures. It does not install LangChain,
-CrewAI, or another agent framework.
+CrewAI, AutoGen, or another agent framework.
 
 ### Optional integrations
 Hlinor is **framework-agnostic**. We provide ready-to-use wrappers for popular agent ecosystems:
@@ -683,6 +683,29 @@ safe_search_tool = GovernedCrewTool(
     bundle_path="./dist/policy-bundle.json",
 )
 ```
+
+#### Microsoft AutoGen
+```bash
+pip install "hlinor-registry[autogen]"
+```
+```python
+from hlinor_registry.integrations.autogen import export_autogen_tool_contract
+
+observed_contract = export_autogen_tool_contract(
+    tools,
+    contract_id="production-autogen-tools",
+    name="Production AutoGen Tools",
+    description="Tools exposed to the production agent.",
+    version="1.0.0",
+    owner="Agent Platform Team",
+    governance=tool_governance,
+)
+```
+
+Custom Python stacks can export explicit schemas with
+`CustomToolDescriptor` and `export_custom_tool_contract` without installing an
+agent framework. AutoGen and custom exporters synchronize Tool Contracts; they
+do not wrap execution by themselves.
 
 See the [integration compatibility matrix](docs/integration-compatibility.md)
 and [framework exporter guide](docs/framework-exporters.md) for governed

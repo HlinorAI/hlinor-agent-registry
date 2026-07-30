@@ -15,12 +15,14 @@ Hlinor integrations share one invocation contract:
 | --- | --- | --- | --- |
 | LangChain Core | 1.4.9 | 3.11 | `BaseTool`, sync/async, args schema, metadata, callbacks, Tool Contract export |
 | CrewAI | 1.15.6 | 3.11 | `BaseTool`, sync/async, Pydantic lifecycle, args schema, Tool Contract export |
+| Microsoft AutoGen Core | 0.7.5 | 3.11 | Public `BaseTool.schema` Tool Contract export |
+| Custom Python | Standard library | 3.10–3.13 | Explicit JSON Schema Tool Contract export without invocation |
 | Pydantic | 2.12.5 (CrewAI), 2.13.4 (LangChain) | 3.11 | Framework model lifecycle and private adapter state |
 | Python decorator | Standard library | 3.10–3.13 | Native sync/async wrapper and checker injection |
 
 The package metadata supports LangChain Core `>=1.4,<2.0` and CrewAI
-`>=1.15,<2.0`. CI pins the versions above so compatibility does not drift when
-new framework releases appear.
+`>=1.15,<2.0`, and AutoGen Core `>=0.7,<0.8`. CI pins the versions above so
+compatibility does not drift when new framework releases appear.
 
 ## Shared adapter options
 
@@ -116,3 +118,12 @@ async def search(query: str) -> str: ...
 
 Checker and decision-sink failures propagate before tool execution. This is
 intentional fail-closed behavior.
+
+## AutoGen and custom Python export
+
+AutoGen `BaseTool` instances and explicit `CustomToolDescriptor` objects can be
+exported to validated Tool Contracts without invoking them. These integrations
+provide contract synchronization only. They are not execution wrappers and do
+not create a runtime authorization boundary on their own.
+
+See [Framework Tool Exporters](framework-exporters.md) for complete examples.

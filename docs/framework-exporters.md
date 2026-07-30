@@ -1,8 +1,8 @@
 # Framework Tool Exporters
 
-Hlinor can export LangChain and CrewAI tools into the framework-neutral Tool
-Contract format. Exporters read tool metadata and argument schemas. They never
-invoke a tool.
+Hlinor can export LangChain, CrewAI, Microsoft AutoGen, and custom Python tools
+into the framework-neutral Tool Contract format. Exporters read tool metadata
+and argument schemas. They never invoke a tool.
 
 Frameworks know the technical interface of a tool, but they do not reliably
 know its security impact. Every tool therefore requires explicit
@@ -94,6 +94,85 @@ write_tool_contract(contract, "dist/exported-tools.json")
 
 CrewAI input schemas are read from each `BaseTool.args_schema`.
 
+## Microsoft AutoGen
+
+Install the optional integration:
+
+```bash
+pip install "hlinor-registry[autogen]"
+```
+
+```python
+from hlinor_registry import ToolGovernance, write_tool_contract
+from hlinor_registry.integrations.autogen import export_autogen_tool_contract
+
+contract = export_autogen_tool_contract(
+    [search_tool],
+    contract_id="research-autogen-tools",
+    name="Research AutoGen Tools",
+    description="Tools exposed to the production research agent.",
+    version="1.0.0",
+    owner="Research Platform Team",
+    governance={
+        "search_web": ToolGovernance(
+            read_only=True,
+            destructive=False,
+            idempotent=True,
+            resource_patterns=("public-web/*",),
+            effects=("network_read",),
+        )
+    },
+)
+
+write_tool_contract(contract, "dist/exported-tools.yaml")
+```
+
+The exporter reads the public AutoGen `BaseTool.schema` contract. It uses the
+tool's `name` and `description` plus the schema's `parameters` object. Hlinor
+does not call `run_json` or inspect private AutoGen state.
+
+## Custom Python tools
+
+Custom stacks can supply the same information explicitly without installing an
+agent framework:
+
+```python
+from hlinor_registry import CustomToolDescriptor, ToolGovernance
+from hlinor_registry.integrations.custom import export_custom_tool_contract
+
+tool = CustomToolDescriptor(
+    callable=search_web,
+    input_schema={
+        "type": "object",
+        "properties": {"query": {"type": "string"}},
+        "required": ["query"],
+        "additionalProperties": False,
+    },
+)
+
+contract = export_custom_tool_contract(
+    [tool],
+    contract_id="research-custom-tools",
+    name="Research Custom Tools",
+    description="Custom tools exposed to the research agent.",
+    version="1.0.0",
+    owner="Research Platform Team",
+    governance={
+        "search_web": ToolGovernance(
+            read_only=True,
+            destructive=False,
+            idempotent=True,
+            effects=("network_read",),
+        )
+    },
+)
+```
+
+The descriptor uses the callable's name and docstring by default. The argument
+schema remains explicit. Python annotations alone cannot express every runtime
+constraint, and silently inferring a broader schema would weaken drift checks.
+The callable is never invoked during export.
+
 ## CI drift gate
 
 Commit the reviewed contract and export a fresh observed contract in CI:
@@ -136,3 +215,7 @@ the exporter. It does not prove that those are the only tools reachable by the
 process. Applications must export the same collection supplied to the agent
 runtime and must still place `PolicyChecker` or a governed wrapper before every
 side effect.
+
+The AutoGen and custom Python integrations in this release export contracts;
+they do not wrap execution. Applications using those integrations must call a
+governance gate before invoking the underlying tool.
