@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Release distributions are now built once, tested in a clean environment,
+  attested, and passed unchanged to PyPI and GitHub Releases. Publishing no
+  longer rebuilds a second, untested copy of the package.
+- CI now compares the SHA-256 digest of every published PyPI file with the
+  corresponding artifact produced by the release build. A filename or digest
+  mismatch fails the release.
+- GitHub build provenance and PyPI Trusted Publishing attestations are emitted
+  for release distributions.
+- Repository rules now prevent `v*` release tags from being updated or deleted.
+  The PyPI environment accepts deployments only from `v*` tags and no longer
+  permits administrator bypass.
+
+### Changed
+
+- GitHub Releases now include the exact wheel, source distribution, and
+  `SHA256SUMS` manifest published by the workflow.
+- Release automation refuses to edit an existing GitHub Release. Duplicate or
+  moved release state now fails visibly instead of rewriting published notes.
+- Added a Git-ignored `.private/` location for local roadmaps and internal
+  planning that must not enter the public repository.
+- Updated the release checklist to describe the immutable artifact path,
+  digest verification, provenance checks, and repository protections.
+
 ## [0.8.1] - 2026-07-28
 
 A patch release, and the reason it is one: three of the findings below are in

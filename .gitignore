@@ -218,6 +218,9 @@ __marimo__/
 .streamlit/secrets.toml
 knowledge/
 
+# Private local planning (never commit)
+/.private/
+
 # Generated reports and runtime output
 /reports/
 /runtime-output/
