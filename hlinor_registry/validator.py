@@ -5,6 +5,7 @@ import yaml
 from ._limits import MAX_SOURCE_BYTES, read_text_capped
 from ._matching import pattern_errors
 from .policies import policy_definition_errors
+from .tool_contract import validate_tool_contract
 
 REQUIRED_EXECUTION_CONTEXT_FIELDS = [
     "context_id",
@@ -722,6 +723,7 @@ def validate_pre_dispatch_authorization_check(data: dict) -> list[str]:
 def validate_registry_file(entity_type: str, path: str | Path) -> list[str]:
     validators = {
         "agent": validate_agent,
+        "tool-contract": validate_tool_contract,
         "execution-context": validate_execution_context,
         "department": validate_department,
         "policy": validate_policy,

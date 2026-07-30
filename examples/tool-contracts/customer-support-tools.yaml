@@ -1,0 +1,62 @@
+schema_version: "1.0"
+type: tool_contract
+id: customer-support-tools
+name: Customer Support Tools
+description: Synthetic tools used by a customer support agent.
+version: "1.0.0"
+
+tools:
+  - id: customer.lookup
+    action: read_customer
+    description: Read one customer profile by its stable identifier.
+    input_schema:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          minLength: 1
+      required:
+        - customer_id
+      additionalProperties: false
+    resource_patterns:
+      - "customer/*"
+    effects:
+      - database_read
+      - personal_data_access
+    annotations:
+      read_only: true
+      destructive: false
+      idempotent: true
+
+  - id: ticket.reply
+    action: send_ticket_reply
+    description: Send a response through the external support system.
+    input_schema:
+      type: object
+      properties:
+        ticket_id:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          minLength: 1
+          maxLength: 10000
+      required:
+        - ticket_id
+        - message
+      additionalProperties: false
+    resource_patterns:
+      - "ticket/*"
+    effects:
+      - message_send
+      - external_system_change
+    annotations:
+      read_only: false
+      destructive: false
+      idempotent: false
+
+metadata:
+  owner: Example Support Platform Team
+  source: manual
+  repository: https://github.com/example/support-agent
+  revision: example-v1

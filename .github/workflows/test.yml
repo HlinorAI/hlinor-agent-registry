@@ -94,6 +94,8 @@ jobs:
         run: |
           hlinor-registry validate-agent examples/secure_financial_agent.yaml
           hlinor-registry validate-agent examples/budget_limited_research_agent.yaml
+          hlinor-registry validate-tool-contract \
+            examples/tool-contracts/customer-support-tools.yaml
 
       # The documented quickstart is compile -> check -> explain. Validation
       # alone passed while that path was broken on a fresh clone, so exercise

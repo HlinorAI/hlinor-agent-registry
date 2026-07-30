@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://registry.hlinor.com/schemas/tool-contract/1-0-0.json",
+  "title": "Hlinor Tool Contract",
+  "description": "Framework-neutral declaration of the tools an AI agent runtime can invoke.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "id",
+    "name",
+    "description",
+    "version",
+    "tools",
+    "metadata"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "type": {"const": "tool_contract"},
+    "id": {"$ref": "#/$defs/identifier"},
+    "name": {"$ref": "#/$defs/non_empty_string"},
+    "description": {"$ref": "#/$defs/non_empty_string"},
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "tools": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/tool"}
+    },
+    "metadata": {"$ref": "#/$defs/metadata"}
+  },
+  "$defs": {
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "action": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "action",
+        "description",
+        "input_schema",
+        "resource_patterns",
+        "effects",
+        "annotations"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "action": {"$ref": "#/$defs/action"},
+        "description": {"$ref": "#/$defs/non_empty_string"},
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "type",
+            "properties",
+            "required",
+            "additionalProperties"
+          ],
+          "properties": {
+            "type": {"const": "object"},
+            "properties": {"type": "object"},
+            "required": {
+              "type": "array",
+              "items": {"type": "string"},
+              "uniqueItems": true
+            },
+            "additionalProperties": {"type": "boolean"}
+          }
+        },
+        "resource_patterns": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/non_empty_string"},
+          "uniqueItems": true
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "network_read",
+              "network_write",
+              "filesystem_read",
+              "filesystem_write",
+              "database_read",
+              "database_write",
+              "message_send",
+              "financial_transaction",
+              "code_execution",
+              "credential_access",
+              "personal_data_access",
+              "external_system_change"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read_only", "destructive", "idempotent"],
+          "properties": {
+            "read_only": {"type": "boolean"},
+            "destructive": {"type": "boolean"},
+            "idempotent": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "source"],
+      "properties": {
+        "owner": {"$ref": "#/$defs/non_empty_string"},
+        "source": {"$ref": "#/$defs/non_empty_string"},
+        "repository": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://[^\\s]+$"
+        },
+        "revision": {"$ref": "#/$defs/non_empty_string"}
+      }
+    }
+  }
+}

@@ -8,6 +8,11 @@ from .decision import (
 )
 from .policy_checker import PolicyChecker
 from .signing import BundleSignatureError, TrustedKey, VerifiedSignature
+from .tool_contract import (
+    ToolContractValidationError,
+    load_tool_contract,
+    validate_tool_contract,
+)
 
 __all__ = [
     "ActionRequest",
@@ -17,7 +22,10 @@ __all__ = [
     "PolicyChecker",
     "PolicyDecision",
     "ReasonCode",
+    "ToolContractValidationError",
     "TrustedKey",
     "VerifiedSignature",
     "__version__",
+    "load_tool_contract",
+    "validate_tool_contract",
 ]

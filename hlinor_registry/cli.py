@@ -43,6 +43,7 @@ from hlinor_registry.validator import (
     validate_registry_file,
     validate_runtime_example,
     validate_skill,
+    validate_tool_contract,
     validate_validator,
 )
 
@@ -52,6 +53,7 @@ VALIDATION_COMMANDS = {
     "validate-policy": ("Policy", validate_policy),
     "validate-skill": ("Skill", validate_skill),
     "validate-validator": ("Validator", validate_validator),
+    "validate-tool-contract": ("Tool contract", validate_tool_contract),
     "validate-runtime-example": ("Runtime example", validate_runtime_example),
     "validate-production-action-boundary-example": (
         "Production action boundary example",

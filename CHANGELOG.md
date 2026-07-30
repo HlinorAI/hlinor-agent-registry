@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added the versioned, framework-neutral Tool Contract format for describing
+  concrete tool IDs, governed actions, JSON Schema inputs, resource patterns,
+  observable effects, and safety annotations.
+- Added `hlinor-registry validate-tool-contract` and the fail-closed
+  `load_tool_contract` Python API for YAML and JSON contracts.
+- Added a packaged JSON Schema Draft 2020-12 artifact and a synthetic customer
+  support contract example.
+
 ### Security
 
 - Release distributions are now built once, tested in a clean environment,
@@ -20,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Repository rules now prevent `v*` release tags from being updated or deleted.
   The PyPI environment accepts deployments only from `v*` tags and no longer
   permits administrator bypass.
+- Tool Contract loading rejects unknown fields, unsupported versions,
+  non-JSON YAML values, invalid nested argument schemas, case-colliding IDs,
+  malformed resource patterns, and contradictory safety annotations instead
+  of producing a partial descriptor.
 
 ### Changed
 
