@@ -45,6 +45,7 @@ classifiers = [
 # arrives silently on the next install.
 dependencies = [
     "cryptography>=43.0.0,<49.0.0",
+    "jsonschema>=4.23.0,<5.0.0",
     "PyYAML>=6.0.0,<7.0.0",
 ]
 
@@ -52,6 +53,7 @@ dependencies = [
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
+    "types-jsonschema>=4.23.0",
     "types-PyYAML>=6.0",
     "ruff>=0.1.0",
     "mypy>=1.5.0",
@@ -100,7 +102,14 @@ Changelog = "https://github.com/HlinorAI/hlinor-agent-registry/blob/main/CHANGEL
 hlinor-registry = "hlinor_registry.cli:main"
 
 [tool.setuptools]
-packages = ["hlinor_registry", "hlinor_registry.integrations"]
+packages = [
+    "hlinor_registry",
+    "hlinor_registry.integrations",
+    "hlinor_registry.schemas",
+]
+
+[tool.setuptools.package-data]
+"hlinor_registry.schemas" = ["*.json"]
 
 [tool.setuptools.dynamic]
 version = {attr = "hlinor_registry._version.__version__"}

@@ -76,3 +76,9 @@ being correct, the build says so.
 shape of an entry. Validation is implemented in `hlinor_registry/validator.py`
 rather than driven by these files, so treat them as reference rather than as
 the enforcing artifact.
+
+The Tool Contract is the first machine-enforced JSON Schema in the package.
+Its canonical Draft 2020-12 schema lives at
+`hlinor_registry/schemas/tool-contract.schema.json`, next to the loader that
+uses it, so installed applications validate against the same artifact as this
+repository. See [Tool Contracts](../docs/tool-contracts.md).

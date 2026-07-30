@@ -15,6 +15,7 @@ from hlinor_registry.validator import (
     validate_registry_file,
     validate_runtime_example,
     validate_skill,
+    validate_tool_contract,
     validate_validator,
 )
 
@@ -58,6 +59,13 @@ def test_skill_schema_example_is_valid():
 
 def test_validator_schema_example_is_valid():
     errors = validate_validator("registry/schema/validator.yaml")
+    assert errors == []
+
+
+def test_tool_contract_example_is_valid():
+    errors = validate_tool_contract(
+        "examples/tool-contracts/customer-support-tools.yaml"
+    )
     assert errors == []
 
 

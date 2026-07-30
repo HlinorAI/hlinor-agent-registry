@@ -648,9 +648,9 @@ reviewable, and portable across the systems that execute your agents.
 ```bash
 pip install hlinor-registry
 ```
-The core package requires Python 3.10 or newer, PyYAML, and `cryptography` for
-Ed25519 bundle signatures. It does not install LangChain, CrewAI, or another
-agent framework.
+The core package requires Python 3.10 or newer, PyYAML, `jsonschema`, and
+`cryptography` for Ed25519 bundle signatures. It does not install LangChain,
+CrewAI, or another agent framework.
 
 ### Optional integrations
 Hlinor is **framework-agnostic**. We provide ready-to-use wrappers for popular agent ecosystems:
@@ -734,6 +734,7 @@ hlinor-registry validate-execution-context <path>
 hlinor-registry validate-action-preflight <path>
 hlinor-registry validate-capability <path>
 hlinor-registry validate-capability-registration examples/funding_intelligence.yaml
+hlinor-registry validate-tool-contract examples/tool-contracts/customer-support-tools.yaml
 hlinor-registry validate-protected-resource-boundary <path>
 hlinor-registry validate-evidence-claim <path>
 hlinor-registry validate-circuit-breaker <path>
@@ -754,6 +755,7 @@ hlinor-registry inspect <path>
 - [ActionRequest and decision provenance](docs/action-request.md)
 - [Signed bundles and trust stores](docs/signed-bundles.md)
 - [Integration compatibility](docs/integration-compatibility.md)
+- [Tool Contracts](docs/tool-contracts.md)
 - [Control Layer architecture](docs/architecture/control-layer-overview.md)
 - [Project isolation](docs/architecture/project-isolation.md)
 - [Task workspace](docs/architecture/task-workspace.md)
