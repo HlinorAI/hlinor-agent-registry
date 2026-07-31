@@ -337,6 +337,23 @@ Three handler kinds ship today:
 | `requires_evidence` | `evidence` | a required claim type is absent, does not name the request's resource, or is outside the window |
 | `failure_threshold` | `failure_counts` | the reported consecutive-failure count reaches `max_consecutive_failures` |
 
+Turn those expectations into deterministic regression tests:
+
+```bash
+hlinor-registry compile \
+  --manifest registry.yaml \
+  --output dist/policy-bundle.json
+
+hlinor-registry test-policies \
+  --bundle dist/policy-bundle.json \
+  --tests examples/policy-tests/refund-policy-tests.yaml
+```
+
+The suite fixes the evaluation time, then checks the result, reason code, and
+matched policy IDs for every request. See
+[Deterministic policy tests](docs/policy-tests.md) for the versioned YAML
+format, JSON output, and CI exit-code contract.
+
 Freshness is a window with two ends. A timestamp older than `max_age_seconds`
 is stale; one dated more than 30 seconds ahead of the checker's clock is
 refused rather than treated as very fresh. `bind_to_request` and

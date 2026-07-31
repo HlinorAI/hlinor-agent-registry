@@ -16,6 +16,13 @@ from .decision import (
     ReasonCode,
 )
 from .policy_checker import PolicyChecker
+from .policy_tests import (
+    POLICY_TEST_SCHEMA_VERSION,
+    PolicyTestReport,
+    PolicyTestSuite,
+    load_policy_test_suite,
+    run_policy_tests,
+)
 from .signing import BundleSignatureError, TrustedKey, VerifiedSignature
 from .tool_contract import (
     ToolContractValidationError,
@@ -30,6 +37,7 @@ from .tool_export import (
 )
 
 __all__ = [
+    "POLICY_TEST_SCHEMA_VERSION",
     "ActionRequest",
     "BundleSignatureError",
     "ContractDriftInputError",
@@ -40,6 +48,8 @@ __all__ = [
     "GovernanceDeniedError",
     "PolicyChecker",
     "PolicyDecision",
+    "PolicyTestReport",
+    "PolicyTestSuite",
     "ReasonCode",
     "ToolContractExportError",
     "ToolContractValidationError",
@@ -51,7 +61,9 @@ __all__ = [
     "compare_agent_contract",
     "compare_tool_contracts",
     "diff_tool_contract_files",
+    "load_policy_test_suite",
     "load_tool_contract",
+    "run_policy_tests",
     "validate_tool_contract",
     "write_tool_contract",
 ]
