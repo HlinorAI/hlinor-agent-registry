@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Published RFC 0001 and its threat model for a future trusted Tool Contract
+  runtime binding, covering canonical digests, detached signatures, exact tool
+  identity, argument validation, resource scope, rollback protection, and
+  fail-closed dispatch.
 - Added reproducible single-agent and eight-worker `PolicyChecker` benchmarks,
   documented latency and throughput budgets, and a Python 3.11 CI regression
   guardrail with machine-readable output.

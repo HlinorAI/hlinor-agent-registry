@@ -812,6 +812,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Tool Contracts](docs/tool-contracts.md)
 - [Tool Contract compatibility and migration](docs/tool-contract-versioning.md)
 - [Runtime performance and benchmarks](docs/performance.md)
+- [RFC 0001: Trusted Tool Contract runtime binding](docs/rfcs/0001-trusted-tool-contract-runtime-binding.md)
 - [Framework Tool Exporters](docs/framework-exporters.md)
 - [Control Layer architecture](docs/architecture/control-layer-overview.md)
 - [Project isolation](docs/architecture/project-isolation.md)
