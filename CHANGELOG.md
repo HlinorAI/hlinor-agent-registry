@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-31
+
 ### Added
 
 - Published RFC 0001 and its threat model for a future trusted Tool Contract
