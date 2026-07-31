@@ -4,6 +4,10 @@ A Tool Contract is a framework-neutral description of the tools an agent
 runtime can invoke. It gives governance review and future drift detection one
 stable input instead of asking every integration to invent its own descriptor.
 
+Schema `1.0` is stable. Its compatibility guarantees, exact-version reader
+behavior, tool-set version rules, and migration procedure are defined in
+[Tool Contract compatibility and migration policy](tool-contract-versioning.md).
+
 The contract is declarative. It does not import agent code, execute tools, or
 grant permission. Agent action lists and compiled policies remain the runtime
 authorization source.
@@ -80,6 +84,10 @@ metadata:
 | `metadata.owner` | Team accountable for keeping the contract current |
 | `metadata.source` | Exporter or manual source that produced the contract |
 
+`schema_version` and `version` are independent. HlinorAI versions the document
+format; the contract owner versions the described tool set. Updating tools does
+not require changing the schema version.
+
 When present, `metadata.repository` must be an HTTPS URL. Local paths and
 credentials do not belong in a portable contract.
 
@@ -106,7 +114,8 @@ silently making undeclared arguments acceptable.
 Validation rejects:
 
 - unknown fields;
-- unsupported schema versions;
+- unsupported schema versions, including future `1.x` versions this reader
+  does not explicitly implement;
 - duplicate or case-colliding tool IDs;
 - case-colliding action names;
 - wildcard action names;

@@ -125,6 +125,29 @@ def _schema_errors(data: object) -> list[str]:
     ]
 
 
+def _schema_version_errors(data: object) -> list[str]:
+    """Reject versions this reader does not implement with one stable error.
+
+    Tool Contract readers are exact-version readers. ``additionalProperties:
+    false`` is a security boundary, so pretending an older reader understands a
+    future additive field would either ignore governance data or weaken that
+    boundary. Newer 1.x readers remain backward compatible with 1.0; older
+    readers fail closed on a future minor version.
+    """
+    if not isinstance(data, dict) or "schema_version" not in data:
+        return []
+    version = data["schema_version"]
+    if version == TOOL_CONTRACT_SCHEMA_VERSION:
+        return []
+    return [
+        (
+            "tool_contract: schema_version: unsupported Tool Contract schema "
+            f"{version!r}; this reader supports exactly "
+            f"{TOOL_CONTRACT_SCHEMA_VERSION!r}"
+        )
+    ]
+
+
 def _duplicate_errors(tools: list[object]) -> list[str]:
     errors: list[str] = []
     seen_ids: dict[str, tuple[int, str]] = {}
@@ -241,6 +264,10 @@ def tool_contract_errors(data: object) -> list[str]:
     json_errors = _json_value_errors(data)
     if json_errors:
         return json_errors
+
+    version_errors = _schema_version_errors(data)
+    if version_errors:
+        return version_errors
 
     errors = _schema_errors(data)
     if not isinstance(data, dict):

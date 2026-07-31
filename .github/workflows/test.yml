@@ -417,6 +417,16 @@ jobs:
         run: |
           python -m build
           python -m twine check dist/*
+          python - <<'PY'
+          import glob
+          import tarfile
+
+          [sdist] = glob.glob("dist/*.tar.gz")
+          expected_suffix = "tests/fixtures/tool-contracts/stable-v1.0.yaml"
+          with tarfile.open(sdist, "r:gz") as archive:
+              names = archive.getnames()
+          assert any(name.endswith(expected_suffix) for name in names), names
+          PY
 
       - name: Verify wheel in a clean environment
         run: |

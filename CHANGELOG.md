@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Published Tool Contract schema `1.0` as the first stable capability contract
+  with explicit backward-compatibility, exact-reader, deprecation, and
+  migration guarantees.
+- Added a canonical `1.0` compatibility fixture that future readers must keep
+  valid, plus tests separating document schema versions from tool-set versions.
+- Exposed `TOOL_CONTRACT_SCHEMA_VERSION` and `tool_contract_schema` through the
+  public Python API.
 - Added the versioned policy-test suite format for deterministic requests,
   expected decisions, reason codes, and matched policy IDs.
 - Added `hlinor-registry test-policies` with stable text and JSON reports plus
@@ -46,6 +53,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Tool Contract readers now return one stable fail-closed error for every
+  unsupported schema version, including unknown future `1.x` versions, rather
+  than relying on a generic JSON Schema constant mismatch.
 - Release distributions are now built once, tested in a clean environment,
   attested, and passed unchanged to PyPI and GitHub Releases. Publishing no
   longer rebuilds a second, untested copy of the package.
