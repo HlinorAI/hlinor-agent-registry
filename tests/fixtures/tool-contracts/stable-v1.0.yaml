@@ -1,0 +1,33 @@
+schema_version: "1.0"
+type: tool_contract
+id: stable-fixture
+name: Stable Tool Contract Fixture
+description: Compatibility fixture that every future 1.x reader must accept.
+version: "1.0.0"
+
+tools:
+  - id: records.read
+    action: read_record
+    description: Read one synthetic record.
+    input_schema:
+      type: object
+      properties:
+        record_id:
+          type: string
+      required:
+        - record_id
+      additionalProperties: false
+    resource_patterns:
+      - "record/*"
+    effects:
+      - database_read
+    annotations:
+      read_only: true
+      destructive: false
+      idempotent: true
+
+metadata:
+  owner: HlinorAI Compatibility Tests
+  source: stable-fixture
+  repository: https://github.com/HlinorAI/hlinor-agent-registry
+  revision: tool-contract-1.0

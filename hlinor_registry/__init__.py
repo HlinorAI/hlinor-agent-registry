@@ -25,8 +25,10 @@ from .policy_tests import (
 )
 from .signing import BundleSignatureError, TrustedKey, VerifiedSignature
 from .tool_contract import (
+    TOOL_CONTRACT_SCHEMA_VERSION,
     ToolContractValidationError,
     load_tool_contract,
+    tool_contract_schema,
     validate_tool_contract,
 )
 from .tool_export import (
@@ -38,6 +40,7 @@ from .tool_export import (
 
 __all__ = [
     "POLICY_TEST_SCHEMA_VERSION",
+    "TOOL_CONTRACT_SCHEMA_VERSION",
     "ActionRequest",
     "BundleSignatureError",
     "ContractDriftInputError",
@@ -64,6 +67,7 @@ __all__ = [
     "load_policy_test_suite",
     "load_tool_contract",
     "run_policy_tests",
+    "tool_contract_schema",
     "validate_tool_contract",
     "write_tool_contract",
 ]

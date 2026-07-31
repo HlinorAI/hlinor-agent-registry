@@ -810,6 +810,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Signed bundles and trust stores](docs/signed-bundles.md)
 - [Integration compatibility](docs/integration-compatibility.md)
 - [Tool Contracts](docs/tool-contracts.md)
+- [Tool Contract compatibility and migration](docs/tool-contract-versioning.md)
 - [Framework Tool Exporters](docs/framework-exporters.md)
 - [Control Layer architecture](docs/architecture/control-layer-overview.md)
 - [Project isolation](docs/architecture/project-isolation.md)

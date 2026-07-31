@@ -5,16 +5,20 @@ from pathlib import Path
 import pytest
 import yaml
 
+from hlinor_registry import (
+    TOOL_CONTRACT_SCHEMA_VERSION,
+    tool_contract_schema,
+)
 from hlinor_registry.cli import main
 from hlinor_registry.tool_contract import (
     ToolContractValidationError,
     load_tool_contract,
     tool_contract_errors,
-    tool_contract_schema,
     validate_tool_contract,
 )
 
 EXAMPLE = Path("examples/tool-contracts/customer-support-tools.yaml")
+STABLE_V1_FIXTURE = Path("tests/fixtures/tool-contracts/stable-v1.0.yaml")
 
 
 def valid_contract() -> dict:
@@ -80,6 +84,46 @@ def test_schema_is_bundled_with_the_installable_package() -> None:
     )
     assert schema_resource.is_file()
     assert tool_contract_schema()["$schema"].endswith("draft/2020-12/schema")
+
+
+def test_schema_version_and_schema_document_are_public_api() -> None:
+    schema = tool_contract_schema()
+
+    assert TOOL_CONTRACT_SCHEMA_VERSION == "1.0"
+    assert schema["properties"]["schema_version"]["const"] == (
+        TOOL_CONTRACT_SCHEMA_VERSION
+    )
+    assert schema["$id"].endswith("/1-0-0.json")
+
+
+def test_stable_v1_fixture_remains_loadable() -> None:
+    loaded = load_tool_contract(STABLE_V1_FIXTURE)
+
+    assert loaded["schema_version"] == TOOL_CONTRACT_SCHEMA_VERSION
+    assert loaded["id"] == "stable-fixture"
+    assert loaded["tools"][0]["id"] == "records.read"
+
+
+@pytest.mark.parametrize("unsupported_version", ["0.9", "1.1", "2.0"])
+def test_unknown_schema_versions_fail_closed_with_a_stable_error(
+    unsupported_version: str,
+) -> None:
+    contract = valid_contract()
+    contract["schema_version"] = unsupported_version
+
+    assert tool_contract_errors(contract) == [
+        (
+            "tool_contract: schema_version: unsupported Tool Contract schema "
+            f"'{unsupported_version}'; this reader supports exactly '1.0'"
+        )
+    ]
+
+
+def test_tool_set_version_is_independent_from_schema_version() -> None:
+    contract = valid_contract()
+    contract["version"] = "7.4.0"
+
+    assert tool_contract_errors(contract) == []
 
 
 def test_schema_callers_cannot_mutate_future_validation() -> None:

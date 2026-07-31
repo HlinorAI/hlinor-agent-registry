@@ -3,6 +3,7 @@
   "$id": "https://registry.hlinor.com/schemas/tool-contract/1-0-0.json",
   "title": "Hlinor Tool Contract",
   "description": "Framework-neutral declaration of the tools an AI agent runtime can invoke.",
+  "$comment": "schema_version versions this document format. The root version field independently versions the described tool set. Readers accept only schema versions they implement.",
   "type": "object",
   "additionalProperties": false,
   "required": [
