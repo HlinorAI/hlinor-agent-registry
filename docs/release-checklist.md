@@ -34,6 +34,24 @@ truth; GitHub Releases and PyPI artifacts must be produced from that tag.
   contains the same wheel, source distribution, and `SHA256SUMS` manifest and
   refuses to overwrite an existing release.
 
+### Safe recovery before publication
+
+If a workflow defect stops a release before PyPI publication:
+
+1. Keep the protected tag unchanged.
+2. Fix and review the workflow on `main`.
+3. Open **Publish Release** in GitHub Actions and use **Run workflow**.
+4. Enter the existing immutable `vX.Y.Z` tag.
+5. Confirm the recovery run checks out and retests that tag, not `main`.
+
+The dispatch path verifies that the checkout commit is the commit referenced by
+the tag, repeats the complete test workflow against that ref, and then follows
+the same build, attestation, PyPI, digest-verification, and GitHub Release jobs.
+
+Do not use recovery to overwrite a version that PyPI already accepted. PyPI
+artifacts and GitHub Releases are immutable; investigate a post-publication
+failure and issue a new patch version when source or artifacts must change.
+
 ## Verification
 
 - Confirm the Git tag, GitHub Release, package metadata, CLI version, and PyPI

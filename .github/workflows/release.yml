@@ -4,9 +4,19 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing immutable vX.Y.Z tag to publish or recover
+        required: true
+        type: string
+
+env:
+  RELEASE_REF: ${{ inputs.release_tag || github.ref }}
+  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.release_tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -17,6 +27,8 @@ jobs:
   verify-source:
     name: Verify the tagged commit
     uses: ./.github/workflows/test.yml
+    with:
+      ref: ${{ inputs.release_tag || github.ref }}
 
   build:
     name: Build and attest release artifacts
@@ -31,6 +43,8 @@ jobs:
     steps:
       - name: Checkout tagged source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ env.RELEASE_REF }}
 
       - name: Set up Python 3.11
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -49,10 +63,18 @@ jobs:
           namespace = {}
           exec(Path("hlinor_registry/_version.py").read_text(), namespace)
           version = namespace["__version__"]
-          tag = os.environ["GITHUB_REF_NAME"]
+          tag = os.environ["RELEASE_TAG"]
           if tag != f"v{version}":
               raise SystemExit(f"Tag {tag} does not match package version {version}")
           PY
+
+      - name: Verify checkout is the immutable tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(git rev-parse HEAD)" = \
+            "$(git rev-parse "${RELEASE_TAG}^{commit}")"
 
       - name: Build and validate distributions
         run: |
@@ -64,13 +86,14 @@ jobs:
         run: |
           set -euo pipefail
           release_venv="${RUNNER_TEMP}/hlinor-release-wheel"
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
 
           python -m venv "$release_venv"
           "$release_venv/bin/python" -m pip install --upgrade pip
           "$release_venv/bin/python" -m pip install dist/*.whl
           "$release_venv/bin/python" -m pip check
-          "$release_venv/bin/hlinor-registry" --version | grep -Fx "$version"
+          "$release_venv/bin/hlinor-registry" --version |
+            grep -Fx "hlinor-registry $version"
           "$release_venv/bin/hlinor-registry" --help | grep -q "verify-bundle"
 
       - name: Generate SHA-256 checksums
@@ -167,7 +190,7 @@ jobs:
         run: |
           set -euo pipefail
           sha256sum --check release-metadata/SHA256SUMS
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
 
           for attempt in {1..12}; do
             set +e
@@ -238,7 +261,7 @@ jobs:
       - name: Install and verify published package
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           smoke_venv="${RUNNER_TEMP}/hlinor-pypi-smoke"
 
           python -m venv "$smoke_venv"
@@ -297,6 +320,8 @@ jobs:
     steps:
       - name: Checkout tagged source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ env.RELEASE_REF }}
 
       - name: Download release distributions
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -315,7 +340,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           notes="${RUNNER_TEMP}/release-notes.md"
 
           # Take everything between this version's heading and the next one.
@@ -349,15 +374,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "Release $GITHUB_REF_NAME already exists and is immutable." >&2
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists and is immutable." >&2
             exit 1
           fi
 
-          gh release create "$GITHUB_REF_NAME" \
+          gh release create "$RELEASE_TAG" \
             dist/* \
             release-metadata/SHA256SUMS \
             --verify-tag \
-            --title "$GITHUB_REF_NAME" \
+            --title "$RELEASE_TAG" \
             --notes-file "${{ steps.notes.outputs.path }}" \
             --latest
