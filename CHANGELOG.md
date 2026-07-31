@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added reproducible single-agent and eight-worker `PolicyChecker` benchmarks,
+  documented latency and throughput budgets, and a Python 3.11 CI regression
+  guardrail with machine-readable output.
 - Published Tool Contract schema `1.0` as the first stable capability contract
   with explicit backward-compatibility, exact-reader, deprecation, and
   migration guarantees.

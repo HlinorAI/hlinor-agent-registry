@@ -1,1 +1,2 @@
 recursive-include tests/fixtures *.yaml
+recursive-include benchmarks *.py *.yaml

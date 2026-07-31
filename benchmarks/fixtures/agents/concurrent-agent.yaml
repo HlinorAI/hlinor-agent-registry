@@ -1,0 +1,15 @@
+id: benchmark-concurrent-agent
+type: agent
+name: Benchmark Concurrent Agent
+department: performance
+description: Synthetic agent for repeatable concurrent policy measurements.
+skills:
+  - synthetic-query
+validators:
+  - benchmark-input
+policies: []
+allowed_actions:
+  - query_items:tenant/*
+blocked_actions:
+  - export_customer_data
+enforcement_mode: strict
