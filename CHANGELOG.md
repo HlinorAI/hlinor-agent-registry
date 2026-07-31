@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added the opt-in, bounded, thread-safe `PolicyBundleCache` for applications
+  that intentionally create multiple checkers for the same verified bundle.
+- Added explicit per-path invalidation, full-cache clearing, LRU capacity, and
+  cache observability counters.
+
+### Security
+
+- Bound cache entries to the exact bundle bytes, resolved path, verification
+  settings, trusted public keys, and file-backed trust material.
+- Recheck signature validity on every cache hit and keep mutable runtime state
+  isolated between checker instances.
+- Expanded reload fingerprints with device, inode, change time, modification
+  time, and size, and fail when a bundle changes while it is being loaded.
+
 ### Fixed
 
 - Fixed the release wheel smoke test to compare the documented

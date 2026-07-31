@@ -1,5 +1,6 @@
 from ._version import __version__
 from .action_request import ActionRequest
+from .bundle_cache import BundleCacheInfo, PolicyBundleCache
 from .contract_drift import (
     ContractDriftInputError,
     ContractDriftReport,
@@ -42,6 +43,7 @@ __all__ = [
     "POLICY_TEST_SCHEMA_VERSION",
     "TOOL_CONTRACT_SCHEMA_VERSION",
     "ActionRequest",
+    "BundleCacheInfo",
     "BundleSignatureError",
     "ContractDriftInputError",
     "ContractDriftReport",
@@ -49,6 +51,7 @@ __all__ = [
     "DecisionResult",
     "DriftFinding",
     "GovernanceDeniedError",
+    "PolicyBundleCache",
     "PolicyChecker",
     "PolicyDecision",
     "PolicyTestReport",
