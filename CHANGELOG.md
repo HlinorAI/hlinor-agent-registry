@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed the release wheel smoke test to compare the documented
+  `hlinor-registry X.Y.Z` CLI output instead of expecting a bare version.
+- Added a reviewed manual recovery path that checks out and retests an existing
+  immutable release tag when workflow logic fails before PyPI publication.
+
 ## [0.9.0] - 2026-07-31
 
 ### Added
