@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `hlinor-registry X.Y.Z` CLI output instead of expecting a bare version.
 - Added a reviewed manual recovery path that checks out and retests an existing
   immutable release tag when workflow logic fails before PyPI publication.
+- Required manual release recovery to start from `main` and documented the
+  narrow, temporary PyPI environment exception plus mandatory restoration.
 
 ## [0.9.0] - 2026-07-31
 
