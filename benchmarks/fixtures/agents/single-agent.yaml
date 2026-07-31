@@ -1,0 +1,15 @@
+id: benchmark-single-agent
+type: agent
+name: Benchmark Single Agent
+department: performance
+description: Synthetic agent for repeatable single-thread policy measurements.
+skills:
+  - synthetic-read
+validators:
+  - benchmark-input
+policies: []
+allowed_actions:
+  - read_record:record/*
+blocked_actions:
+  - delete_record
+enforcement_mode: strict
