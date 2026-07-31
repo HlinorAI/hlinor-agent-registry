@@ -1,0 +1,66 @@
+schema_version: "1.0"
+
+# Every freshness and expiry check in this suite uses this instant. The same
+# file therefore produces the same decision tomorrow and on every CI runner.
+fixed_time: "2026-07-27T12:00:00Z"
+
+cases:
+  - id: refund-without-approval-is-denied
+    request:
+      agent_id: refund-agent
+      action: refund_payment
+      resource: ticket/1234
+      signals: {}
+    expect:
+      result: denied
+      reason_code: POLICY_SIGNAL_MISSING
+      matched_policy_ids:
+        - refund-requires-approval
+
+  - id: fresh-bound-approval-is-allowed
+    request:
+      agent_id: refund-agent
+      action: refund_payment
+      resource: ticket/1234
+      signals:
+        approval:
+          approver_role: support-lead
+          granted_for: refund_payment:ticket/1234
+          granted_at: "2026-07-27T11:55:00Z"
+    expect:
+      result: allowed
+      reason_code: EXPLICITLY_ALLOWED
+      matched_policy_ids:
+        - refund-requires-approval
+
+  - id: stale-approval-is-denied
+    request:
+      agent_id: refund-agent
+      action: refund_payment
+      resource: ticket/1234
+      signals:
+        approval:
+          approver_role: support-lead
+          granted_for: refund_payment:ticket/1234
+          granted_at: "2026-07-27T10:00:00Z"
+    expect:
+      result: denied
+      reason_code: APPROVAL_REQUIRED
+      matched_policy_ids:
+        - refund-requires-approval
+
+  - id: approval-cannot-be-replayed-on-another-ticket
+    request:
+      agent_id: refund-agent
+      action: refund_payment
+      resource: ticket/1234
+      signals:
+        approval:
+          approver_role: support-lead
+          granted_for: refund_payment:ticket/9999
+          granted_at: "2026-07-27T11:55:00Z"
+    expect:
+      result: denied
+      reason_code: APPROVAL_REQUIRED
+      matched_policy_ids:
+        - refund-requires-approval

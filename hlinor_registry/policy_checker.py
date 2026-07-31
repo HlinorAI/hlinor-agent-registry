@@ -6,7 +6,8 @@ import copy
 import hashlib
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
@@ -48,12 +49,18 @@ class PolicyChecker:
         required_issuer: str | None = None,
         minimum_bundle_revision: int = 0,
         clock_skew_seconds: int = 60,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         """Initialize from a bundle path.
 
         ``registry_dir`` is retained as a compatibility alias for callers
         migrating from the pre-0.4 API. It is interpreted as a JSON bundle
         path and is never treated as a directory.
+
+        ``clock`` is an explicit test seam for deterministic freshness cases.
+        Production callers should omit it; the default remains the system UTC
+        clock. Bundle signature validity is verified separately and is not
+        affected by this evaluation clock.
         """
         if registry_dir is not None:
             bundle_path = registry_dir
@@ -93,6 +100,9 @@ class PolicyChecker:
         self.required_issuer = required_issuer
         self.minimum_bundle_revision = minimum_bundle_revision
         self.clock_skew_seconds = clock_skew_seconds
+        if clock is not None and not callable(clock):
+            raise TypeError("clock must be callable")
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
         self.agents: dict[str, dict[str, Any]] = {}
         self.capabilities: dict[str, dict[str, Any]] = {}
         self.policy_rules: dict[str, PolicyRule] = {}
@@ -487,6 +497,13 @@ class PolicyChecker:
         Unknown agents and actions are denied by default in strict mode.
         """
         self._assert_runtime_trust()
+        evaluation_time = self._clock()
+        if not isinstance(evaluation_time, datetime):
+            raise TypeError("PolicyChecker clock must return a datetime")
+        if evaluation_time.tzinfo is None:
+            raise ValueError(
+                "PolicyChecker clock must return a timezone-aware datetime"
+            )
         agent_config = self.agents.get(request.agent_id)
 
         if agent_config is None:
@@ -538,7 +555,7 @@ class PolicyChecker:
         )
         consulted = tuple(rule.policy_id for rule in applicable)
         for rule in applicable:
-            outcome = rule.check(request)
+            outcome = rule.check(request, now=evaluation_time)
             if not outcome.satisfied:
                 return PolicyDecision.deny(
                     request.agent_id,

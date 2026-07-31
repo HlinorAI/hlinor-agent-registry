@@ -245,6 +245,28 @@ jobs:
           assert event['result'] == 'allowed', event
           " "$event"
 
+      - name: Run deterministic policy examples
+        run: |
+          set -euo pipefail
+          hlinor-registry compile \
+            --manifest registry.yaml \
+            --output "${RUNNER_TEMP}/policy-test-bundle.json"
+          hlinor-registry test-policies \
+            --bundle "${RUNNER_TEMP}/policy-test-bundle.json" \
+            --tests examples/policy-tests/refund-policy-tests.yaml
+          hlinor-registry test-policies \
+            --bundle "${RUNNER_TEMP}/policy-test-bundle.json" \
+            --tests examples/policy-tests/refund-policy-tests.yaml \
+            --format json > "${RUNNER_TEMP}/policy-test-report.json"
+          python -c "
+          import json, pathlib
+          report = json.loads(
+              pathlib.Path('${RUNNER_TEMP}/policy-test-report.json').read_text()
+          )
+          assert report['status'] == 'passed', report
+          assert report['summary'] == {'failed': 0, 'passed': 4, 'total': 4}, report
+          "
+
       - name: Smoke test signed bundle verification
         run: |
           set -euo pipefail

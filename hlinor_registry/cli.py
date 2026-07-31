@@ -630,7 +630,7 @@ def cmd_init(args) -> int:
     return 0
 
 
-def _policy_checker_from_args(args: argparse.Namespace):
+def _policy_checker_from_args(args: argparse.Namespace, *, clock=None):
     """Create a PolicyChecker from shared CLI trust options."""
     from .policy_checker import PolicyChecker
 
@@ -641,7 +641,54 @@ def _policy_checker_from_args(args: argparse.Namespace):
         required_issuer=getattr(args, "required_issuer", None),
         minimum_bundle_revision=getattr(args, "minimum_bundle_revision", 0),
         clock_skew_seconds=getattr(args, "clock_skew_seconds", 60),
+        clock=clock,
     )
+
+
+def _print_policy_test_report(report: Any, output_format: str) -> None:
+    if output_format == "json":
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        return
+
+    for result in report.results:
+        marker = "PASS" if result.passed else "FAIL"
+        print(f"[{marker}] {result.case_id}")
+        for mismatch in result.mismatches:
+            print(f"  - {mismatch}")
+    print(
+        "Policy tests: "
+        f"{report.passed_count} passed, {report.failed_count} failed, "
+        f"{len(report.results)} total"
+    )
+
+
+def cmd_test_policies(args: argparse.Namespace) -> int:
+    """Run a versioned deterministic policy-test suite against a bundle."""
+    from .policy_tests import load_policy_test_suite, run_policy_tests
+
+    output_format = getattr(args, "format", "text")
+    try:
+        suite = load_policy_test_suite(args.tests)
+        checker = _policy_checker_from_args(
+            args,
+            clock=lambda: suite.fixed_time,
+        )
+        report = run_policy_tests(checker, suite)
+    except (OSError, TypeError, ValueError, yaml.YAMLError) as error:
+        message = _compact_error(error)
+        if output_format == "json":
+            print(
+                json.dumps(
+                    {"status": "invalid", "error": message},
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            return EXIT_ERROR
+        return _runtime_error(message)
+
+    _print_policy_test_report(report, output_format)
+    return EXIT_ALLOWED if report.passed else EXIT_DENIED
 
 
 def cmd_check(args) -> int:
@@ -1216,6 +1263,28 @@ def main(argv: list[str] | None = None) -> int:
     _add_request_arguments(check_parser)
     _add_trust_arguments(check_parser)
 
+    policy_tests_parser = subparsers.add_parser(
+        "test-policies",
+        help="Run deterministic policy cases against a compiled bundle",
+    )
+    policy_tests_parser.add_argument(
+        "--bundle",
+        required=True,
+        help="Path to compiled JSON bundle",
+    )
+    policy_tests_parser.add_argument(
+        "--tests",
+        required=True,
+        help="Path to a versioned policy-test YAML file",
+    )
+    policy_tests_parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format",
+    )
+    _add_trust_arguments(policy_tests_parser)
+
     verify_bundle_parser = subparsers.add_parser(
         "verify-bundle",
         help="Verify bundle integrity, signature trust, validity, and revision",
@@ -1350,6 +1419,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "check":
         return cmd_check(args)
+
+    if args.command == "test-policies":
+        return cmd_test_policies(args)
 
     if args.command == "verify-bundle":
         return cmd_verify_bundle(args)

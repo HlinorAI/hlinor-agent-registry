@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the versioned policy-test suite format for deterministic requests,
+  expected decisions, reason codes, and matched policy IDs.
+- Added `hlinor-registry test-policies` with stable text and JSON reports plus
+  distinct success, expectation-failure, and invalid-input exit codes.
+- Added an injectable `PolicyChecker` clock for reproducible freshness tests
+  while preserving the system UTC clock as the production default.
+- Added a synthetic refund-policy suite and run it through the public
+  compile-to-test path in CI.
 - Added the versioned, framework-neutral Tool Contract format for describing
   concrete tool IDs, governed actions, JSON Schema inputs, resource patterns,
   observable effects, and safety annotations.
