@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   infer reliably.
 - Added validated, atomic YAML and JSON output through
   `write_tool_contract`.
+- Added Microsoft AutoGen Core Tool Contract export through the public
+  `BaseTool.schema` protocol without invoking tools.
+- Added framework-neutral custom Python Tool Contract export with explicit
+  input schemas and callable-derived names and descriptions.
+- Added an `autogen` optional dependency, pinned AutoGen compatibility tests,
+  and runnable AutoGen and custom Python export examples.
 
 ### Security
 

@@ -23,6 +23,7 @@ from .tool_contract import (
     validate_tool_contract,
 )
 from .tool_export import (
+    CustomToolDescriptor,
     ToolContractExportError,
     ToolGovernance,
     write_tool_contract,
@@ -33,6 +34,7 @@ __all__ = [
     "BundleSignatureError",
     "ContractDriftInputError",
     "ContractDriftReport",
+    "CustomToolDescriptor",
     "DecisionResult",
     "DriftFinding",
     "GovernanceDeniedError",

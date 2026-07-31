@@ -107,6 +107,12 @@ jobs:
             --expected examples/tool-contracts/customer-support-tools.yaml \
             --observed examples/tool-contracts/customer-support-tools.yaml
 
+      - name: Smoke test custom Python Tool Contract export
+        run: |
+          cd "${RUNNER_TEMP}"
+          python "${GITHUB_WORKSPACE}/examples/custom_tool_export.py"
+          hlinor-registry validate-tool-contract dist/custom-tools.yaml
+
       # The documented quickstart is compile -> check -> explain. Validation
       # alone passed while that path was broken on a fresh clone, so exercise
       # the whole path against the repository's own manifest.
@@ -327,7 +333,7 @@ jobs:
           from importlib.metadata import metadata
 
           extras = set(metadata("hlinor-registry").get_all("Provides-Extra") or [])
-          missing = {"langchain", "crewai", "dev"} - extras
+          missing = {"autogen", "langchain", "crewai", "dev"} - extras
           if missing:
               raise SystemExit(f"pyproject is missing declared extras: {sorted(missing)}")
           PY
@@ -340,6 +346,33 @@ jobs:
           cd "${RUNNER_TEMP}"
           python "${GITHUB_WORKSPACE}/examples/langchain_tool_export.py"
           hlinor-registry validate-tool-contract dist/langchain-tools.yaml
+
+  autogen-integration:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+
+      - name: Install AutoGen integration dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,autogen]" \
+            "autogen-core==0.7.5"
+
+      - name: Run AutoGen integration tests
+        run: python -m pytest tests/test_autogen_integration.py -v
+
+      - name: Smoke test AutoGen Tool Contract export
+        run: |
+          cd "${RUNNER_TEMP}"
+          python "${GITHUB_WORKSPACE}/examples/autogen_tool_export.py"
+          hlinor-registry validate-tool-contract dist/autogen-tools.yaml
 
   package:
     runs-on: ubuntu-latest

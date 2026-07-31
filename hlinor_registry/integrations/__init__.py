@@ -3,4 +3,4 @@
 Integration modules are dependency-light and keep framework imports optional.
 """
 
-__all__ = ["crewai", "decorators", "langchain"]
+__all__ = ["autogen", "crewai", "custom", "decorators", "langchain"]
