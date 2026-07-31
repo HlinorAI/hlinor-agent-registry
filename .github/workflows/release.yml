@@ -20,12 +20,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate-trigger:
+    name: Validate the release trigger
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require manual recovery from main
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+
   # Everything the push and pull-request pipeline runs, against the tagged
   # commit, before anything is built for PyPI. A PyPI version is immutable:
   # publishing first and discovering a failure afterwards leaves nothing to
   # undo.
   verify-source:
     name: Verify the tagged commit
+    needs: validate-trigger
     uses: ./.github/workflows/test.yml
     with:
       ref: ${{ inputs.release_tag || github.ref }}

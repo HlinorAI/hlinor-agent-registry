@@ -40,13 +40,24 @@ If a workflow defect stops a release before PyPI publication:
 
 1. Keep the protected tag unchanged.
 2. Fix and review the workflow on `main`.
-3. Open **Publish Release** in GitHub Actions and use **Run workflow**.
-4. Enter the existing immutable `vX.Y.Z` tag.
-5. Confirm the recovery run checks out and retests that tag, not `main`.
+3. In **Settings → Environments → pypi**, temporarily add the exact branch
+   rule `main`. Do not remove or broaden the existing `v*` tag rule.
+4. Open **Publish Release** in GitHub Actions and use **Run workflow** with
+   **Use workflow from** set to `main`.
+5. Enter the existing immutable `vX.Y.Z` tag.
+6. Confirm the recovery run checks out and retests that tag, not `main`.
+7. Whether the run succeeds or fails, immediately remove the temporary `main`
+   deployment rule.
+8. Confirm the `pypi` environment again reports zero branches and only the
+   `v*` tag rule.
 
 The dispatch path verifies that the checkout commit is the commit referenced by
 the tag, repeats the complete test workflow against that ref, and then follows
 the same build, attestation, PyPI, digest-verification, and GitHub Release jobs.
+GitHub evaluates environment protection against the dispatch branch rather than
+the separately checked-out release tag, which is why the narrow, temporary
+`main` exception is required. The workflow rejects manual recovery dispatched
+from any other branch.
 
 Do not use recovery to overwrite a version that PyPI already accepted. PyPI
 artifacts and GitHub Releases are immutable; investigate a post-publication
@@ -68,6 +79,8 @@ failure and issue a new patch version when source or artifacts must change.
 
 - Keep the `v*` tag ruleset active with update and deletion blocked.
 - Keep the `pypi` environment restricted to release tags.
+- Treat a temporary `main` deployment rule as a recovery-only exception and
+  remove it immediately after the run, including after a failed run.
 - Require an independent environment reviewer as soon as a second trusted
   maintainer is available. Do not enable this with only one maintainer: GitHub
   prevents self-review and the release would be permanently blocked.
