@@ -11,9 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from ._limits import MAX_BUNDLE_BYTES, read_text_capped
+from cryptography.hazmat.primitives import serialization
+
+from ._limits import MAX_BUNDLE_BYTES, read_bytes_capped
 from ._matching import find_block_match, find_match, request_key
 from .action_request import ActionRequest
+from .bundle_cache import PolicyBundleCache
 from .decision import PolicyDecision
 from .enums import ReasonCode
 from .policies import PolicyRule, load_policy_rules
@@ -50,6 +53,7 @@ class PolicyChecker:
         minimum_bundle_revision: int = 0,
         clock_skew_seconds: int = 60,
         clock: Callable[[], datetime] | None = None,
+        bundle_cache: PolicyBundleCache | None = None,
     ) -> None:
         """Initialize from a bundle path.
 
@@ -102,7 +106,10 @@ class PolicyChecker:
         self.clock_skew_seconds = clock_skew_seconds
         if clock is not None and not callable(clock):
             raise TypeError("clock must be callable")
+        if bundle_cache is not None and not isinstance(bundle_cache, PolicyBundleCache):
+            raise TypeError("bundle_cache must be a PolicyBundleCache")
         self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._bundle_cache = bundle_cache
         self.agents: dict[str, dict[str, Any]] = {}
         self.capabilities: dict[str, dict[str, Any]] = {}
         self.policy_rules: dict[str, PolicyRule] = {}
@@ -114,7 +121,8 @@ class PolicyChecker:
         self.environment: str = "development"
         self.verified_signature: VerifiedSignature | None = None
         self._bundle_snapshot: dict[str, Any] | None = None
-        self._bundle_fingerprint: tuple[int, int] | None = None
+        self._bundle_fingerprint: tuple[int, int, int, int, int] | None = None
+        self._bundle_source_digest: str = ""
         self._trust_fingerprint: str | None = None
         self._load_bundle()
 
@@ -133,6 +141,96 @@ class PolicyChecker:
         """Compute the canonical digest for a bundle with its digest cleared."""
         return compute_bundle_digest(bundle)
 
+    @staticmethod
+    def _file_fingerprint(stat_result: Any) -> tuple[int, int, int, int, int]:
+        """Return file identity metadata suitable for cheap reload polling."""
+        return (
+            stat_result.st_dev,
+            stat_result.st_ino,
+            stat_result.st_mtime_ns,
+            stat_result.st_ctime_ns,
+            stat_result.st_size,
+        )
+
+    def _read_stable_bundle(
+        self,
+    ) -> tuple[str, tuple[int, int, int, int, int], str]:
+        """Read one stable file snapshot or fail instead of caching a race."""
+        for _ in range(2):
+            before = self.bundle_path.stat()
+            bundle_bytes = read_bytes_capped(
+                self.bundle_path,
+                MAX_BUNDLE_BYTES,
+                "Policy bundle",
+            )
+            after = self.bundle_path.stat()
+            before_fingerprint = self._file_fingerprint(before)
+            after_fingerprint = self._file_fingerprint(after)
+            if before_fingerprint == after_fingerprint:
+                return (
+                    bundle_bytes.decode("utf-8"),
+                    after_fingerprint,
+                    hashlib.sha256(bundle_bytes).hexdigest(),
+                )
+        raise RuntimeError("Policy bundle changed while it was being loaded")
+
+    def _verification_context_fingerprint(self) -> str:
+        """Bind a cache entry to every setting and key used for verification."""
+        digest = hashlib.sha256()
+        settings = {
+            "signature_policy": self.signature_policy,
+            "required_issuer": self.required_issuer,
+            "minimum_bundle_revision": self.minimum_bundle_revision,
+            "clock_skew_seconds": self.clock_skew_seconds,
+        }
+        digest.update(
+            json.dumps(settings, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        )
+        for key_id, trusted_key in sorted(self.trusted_keys.items()):
+            digest.update(b"\0")
+            digest.update(key_id.encode("utf-8"))
+            digest.update(b"\0")
+            digest.update((trusted_key.issuer or "").encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(
+                trusted_key.public_key.public_bytes(
+                    serialization.Encoding.Raw,
+                    serialization.PublicFormat.Raw,
+                )
+            )
+        if self._trust_store_path is not None:
+            digest.update(b"\0trust-material\0")
+            digest.update(self._trust_material_fingerprint().encode("ascii"))
+        return digest.hexdigest()
+
+    def _install_state(
+        self,
+        state: dict[str, Any],
+        *,
+        file_fingerprint: tuple[int, int, int, int, int],
+        source_digest: str,
+    ) -> None:
+        """Atomically replace the active runtime state with a verified snapshot."""
+        self.agents = state["agents"]
+        self.capabilities = state["capabilities"]
+        self.policy_rules = state["policy_rules"]
+        self.bundle_digest = state["bundle_digest"]
+        self.schema_version = state["schema_version"]
+        self.compiler_version = state["compiler_version"]
+        self.bundle_revision = state["bundle_revision"]
+        self.policy_revision = state["policy_revision"]
+        self.environment = state["environment"]
+        self.verified_signature = state["verified_signature"]
+        self._bundle_snapshot = state["bundle_snapshot"]
+        self._bundle_fingerprint = file_fingerprint
+        self._bundle_source_digest = source_digest
+        self._trust_fingerprint = (
+            self._trust_material_fingerprint()
+            if self.verified_signature is not None
+            and self._trust_store_path is not None
+            else None
+        )
+
     def _load_bundle(self) -> None:
         """Load and integrity-check the compiled JSON bundle."""
         if not self.bundle_path.is_file():
@@ -141,10 +239,40 @@ class PolicyChecker:
                 "Run `hlinor-registry compile` first."
             )
 
+        # Refresh file-backed trust roots before deriving the cache key. A
+        # rotated or revoked key must never reuse state verified under the
+        # previous trust store.
+        if self._trust_store_path is not None:
+            self.trusted_keys = self._load_configured_keys()
+
+        bundle_text, file_fingerprint, source_digest = self._read_stable_bundle()
+        cache_key = (
+            str(self.bundle_path),
+            source_digest,
+            self._verification_context_fingerprint(),
+        )
+        if self._bundle_cache is not None:
+            cached_state = self._bundle_cache._get(cache_key)
+            if cached_state is not None:
+                if self._file_fingerprint(self.bundle_path.stat()) != file_fingerprint:
+                    raise RuntimeError(
+                        "Policy bundle changed while it was being loaded"
+                    )
+                self._install_state(
+                    cached_state,
+                    file_fingerprint=file_fingerprint,
+                    source_digest=source_digest,
+                )
+                self._assert_runtime_trust()
+                logger.info(
+                    "Loaded %d agents from cached bundle (digest: %s)",
+                    len(self.agents),
+                    self.bundle_digest[:8],
+                )
+                return
+
         try:
-            bundle = json.loads(
-                read_text_capped(self.bundle_path, MAX_BUNDLE_BYTES, "Policy bundle")
-            )
+            bundle = json.loads(bundle_text)
         except json.JSONDecodeError as exc:
             raise ValueError(f"Invalid JSON in policy bundle: {exc}") from exc
 
@@ -303,24 +431,28 @@ class PolicyChecker:
                 policy_id for policy_id in named if policy_id not in loaded_rules
             )
 
-        bundle_stat = self.bundle_path.stat()
-        self.agents = loaded_agents
-        self.capabilities = loaded_capabilities
-        self.policy_rules = loaded_rules
-        self.bundle_digest = bundle_digest
-        self.schema_version = schema_version
-        self.compiler_version = str(bundle.get("compiler_version", "unknown"))
-        self.bundle_revision = revision
-        self.policy_revision = str(bundle.get("policy_revision", "unknown"))
-        self.environment = environment
-        self.verified_signature = verified_signature
-        self._bundle_snapshot = copy.deepcopy(bundle)
-        self._bundle_fingerprint = (bundle_stat.st_mtime_ns, bundle_stat.st_size)
-        self._trust_fingerprint = (
-            self._trust_material_fingerprint()
-            if verified_signature is not None and self._trust_store_path is not None
-            else None
+        state = {
+            "agents": loaded_agents,
+            "capabilities": loaded_capabilities,
+            "policy_rules": loaded_rules,
+            "bundle_digest": bundle_digest,
+            "schema_version": schema_version,
+            "compiler_version": str(bundle.get("compiler_version", "unknown")),
+            "bundle_revision": revision,
+            "policy_revision": str(bundle.get("policy_revision", "unknown")),
+            "environment": environment,
+            "verified_signature": verified_signature,
+            "bundle_snapshot": copy.deepcopy(bundle),
+        }
+        if self._file_fingerprint(self.bundle_path.stat()) != file_fingerprint:
+            raise RuntimeError("Policy bundle changed while it was being loaded")
+        self._install_state(
+            state,
+            file_fingerprint=file_fingerprint,
+            source_digest=source_digest,
         )
+        if self._bundle_cache is not None:
+            self._bundle_cache._put(cache_key, state)
         logger.info(
             "Loaded %d agents from compiled bundle (digest: %s)",
             len(self.agents),
@@ -340,7 +472,7 @@ class PolicyChecker:
             )
 
         bundle_stat = self.bundle_path.stat()
-        fingerprint = (bundle_stat.st_mtime_ns, bundle_stat.st_size)
+        fingerprint = self._file_fingerprint(bundle_stat)
         if fingerprint == self._bundle_fingerprint:
             self._assert_runtime_trust()
             return False
