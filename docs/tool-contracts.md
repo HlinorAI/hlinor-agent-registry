@@ -199,5 +199,11 @@ permissions.
 Framework exporters for LangChain and CrewAI can now target this stable
 comparison format without coupling the drift engine to either framework.
 
+The proposed trust boundary for a future runtime implementation is documented
+in [RFC 0001: Trusted Tool Contract runtime binding](rfcs/0001-trusted-tool-contract-runtime-binding.md).
+The RFC requires signed detached bindings, exact object identity, argument and
+resource binding, rollback protection, and fail-closed dispatch before Tool
+Contracts can participate in runtime enforcement.
+
 See [Framework Tool Exporters](framework-exporters.md) for complete export and
 CI drift-check examples.
