@@ -4,10 +4,14 @@
 
 | Version | Supported |
 | --- | --- |
-| 0.7.x | Yes |
-| 0.6.x | Security fixes only |
-| 0.5.x | Security fixes only |
-| < 0.5 | No |
+| 0.9.x | Yes |
+| < 0.9 | No — upgrade |
+
+Fixes land on the current line only. This project has one maintainer, and a
+backport promise it will not keep is worse than an honest refusal: someone
+running an old version would wait for a patch that never arrives instead of
+upgrading. Releases are frequent and the changelog records every breaking
+change.
 
 ## Reporting a Vulnerability
 
@@ -21,7 +25,7 @@ publishing details.
 
 Hlinor Agent Registry is an open-source reference implementation of a portable
 policy manifest compiler and fail-closed action gate for AI agents. Version
-0.7.x is the current stable line. Security issues
+0.9.x is the current stable line. Security issues
 include bypasses of strict action enforcement,
 acceptance of unlisted policy sources, signature or trust verification
 bypasses, path-boundary bypasses, and governed integrations executing a tool
@@ -72,14 +76,36 @@ documented behavior creates an unexpected security bypass are still welcome.
   a wrong path fails with a diagnosis instead of exhausting memory.
 - Runtime dependencies carry upper version bounds and GitHub Actions are pinned
   to commit SHAs, so neither changes under the project without a decision.
+- A shared `PolicyBundleCache` is keyed by the resolved bundle path, the
+  SHA-256 of the bytes read from disk, and a digest over every verification
+  setting and trusted key — signature policy, required issuer, minimum bundle
+  revision, clock skew, and each key's ID, issuer and raw public key. A
+  file-backed trust store is re-read from disk *before* the key is derived, so
+  a rotated or revoked key cannot reuse state verified under the previous one.
+  A cache hit still re-checks the file fingerprint and re-runs the signature
+  validity window, so caching skips re-verification of bytes, never of time.
+- Tool Contracts and drift checks operate before anything runs. `contract
+  check` reports `UNDECLARED_TOOL_SCOPE`, `STALE_ALLOW_PERMISSION` and
+  `STALE_BLOCK_PERMISSION`; `contract diff` additionally reports contract
+  identity, version, tool set, input schema, resource scope, effect and
+  annotation changes. Exit codes separate aligned, drift found, and bad input,
+  so CI can gate on the difference.
 
 An unsigned bundle digest provides integrity checking, not authentication. A
 party that can replace an unsigned bundle can also recompute its digest.
 Version 0.5 adds Ed25519 bundle authentication, but trust store distribution,
 private-key protection, and rollback-floor state remain deployment
 responsibilities. Action patterns give resource-aware authorization when the
-caller supplies `ActionRequest.resource`; argument-aware authorization is not
-implemented.
+caller supplies `ActionRequest.resource`.
+
+**Argument-aware authorization is not implemented.** Tool Contracts carry JSON
+Schema descriptions of tool inputs, and it would be reasonable to read that as
+the runtime validating arguments. It does not. Those schemas are an authoring
+and CI artifact: `validate-tool-contract` and `contract check` use them before
+anything runs. `PolicyChecker` never sees tool arguments and makes no decision
+based on them. Binding a contract to the runtime is described in
+[RFC 0001](docs/rfcs/0001-trusted-tool-contract-runtime-binding.md), which is a
+proposal, not a shipped control.
 
 ## Production Hardening
 
@@ -93,8 +119,12 @@ implemented.
 7. Treat JSONL decision events as application audit records, not immutable or
    independently authenticated receipts.
 8. Validate framework and dependency versions in your own environment.
-9. Keep human approval and authorization controls outside the agent process for
-   high-impact actions until request-bound approvals are implemented.
+9. Use a `requires_approval` policy for high-impact actions, and keep the
+   system that grants approvals outside the agent process. The policy binds an
+   approval to the request it was granted for and enforces a freshness window,
+   so an approval cannot be replayed onto a different action. What it cannot do
+   is establish that a human granted it — see the signals entry under Known
+   Limitations.
 
 ## Known Limitations
 
@@ -147,6 +177,19 @@ implemented.
   a protection that a second process does not have. What the bundle contributes
   is the threshold as a reviewed, signed number rather than a constant in
   application code.
+- **A Tool Contract is a reviewed description, not a runtime boundary.** It
+  records tool identity, governed action, input schema, resource scope, and
+  declared effects, and the drift checks compare it against an agent's action
+  lists. Nothing binds the contract to the tool that actually executes: an
+  exporter reads a framework's tool metadata at authoring time, and the running
+  process can present a different tool under the same name. Drift detection
+  catches a registry that fell behind the code; it does not catch code that
+  lies about itself. The trusted binding is
+  [RFC 0001](docs/rfcs/0001-trusted-tool-contract-runtime-binding.md) and is
+  not implemented.
+- A policy-test suite proves the bundle decides as the suite says for the
+  requests the suite lists. It is a regression net over authored intent, not
+  evidence that the intent is safe or the request set is complete.
 - YAML alias expansion is not bounded. Size limits cap the input, but a small
   file with nested anchors can still expand disproportionately. Policy sources
   are named explicitly in a manifest the deployment controls, so this is a
