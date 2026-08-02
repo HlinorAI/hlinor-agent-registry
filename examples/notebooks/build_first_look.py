@@ -286,8 +286,19 @@ hlinor-registry contract check --agent your-agent.yaml --tools your-tools.yaml
 ```
 
 The interesting result is not a clean run. It is a finding you did not expect,
-or a finding that turns out to be wrong. Both are worth reporting at
-https://github.com/HlinorAI/hlinor-agent-registry/issues
+or a finding that turns out to be wrong -- the second is more useful than the
+first, because a check that cries wolf is worse than no check.
+
+Either way I would like to hear what happened:
+
+- **What the check said about your agent**, including "nothing, and that
+  surprised me":
+  [Discussions](https://github.com/HlinorAI/hlinor-agent-registry/discussions)
+- **A wrong finding, a crash, or a missing feature**:
+  [Issues](https://github.com/HlinorAI/hlinor-agent-registry/issues)
+
+Apache-2.0. No telemetry, no account, nothing phones home -- which also means
+the only way I learn whether this is useful is if you say so.
 """
     ),
 ]

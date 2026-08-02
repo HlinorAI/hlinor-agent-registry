@@ -24,6 +24,10 @@ Nothing to install first: [**open the one-minute demo in Colab**](https://colab.
 It shows a permission that reads as correct in review and denies the call its
 own tool makes, and the command that reports that before it reaches production.
 
+Ran it against your own agent? Tell me what the check said, including "nothing,
+and that surprised me" -- in
+[Discussions](https://github.com/HlinorAI/hlinor-agent-registry/discussions).
+
 ### 1. Install
 ```bash
 pip install hlinor-registry
