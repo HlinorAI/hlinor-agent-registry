@@ -20,6 +20,10 @@ Hlinor Agent Registry is a declarative governance layer for agent systems. It tu
 Four steps. The fourth is the one that matters: at the end of it, a function in
 your own code cannot run an action the policy does not allow.
 
+Nothing to install first: [**open the one-minute demo in Colab**](https://colab.research.google.com/github/HlinorAI/hlinor-agent-registry/blob/main/examples/notebooks/first-look.ipynb).
+It shows a permission that reads as correct in review and denies the call its
+own tool makes, and the command that reports that before it reaches production.
+
 ### 1. Install
 ```bash
 pip install hlinor-registry
