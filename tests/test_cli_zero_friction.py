@@ -430,6 +430,77 @@ def test_help_builds_the_parser_on_any_version():
     assert exit_info.value.code == 0
 
 
+EVERYDAY_COMMANDS = {
+    "init",
+    "compile",
+    "check",
+    "explain",
+    "lint",
+    "test-policies",
+    "contract",
+    "verify-bundle",
+    "inspect",
+}
+
+
+def _listed_subcommands(help_text: str) -> set[str]:
+    """The subcommand names argparse prints, without the epilog.
+
+    Entries in the listing are indented four spaces; the epilog uses two, so
+    the two cannot be confused.
+    """
+    import re
+
+    body = help_text.split("positional arguments:", 1)[1].split("options:", 1)[0]
+    return set(re.findall(r"^ {4}([a-z][a-z-]+)", body, re.MULTILINE))
+
+
+def test_help_lists_the_everyday_commands_and_not_the_schema_validators(
+    capsys: pytest.CaptureFixture,
+):
+    """Twenty-eight subcommands in one alphabetical list answers no question.
+
+    Nineteen of them validate a single file against a schema. Someone arriving
+    from the README wants to know which command to run first, and the listing
+    used to bury the nine that answer that among the nineteen that do not.
+    """
+    from hlinor_registry.cli import VALIDATION_COMMANDS
+
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    help_text = capsys.readouterr().out
+
+    listed = _listed_subcommands(help_text)
+    assert listed == EVERYDAY_COMMANDS, (
+        f"unexpected: {sorted(listed - EVERYDAY_COMMANDS)}, "
+        f"missing: {sorted(EVERYDAY_COMMANDS - listed)}"
+    )
+    assert not listed & set(VALIDATION_COMMANDS)
+
+    # argparse.SUPPRESS is the obvious way to hide a subparser and it does not
+    # work: add_parser prints the sentinel as the help string. Omitting `help`
+    # is what leaves the entry out. Asserted because the failure is cosmetic
+    # enough to survive a casual review.
+    assert "==SUPPRESS==" not in help_text
+    assert "--list-validators" in help_text
+
+
+def test_the_hidden_validators_are_listed_by_their_own_flag(
+    capsys: pytest.CaptureFixture,
+):
+    """Hidden must mean hidden, not gone.
+
+    That each one still runs is covered by
+    test_every_validation_subcommand_is_dispatched; this covers whether a
+    reader can find out they exist.
+    """
+    from hlinor_registry.cli import VALIDATION_COMMANDS
+
+    assert main(["--list-validators"]) == 0
+    printed = set(capsys.readouterr().out.split())
+    assert printed == set(VALIDATION_COMMANDS)
+
+
 def _lint_agent(tmp_path: Path, **overrides: object) -> argparse.Namespace:
     """Write a minimal valid agent policy and return lint's arguments."""
     config: dict[str, object] = {

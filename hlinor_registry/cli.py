@@ -53,6 +53,26 @@ from hlinor_registry.validator import (
     validate_validator,
 )
 
+#: Shown under the subcommand list. Someone arriving from the README has one
+#: question -- which of these do I run first -- and an alphabetical listing of
+#: every subcommand does not answer it.
+EVERYDAY_COMMANDS_EPILOG = """\
+the usual order:
+
+  init            write a template registry, agent and policy
+  compile         turn those files into one bundle
+  check           ask whether an agent may perform an action
+  explain         show which rule decided, and why
+  lint            find allow and block patterns that contradict each other
+  test-policies   run the policy cases declared next to the registry
+  contract check  compare a tool contract against the agent boundary
+  verify-bundle   check a bundle's signature and revision floor
+  inspect         print one YAML file as the loader reads it
+
+nineteen single-file schema validators are also available and documented in
+the README; run --list-validators to print them.
+"""
+
 VALIDATION_COMMANDS = {
     "validate-agent": ("Agent", validate_agent),
     "validate-department": ("Department", validate_department),
@@ -1204,12 +1224,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"hlinor-registry {__version__}")
         return 0
 
+    # Handled here, like --version, because the subcommand is required and
+    # argparse would reject the flag on its own otherwise.
+    if "--list-validators" in argv:
+        for command in sorted(VALIDATION_COMMANDS):
+            print(command)
+        return 0
+
     parser = argparse.ArgumentParser(
         prog="hlinor-registry",
         description="Validate Hlinor Agent Registry YAML files.",
+        epilog=EVERYDAY_COMMANDS_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    # Without a metavar the usage line spells out all twenty-eight choices.
+    subparsers = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
 
     # Register explain command FIRST (order matters for subparsers)
     lint_parser = subparsers.add_parser(
@@ -1355,8 +1385,15 @@ def main(argv: list[str] | None = None) -> int:
 
     # Register validation commands
 
+    # Registered, documented in the README, and kept out of the help listing.
+    # There are nineteen of them against nine commands anyone uses on a first
+    # day, and mixed together they bury the ones that do the work. Omitting
+    # `help` is what leaves a subparser out of the listing; passing
+    # argparse.SUPPRESS does not -- it prints the literal string "==SUPPRESS==".
+    # Nothing here changes whether these run; --list-validators prints the full
+    # set and the epilog points at it.
     for command in VALIDATION_COMMANDS:
-        command_parser = subparsers.add_parser(command, help=f"Run {command}")
+        command_parser = subparsers.add_parser(command)
         command_parser.add_argument("path", help="Path to YAML file")
 
     inspect_parser = subparsers.add_parser(
