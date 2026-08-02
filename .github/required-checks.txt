@@ -1,0 +1,18 @@
+# Status checks that must pass before main accepts a merge.
+#
+# This file is the source. scripts/check_required_checks.py keeps it equal to
+# the jobs in workflows/test.yml on every pull request; applying it to the
+# branch ruleset is a manual step, because GITHUB_TOKEN cannot read or write
+# repository rules. Editing this file therefore protects nothing on its own --
+# see CONTRIBUTING.md for the command that pushes it to GitHub, and run the
+# verify command afterwards.
+
+Scope and secret scan
+test (3.10)
+test (3.11)
+test (3.12)
+test (3.13)
+crewai-integration
+langchain-integration
+autogen-integration
+package

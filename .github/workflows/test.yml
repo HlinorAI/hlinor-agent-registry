@@ -65,6 +65,15 @@ jobs:
           set -euo pipefail
           git ls-files -z | xargs -0 python3 scripts/check_public_scope.py
 
+      # Runs here rather than in its own job on purpose: a new job would need a
+      # new required context, which is the very thing this check exists to stop
+      # anyone from forgetting.
+      - name: Check the required-checks list against this workflow
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'pyyaml==6.0.2'
+          python3 scripts/check_required_checks.py
+
   test:
     runs-on: ubuntu-latest
     strategy:
