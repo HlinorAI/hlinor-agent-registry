@@ -46,11 +46,23 @@ After changing the list, a maintainer applies it. The update endpoint replaces
 the rules array, so the current ruleset is fetched, edited, and sent back whole
 rather than patched field by field:
 
+Note the shape of every command below: `gh` writes to a file and the result is
+checked before anything reads it. Piping `gh` into `sort` instead would hide a
+failed request, because the exit status of a pipeline is the exit status of its
+last command. A network error then leaves an empty file, and the comparison
+reports that the ruleset requires no checks at all -- alarming, wrong, and
+indistinguishable from the real thing. That is the same defect this section
+exists to prevent, so do not shorten these.
+
 ```bash
+set -o pipefail
 REPO=HlinorAI/hlinor-agent-registry
 gh api "repos/$REPO/rulesets" --jq '.[] | "\(.id)  \(.name)  \(.enforcement)"'
 ID=<the id printed above>
-gh api "repos/$REPO/rulesets/$ID" > /tmp/ruleset.json
+
+gh api "repos/$REPO/rulesets/$ID" > /tmp/ruleset.json &&
+  test -s /tmp/ruleset.json || echo "FETCH FAILED, stop here"
+
 grep -v '^#' .github/required-checks.txt | grep -v '^$' |
   jq -R . | jq -s '[.[] | {context: .}]' > /tmp/contexts.json
 jq --slurpfile ctx /tmp/contexts.json '
@@ -67,9 +79,12 @@ Then read back what GitHub stored, rather than trusting that the write did what
 it said:
 
 ```bash
-gh api "repos/HlinorAI/hlinor-agent-registry/rulesets/$ID" \
-  --jq '.rules[] | select(.type=="required_status_checks")
-        | .parameters.required_status_checks[].context' | sort > /tmp/live.txt
+gh api "repos/$REPO/rulesets/$ID" > /tmp/ruleset.json &&
+  test -s /tmp/ruleset.json &&
+  jq -r '.rules[] | select(.type=="required_status_checks")
+         | .parameters.required_status_checks[].context' /tmp/ruleset.json |
+  sort > /tmp/live.txt
+test -s /tmp/live.txt || { echo "no contexts read; do not trust the diff"; }
 grep -v '^#' .github/required-checks.txt | grep -v '^$' | sort > /tmp/want.txt
 diff /tmp/live.txt /tmp/want.txt && echo "ruleset matches the file"
 ```
