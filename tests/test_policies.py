@@ -16,7 +16,11 @@ import pytest
 from hlinor_registry import ActionRequest
 from hlinor_registry.enums import ReasonCode
 from hlinor_registry.policies import (
+    _BOOLEAN_SPEC_FIELDS,
+    _REQUIRED_SPEC_FIELDS,
+    _SPEC_SECTION,
     POLICY_KINDS,
+    SIGNAL_NAMES,
     PolicyRule,
     load_policy_rules,
     policy_definition_errors,
@@ -727,3 +731,80 @@ class TestNonFiniteNumbersAreRefused:
     @pytest.mark.parametrize("value", [1, 900, 0.5, 3600.0])
     def test_accepted(self, value):
         assert self.errors_for(value) == []
+
+
+class TestEveryKindIsDeclaredWhereverItIsRead:
+    """A policy kind is defined across five tables that nothing keeps in sync.
+
+    _HANDLERS is the source of truth: POLICY_KINDS is derived from it, so a
+    kind exists as soon as a handler is registered. The other four are looked
+    up by that kind, and adding a fifth kind means remembering all of them.
+
+    The tables are not equally forgiving of being forgotten, which is the
+    reason this test exists rather than a comment:
+
+      _SPEC_SECTION, _REQUIRED_SPEC_FIELDS  raise while validating the file,
+                                            so the mistake surfaces at compile
+                                            time, before any decision is made
+      SIGNAL_NAMES                          raises inside check(), so the
+                                            mistake surfaces as an exception
+                                            during a live policy decision
+      _BOOLEAN_SPEC_FIELDS                  used to be read with a default,
+                                            which skipped the boolean check in
+                                            silence and let a policy declaring
+                                            `bind_to_request: "true"` compile
+
+    Only the last was a fail-open, and it is now read by index like the rest.
+    Keeping the key sets equal is what makes that reachable, so it is asserted
+    here instead of being left to review.
+    """
+
+    def test_the_tables_cover_exactly_the_registered_kinds(self):
+        tables = {
+            "SIGNAL_NAMES": SIGNAL_NAMES,
+            "_SPEC_SECTION": _SPEC_SECTION,
+            "_REQUIRED_SPEC_FIELDS": _REQUIRED_SPEC_FIELDS,
+            "_BOOLEAN_SPEC_FIELDS": _BOOLEAN_SPEC_FIELDS,
+        }
+        for name, table in tables.items():
+            missing = POLICY_KINDS - set(table)
+            unknown = set(table) - POLICY_KINDS
+            assert not missing, (
+                f"{name} has no entry for {sorted(missing)}; a kind is "
+                f"registered in _HANDLERS but not described here"
+            )
+            assert not unknown, (
+                f"{name} describes {sorted(unknown)}, which is not a "
+                f"registered kind -- a typo or a handler that was removed"
+            )
+
+    def test_a_kind_without_boolean_switches_says_so_explicitly(self):
+        """The empty tuple is load-bearing, not clutter.
+
+        Deleting it would restore the silent-skip behaviour for that kind the
+        moment the lookup is written defensively again.
+        """
+        assert _BOOLEAN_SPEC_FIELDS["failure_threshold"] == ()
+
+    def test_every_declared_boolean_switch_is_refused_when_not_a_boolean(self):
+        """Ties the table to observable behaviour.
+
+        Without this, the key sets could agree while a field named in the
+        table was never actually consulted.
+        """
+        for kind, fields in _BOOLEAN_SPEC_FIELDS.items():
+            for field in fields:
+                errors = policy_definition_errors(
+                    {
+                        "kind": kind,
+                        "trigger": ["act:*"],
+                        _SPEC_SECTION[kind]: {
+                            **{f: "x" for f in _REQUIRED_SPEC_FIELDS[kind]},
+                            field: "true",
+                        },
+                    }
+                )
+                assert any(field in error and "boolean" in error for error in errors), (
+                    f"{kind}.{field} is declared a boolean switch but a string "
+                    f"was accepted for it"
+                )

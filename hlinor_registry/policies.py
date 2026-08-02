@@ -421,9 +421,16 @@ POLICY_KINDS = frozenset(_HANDLERS)
 
 #: Switches that decide whether a binding check runs at all. They must be real
 #: booleans in both the authored file and the compiled bundle.
+#:
+#: Every kind is listed, and a kind with no such switches carries an explicit
+#: empty tuple rather than being left out. The two spellings behave identically
+#: today and differently the moment a kind is added: a missing key read through
+#: `.get(kind, ())` skips this check in silence, while a missing key read by
+#: index raises. See TestEveryKindIsDeclaredWhereverItIsRead.
 _BOOLEAN_SPEC_FIELDS: dict[str, tuple[str, ...]] = {
     "requires_approval": ("bind_to_request",),
     "requires_evidence": ("same_resource",),
+    "failure_threshold": (),
 }
 
 _REQUIRED_SPEC_FIELDS: dict[str, tuple[str, ...]] = {
@@ -532,7 +539,7 @@ def _spec_field_errors(kind: str, section: str, spec: Mapping[str, Any]) -> list
     # Truthiness is not a governance contract. A file that writes `0` or
     # "false" here is either a mistake or an attempt to disable a binding
     # check while looking like it configured one; both are refused by name.
-    for boolean_field in _BOOLEAN_SPEC_FIELDS.get(kind, ()):
+    for boolean_field in _BOOLEAN_SPEC_FIELDS[kind]:
         if boolean_field in spec and not isinstance(spec[boolean_field], bool):
             errors.append(
                 f"policy: {section}.{boolean_field} must be a boolean "
