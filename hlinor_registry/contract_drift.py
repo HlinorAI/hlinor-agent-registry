@@ -136,6 +136,39 @@ def _block_overlaps(permission: str, capability: _ToolCapability) -> bool:
     ) or patterns_can_overlap(normalized_permission, capability.action.casefold())
 
 
+def _unscoped_allow_permissions(
+    allowed_actions: Sequence[str],
+    capabilities: Sequence[_ToolCapability],
+) -> dict[str, tuple[_ToolCapability, ...]]:
+    """Find allow entries that name an action but not the scope it is used with.
+
+    This is the most common way to write a permission that grants nothing, and
+    it is invisible on the page: `read_ticket` and `read_ticket:ticket/*` read
+    as the same intent, and only the second covers a tool that passes a
+    resource. The block list hides the mistake further, because
+    `_block_overlaps` matches a bare action against every scope of that action
+    -- so the same spelling works on one list and silently fails on the other.
+
+    Reported separately because the two halves of it otherwise appear as an
+    unrelated pair: a permission covering no tool, and a tool covered by no
+    permission, in different sections of the report.
+    """
+    unscoped: dict[str, tuple[_ToolCapability, ...]] = {}
+    for permission in allowed_actions:
+        if ":" in permission or "*" in permission or "?" in permission:
+            continue
+        if any(_allow_overlaps(permission, c) for c in capabilities):
+            continue
+        covering = tuple(
+            c
+            for c in capabilities
+            if c.action.casefold() == permission.casefold() and c.pattern != c.action
+        )
+        if covering:
+            unscoped[permission] = covering
+    return unscoped
+
+
 def compare_agent_contract(
     agent: Mapping[str, Any],
     contract: Mapping[str, Any],
@@ -146,7 +179,35 @@ def compare_agent_contract(
     blocked_actions = tuple(agent["blocked_actions"])
     findings: list[DriftFinding] = []
 
+    unscoped = _unscoped_allow_permissions(allowed_actions, capabilities)
+    explained_tools = {
+        capability.tool_id for covering in unscoped.values() for capability in covering
+    }
+
+    for index, permission in enumerate(allowed_actions):
+        covering = unscoped.get(permission)
+        if covering is None:
+            continue
+        suggestion = ", ".join(sorted({f"'{c.pattern}'" for c in covering}))
+        tool_names = ", ".join(sorted({f"'{c.tool_id}'" for c in covering}))
+        findings.append(
+            DriftFinding(
+                code="UNSCOPED_ALLOW_PERMISSION",
+                symbol="~",
+                path=f"allowed_actions[{index}]",
+                message=(
+                    f"Allowed action '{permission}' names an action with no "
+                    f"resource, so it permits only a call that carries none. "
+                    f"Tool {tool_names} always operates with one. Write "
+                    f"{suggestion} instead."
+                ),
+            )
+        )
+
+    undeclared: dict[str, list[_ToolCapability]] = {}
     for capability in capabilities:
+        if capability.tool_id in explained_tools:
+            continue
         allowed = any(
             _allow_overlaps(permission, capability) for permission in allowed_actions
         )
@@ -154,20 +215,25 @@ def compare_agent_contract(
             _block_overlaps(permission, capability) for permission in blocked_actions
         )
         if not allowed and not blocked:
-            findings.append(
-                DriftFinding(
-                    code="UNDECLARED_TOOL_SCOPE",
-                    symbol="+",
-                    path=f"tools.{capability.tool_id}",
-                    message=(
-                        f"Tool '{capability.tool_id}' exposes "
-                        f"'{capability.pattern}', but the agent neither allows "
-                        "nor blocks that runtime scope."
-                    ),
-                )
+            undeclared.setdefault(capability.tool_id, []).append(capability)
+
+    for tool_id, uncovered in sorted(undeclared.items()):
+        scopes = ", ".join(sorted({f"'{c.pattern}'" for c in uncovered}))
+        findings.append(
+            DriftFinding(
+                code="UNDECLARED_TOOL_SCOPE",
+                symbol="+",
+                path=f"tools.{tool_id}",
+                message=(
+                    f"Tool '{tool_id}' exposes {scopes}, but the agent neither "
+                    "allows nor blocks that runtime scope."
+                ),
             )
+        )
 
     for index, permission in enumerate(allowed_actions):
+        if permission in unscoped:
+            continue
         if not any(
             _allow_overlaps(permission, capability) for capability in capabilities
         ):

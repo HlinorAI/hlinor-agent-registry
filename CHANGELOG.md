@@ -9,10 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `UNSCOPED_ALLOW_PERMISSION`, reported when an allowed entry names an
+  action with no resource while the tool of that name always operates with
+  one. The two halves of that mistake -- a permission covering no tool, and a
+  tool covered by no permission -- were previously reported as unrelated
+  findings in separate sections of the report. The message now carries the
+  pattern to write instead, and a test applies that suggestion and asserts it
+  resolves the finding, because advice that does not fix the problem is worse
+  than none.
 - Added the opt-in, bounded, thread-safe `PolicyBundleCache` for applications
   that intentionally create multiple checkers for the same verified bundle.
 - Added explicit per-path invalidation, full-cache clearing, LRU capacity, and
   cache observability counters.
+
+### Changed
+
+- `UNDECLARED_TOOL_SCOPE` now reports one finding per tool listing every
+  uncovered scope, instead of one finding per scope. A tool declaring both
+  `http/*` and `https/*` produced two identical-looking lines. Checked against
+  an agent with sixteen enabled toolsets and thirty tools, the two changes
+  together took the report from 47 findings to 23 without dropping a single
+  distinct problem.
 
 ### Security
 

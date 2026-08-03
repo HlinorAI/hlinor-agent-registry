@@ -133,6 +133,57 @@ def test_each_exported_resource_scope_must_be_declared() -> None:
     assert "read_record:archive/*" in report.findings[0].message
 
 
+def test_an_action_allowed_without_its_scope_is_named_as_one_mistake() -> None:
+    """The two halves of this used to be reported as unrelated findings.
+
+    A bare `read_record` covers no call the tool makes, and the tool is covered
+    by no permission. Both are true, both were printed, and neither said they
+    were the same sentence read from opposite ends. On a real agent that turned
+    thirteen mistakes into twenty-six lines in two separate sections.
+    """
+    declaration = agent()
+    declaration["allowed_actions"] = ["read_record"]
+
+    report = compare_agent_contract(declaration, contract())
+
+    assert finding_codes(report) == ["UNSCOPED_ALLOW_PERMISSION"]
+    assert report.findings[0].symbol == "~"
+    assert "read_record:record/*" in report.findings[0].message
+
+
+def test_the_suggested_pattern_actually_resolves_the_finding() -> None:
+    """The report tells the reader what to write. It has to be right.
+
+    Advice that does not fix the problem is worse than no advice, so the
+    suggestion is taken out of the message text and applied rather than
+    assumed.
+    """
+    import re
+
+    declaration = agent()
+    declaration["allowed_actions"] = ["read_record"]
+    contract_data = contract(tool(resources=["record/*", "archive/*"]))
+
+    report = compare_agent_contract(declaration, contract_data)
+    suggested = re.findall(r"'([^']+)'", report.findings[0].message.split("Write")[1])
+    assert suggested, "the message carries no pattern to apply"
+
+    declaration["allowed_actions"] = suggested
+    assert compare_agent_contract(declaration, contract_data).status == "aligned", (
+        f"applying {suggested} left the contract in drift"
+    )
+
+
+def test_a_scoped_permission_that_covers_nothing_is_still_stale() -> None:
+    """The new code must not swallow the case it was carved out of."""
+    declaration = agent()
+    declaration["allowed_actions"] = ["read_record:nowhere/*"]
+
+    assert "STALE_ALLOW_PERMISSION" in finding_codes(
+        compare_agent_contract(declaration, contract())
+    )
+
+
 def test_stale_allow_and_block_permissions_are_reported() -> None:
     declaration = agent()
     declaration["allowed_actions"].append("send_email")
