@@ -141,12 +141,24 @@ hlinor-registry contract check \
 
 The command reports:
 
+- `UNSCOPED_ALLOW_PERMISSION` when an allowed entry names an action with no
+  resource while the tool of that name always operates with one. The entry
+  permits only a call carrying no resource, which is not the call the tool
+  makes. The message carries the pattern to write instead;
 - `UNDECLARED_TOOL_SCOPE` when a tool exposes an action or resource scope the
   agent neither allows nor explicitly blocks;
 - `STALE_ALLOW_PERMISSION` when an allowed pattern no longer overlaps any
   exported tool;
 - `STALE_BLOCK_PERMISSION` when a blocked pattern no longer overlaps any
   exported tool.
+
+`UNSCOPED_ALLOW_PERMISSION` exists because that mistake is invisible on the
+page and used to be reported as two unrelated findings in different sections:
+a permission covering no tool, and a tool covered by no permission. It is also
+asymmetric. A bare action on the **block** list matches every scope of that
+action, so the same spelling that fails silently on one list works on the
+other. Run against a real agent with sixteen enabled toolsets, pairing the two
+halves took the report from 47 findings to 23.
 
 An agent may deliberately grant a narrower resource scope than the tool can
 technically address. That is least privilege, not drift. A tool that is only

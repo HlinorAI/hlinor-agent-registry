@@ -99,7 +99,7 @@ def test_the_same_action_with_the_resource_the_tool_uses_is_denied(
     assert "ACTION_NOT_ALLOWLISTED" in output
 
 
-def test_contract_check_reports_the_five_findings_the_notebook_lists(
+def test_contract_check_reports_the_four_findings_the_notebook_lists(
     demo: Path, capsys: pytest.CaptureFixture
 ):
     exit_code = main(
@@ -116,8 +116,9 @@ def test_contract_check_reports_the_five_findings_the_notebook_lists(
     assert exit_code == 1, "a drift report must fail a pull request"
 
     for expected in (
-        "STALE_ALLOW_PERMISSION",
+        "UNSCOPED_ALLOW_PERMISSION",
         "UNDECLARED_TOOL_SCOPE",
+        "STALE_ALLOW_PERMISSION",
         "STALE_BLOCK_PERMISSION",
         "ticket.read",
         "ticket.delete",
@@ -126,7 +127,12 @@ def test_contract_check_reports_the_five_findings_the_notebook_lists(
     ):
         assert expected in output, f"the notebook names {expected}; the report does not"
 
-    assert output.count("[") >= 5, "the notebook says five findings"
+    assert "(4 findings)" in output, "the notebook says four findings"
+
+    # The notebook prints this line as the fix to apply. If the suggestion ever
+    # stops being the pattern that actually covers the tool, the demo teaches
+    # the wrong lesson.
+    assert "Write 'read_ticket:ticket/*' instead" in output
 
 
 def test_the_committed_notebook_matches_its_builder(builder, tmp_path: Path):

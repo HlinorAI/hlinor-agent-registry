@@ -85,7 +85,8 @@ documented behavior creates an unexpected security bypass are still welcome.
   A cache hit still re-checks the file fingerprint and re-runs the signature
   validity window, so caching skips re-verification of bytes, never of time.
 - Tool Contracts and drift checks operate before anything runs. `contract
-  check` reports `UNDECLARED_TOOL_SCOPE`, `STALE_ALLOW_PERMISSION` and
+  check` reports `UNSCOPED_ALLOW_PERMISSION`, `UNDECLARED_TOOL_SCOPE`,
+  `STALE_ALLOW_PERMISSION` and
   `STALE_BLOCK_PERMISSION`; `contract diff` additionally reports contract
   identity, version, tool set, input schema, resource scope, effect and
   annotation changes. Exit codes separate aligned, drift found, and bad input,

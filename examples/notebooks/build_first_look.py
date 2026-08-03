@@ -235,12 +235,12 @@ It needs no running agent and no traffic.
     ),
     markdown(
         """\
-Five findings, and each is a different kind of divergence:
+Four findings, each a different kind of divergence:
 
-- `STALE_ALLOW_PERMISSION` on `read_ticket` -- the permission overlaps no tool,
-  which is the defect above stated before it runs.
-- `UNDECLARED_TOOL_SCOPE` on `ticket.read` -- the tool reaches a scope the
-  boundary neither allows nor blocks.
+- `UNSCOPED_ALLOW_PERMISSION` on `read_ticket` -- the defect from the first
+  half of this notebook, stated before it runs, with the line to write
+  instead. This is the common one: the permission and the call it was meant
+  to cover differ by a suffix nobody notices in review.
 - `UNDECLARED_TOOL_SCOPE` on `ticket.delete` -- a destructive tool was added
   last sprint and the registry was never told. Today the runtime refuses it by
   default. It stays refused only until somebody widens a permission to fix an
