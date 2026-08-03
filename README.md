@@ -1,7 +1,7 @@
 
 # Hlinor Agent Registry
 
-> **Latest:** [The OpenAI/Hugging Face Sandbox Escape: Why Declarative AI Governance is No Longer Optional](https://dev.to/ishvan/the-openaihugging-face-sandbox-escape-why-declarative-ai-governance-is-no-longer-optional-4onh) - Dev.to article
+> **Latest:** [The allow-list entry that denies the call it was written for](https://dev.to/ishvan/the-allow-list-entry-that-denies-the-call-it-was-written-for-3lae) - Dev.to article
 
 [![PyPI version](https://img.shields.io/pypi/v/hlinor-registry.svg)](https://pypi.org/project/hlinor-registry/)
 [![Python 3.10–3.13](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-3776AB.svg)](https://github.com/HlinorAI/hlinor-agent-registry)
