@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | --- | --- |
-| 0.9.x | Yes |
-| < 0.9 | No — upgrade |
+| 0.10.x | Yes |
+| < 0.10 | No — upgrade |
 
 Fixes land on the current line only. This project has one maintainer, and a
 backport promise it will not keep is worse than an honest refusal: someone
@@ -25,7 +25,7 @@ publishing details.
 
 Hlinor Agent Registry is an open-source reference implementation of a portable
 policy manifest compiler and fail-closed action gate for AI agents. Version
-0.9.x is the current stable line. Security issues
+0.10.x is the current stable line. Security issues
 include bypasses of strict action enforcement,
 acceptance of unlisted policy sources, signature or trust verification
 bypasses, path-boundary bypasses, and governed integrations executing a tool
