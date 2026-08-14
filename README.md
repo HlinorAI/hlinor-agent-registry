@@ -439,9 +439,16 @@ The registry makes the constraint visible, versionable, and reviewable instead o
 ## ⚖️ What is enforced at runtime
 
 The repository ships 22 schemas and a set of governance patterns. Most of them
-are **authoring contracts**: they are validated when you compile, and they give
-reviewers a shared vocabulary. They are not evaluated when an agent asks to do
-something. Read this table before you rely on any of it.
+are **authoring contracts**: they give reviewers a shared vocabulary, and they
+are not evaluated when an agent asks to do something.
+
+Be precise about where they are checked, because "a schema exists" is not the
+same claim as "something checks it". `compile` reads only the files your
+manifest names, and it accepts three entity types: `agent`, `policy` and
+`capability`. Every other schema is checked only if you run its `validate-*`
+command yourself, and six have no command at all. Two of the twenty-two reach a
+runtime decision. [`docs/contract-status.md`](docs/contract-status.md) gives the
+status of each one; read this table before you rely on any of it.
 
 | Concern | Validated at compile time | Enforced by `PolicyChecker` |
 | :--- | :---: | :---: |
