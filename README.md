@@ -13,6 +13,13 @@ Open-source registry layer for auditable AI agent systems. Define what your AI a
 
 Hlinor Agent Registry is a declarative governance layer for agent systems. It turns action boundaries, policies, approvals, and runtime evidence into reviewable YAML contracts that developers and security teams can understand.
 
+This repository is the public OSS core: portable policies, verifiers, local
+reference runtimes, and conformance tests. Hosted multi-tenant control plane,
+managed identity and key lifecycle, network message delivery, centralized audit,
+fleet analytics, and production gateways belong to the separate commercial
+layer. See the [open-core boundary](docs/open-core-boundary.md) before adding
+new capabilities.
+
 ---
 
 ## ⚡ Quickstart

@@ -4,7 +4,11 @@
 
 Provide a framework-neutral, fail-closed governance layer for AI-agent tool
 actions, with reviewable contracts and evidence that the runtime executed only
-the authority that was approved.
+the authority that was approved. This repository is the public OSS core; the
+managed multi-deployment control plane is developed separately.
+
+The authoritative OSS/commercial split is documented in
+[`docs/open-core-boundary.md`](docs/open-core-boundary.md).
 
 ## Current architecture
 
@@ -67,22 +71,27 @@ the authority that was approved.
 3. Trusted in-process runtime binding MVP — complete as an experimental API.
 4. Signed request-bound approvals and authenticated execution receipts — first
    primitives complete; independent collection remains deployment work.
-5. Thin MCP integration, agent identity/delegation, and OpenTelemetry context —
-   signed delegation, identity-bound transport, and bounded fan-out primitives
-   are experimental; external workload attestation remains open.
+5. Protocol contracts and portable identity/delegation primitives — signed
+   delegation, identity-bound transport, and bounded fan-out primitives are
+   experimental; production gateways and external workload attestation are
+   outside this repository.
 6. Stateful circuit breakers, budgets, kill switch, and runtime isolation —
    rate/concurrency admission and the SQLite kill switch are experimental;
    cost accounting and broader runtime isolation remain open.
-7. Control-plane capabilities only after runtime pilots validate demand.
+7. Commercial control-plane capabilities are outside this repository and must
+   not be implemented here; only public contracts or local reference clients
+   may be added after runtime pilots validate demand.
 
 ## Current status
 
-The repository is implementing the phase 4/6 runtime-hardening slice. Signed
-approval, durable replay/revocation, receipt, checkpoint, circuit-breaker,
-and identity-bound delegation transport primitives are experimental and
-framework-neutral. The project does not yet claim external deployment or
-workload attestation, independently operated receipt collection, cost
-accounting, MCP support, or A2A support.
+The public repository has reached the current OSS runtime-hardening boundary.
+Signed approval, durable replay/revocation, receipt, checkpoint,
+circuit-breaker, scope, AutoGen, and identity-bound delegation/message
+transport primitives are experimental and framework-neutral. Further public
+work is limited to maintenance, security fixes, documentation, portable
+contracts, and conformance tests. Hosted control-plane, managed identity,
+network message delivery, independent audit collection, fleet analytics, and
+production MCP/A2A gateways are commercial/private work.
 
 ## Open risks
 
@@ -101,3 +110,5 @@ accounting, MCP support, or A2A support.
   wrappers, the AutoGen wrapper, and the experimental scoped store. Signed
   messages still require deployment-specific network delivery, key rotation,
   external workload attestation, and independent audit collection.
+- The public/private product boundary must be reviewed before accepting new
+  runtime capabilities; see `docs/open-core-boundary.md`.

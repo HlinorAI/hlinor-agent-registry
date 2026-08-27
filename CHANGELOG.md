@@ -44,6 +44,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `GovernedAutoGenTool` over AutoGen Core's public `BaseTool` API; it
   authorizes `run_json` before delegating to the validated wrapped tool.
 
+### Changed
+
+- Established the OSS/commercial boundary in
+  `docs/open-core-boundary.md`: this repository remains a portable policy,
+  verification, and reference-runtime core; hosted control-plane, managed
+  identity, network delivery, independent audit, fleet analytics, and
+  production protocol gateways are outside its scope.
+
 ### Security
 
 - Added exact Gitleaks fingerprints for six reviewed synthetic false positives
