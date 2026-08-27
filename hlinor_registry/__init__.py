@@ -91,6 +91,12 @@ from .runtime_limits import (
     RuntimeLimitSnapshot,
     SQLiteRuntimeBudget,
 )
+from .scoped_store import (
+    ScopedMessage,
+    ScopedStoreError,
+    SQLiteScopedWorkspaceStore,
+    WorkspaceRecord,
+)
 from .signing import BundleSignatureError, TrustedKey, VerifiedSignature
 from .tool_contract import (
     TOOL_CONTRACT_SCHEMA_VERSION,
@@ -166,6 +172,9 @@ __all__ = [
     "SQLiteFanOutGuard",
     "SQLiteReplayGuard",
     "SQLiteRuntimeBudget",
+    "SQLiteScopedWorkspaceStore",
+    "ScopedMessage",
+    "ScopedStoreError",
     "ToolContractExportError",
     "ToolContractValidationError",
     "ToolGovernance",
@@ -174,6 +183,7 @@ __all__ = [
     "VerifiedDelegation",
     "VerifiedDelegationTransport",
     "VerifiedSignature",
+    "WorkspaceRecord",
     "__version__",
     "bind_tool",
     "canonical_json_bytes",

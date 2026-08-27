@@ -42,8 +42,10 @@
   conveyed through filenames, package metadata, or natural-language messages.
 - [x] Propagate explicit project/workspace scope through the shared
   `GovernanceGate`, decorators, LangChain, and CrewAI wrappers.
-- [ ] Extend project/workspace scope enforcement to durable workspace stores,
-  AutoGen execution paths, and cross-agent message transport.
+- [x] Add a durable SQLite workspace/message store with mandatory scope,
+  recipient filtering, bounded JSON payloads, and revision tracking.
+- [ ] Add an AutoGen execution wrapper and authenticated cross-agent message
+  transport; sender metadata in the scoped store is not authentication.
 - [ ] Add a thin MCP `tools/call` integration with protocol-version and auth
   context handling.
 - [ ] Add OpenTelemetry correlation for binding, decision, and dispatch.

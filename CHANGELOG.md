@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   requests, receipts, signed approvals, and signed delegations.
 - Propagated explicit execution scope through the shared `GovernanceGate`, the
   framework-neutral decorator, and LangChain/CrewAI governed wrappers.
+- Added experimental SQLite project/workspace-scoped records and recipient-
+  filtered message storage with bounded JSON input and revision tracking.
 
 ### Security
 
@@ -70,6 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BoundTool` can now fail closed when an isolated deployment omits an explicit
   project/workspace scope, rejects caller-forged scope signals, and never treats
   filenames, package metadata, or natural-language messages as authority.
+- Scoped message bodies remain ordinary data and sender IDs are metadata only;
+  signed transport is still required for authenticated cross-agent identity.
 
 ## [0.10.0] - 2026-08-03
 

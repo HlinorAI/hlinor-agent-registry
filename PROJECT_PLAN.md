@@ -40,6 +40,9 @@ the authority that was approved.
   are not authority sources.
 - The shared integration gate propagates this explicit scope through the
   framework-neutral decorator, LangChain, and CrewAI wrappers.
+- The experimental `SQLiteScopedWorkspaceStore` persists JSON records and
+  ordinary recipient-filtered messages under a composite project/workspace
+  key; it has no global enumeration API and does not authenticate senders.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
   fixture and verified against canonical UTF-8 bytes and SHA-256 digests by
   Python and an independent Node.js implementation.
@@ -90,6 +93,6 @@ accounting, MCP support, or A2A support.
   runtime controls yet; delegation fan-out and the SQLite kill switch are
   bounded experimental controls.
 - `ExecutionScope` enforcement covers `BoundTool` and the shared framework
-  wrappers, but durable workspace stores, AutoGen execution paths,
-  cross-agent message channels, and external workload attestation still
-  require deployment-specific integration.
+  wrappers, and the experimental scoped store. AutoGen execution paths,
+  authenticated cross-agent message channels, and external workload
+  attestation still require deployment-specific integration.

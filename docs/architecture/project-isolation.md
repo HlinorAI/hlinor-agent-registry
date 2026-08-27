@@ -119,6 +119,12 @@ This MVP enforces the scope at `BoundTool`; framework adapters, workspace
 stores, and external workload attestation still require deployment-specific
 integration before the repository can claim end-to-end isolation.
 
+The repository now also includes an experimental
+`SQLiteScopedWorkspaceStore` for durable records and ordinary messages. It
+requires the same explicit scope for every operation and has no global listing
+API. It prevents accidental cross-project reads, but it does not authenticate
+the `sender_agent_id` of a message or replace signed delegation transport.
+
 ## Memory boundary
 
 Durable memory must be project-aware.

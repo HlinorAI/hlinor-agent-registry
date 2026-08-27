@@ -34,6 +34,11 @@ Every adapter supports:
 - `request_factory`: create an application-specific `ActionRequest`;
 - a persistent checker that calls `reload_if_changed()` before evaluation.
 
+The shared gate also accepts an explicit `ExecutionScope` (static or derived
+from trusted invocation context) and `require_execution_scope=True`. This is
+implemented by the decorator, LangChain, and CrewAI governed wrappers. AutoGen
+execution wrapping is not yet part of the supported compatibility contract.
+
 `request_factory` receives an immutable `InvocationContext` containing the
 agent, action, tool ID, environment, positional arguments, and keyword
 arguments. Hlinor does not serialize arbitrary arguments automatically because

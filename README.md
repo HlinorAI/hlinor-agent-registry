@@ -831,6 +831,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Runtime bindings and execution receipts](docs/runtime-receipts.md)
 - [Signed request-bound approvals](docs/approval-tokens.md)
 - [Trusted runtime binding MVP](docs/runtime-binding.md)
+- [Scoped workspace state and messages](docs/scoped-state.md)
 - [Audit trail](docs/audit-trail.md)
 - [ActionRequest and decision provenance](docs/action-request.md)
 - [Signed bundles and trust stores](docs/signed-bundles.md)
