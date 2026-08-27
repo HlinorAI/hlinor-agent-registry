@@ -106,7 +106,9 @@ class FanOutGuard(Protocol):
     ) -> bool:
         """Register one child if the parent's limit has not been reached."""
 
-    def is_registered(self, parent_delegation_id: str, child_delegation_id: str) -> bool:
+    def is_registered(
+        self, parent_delegation_id: str, child_delegation_id: str
+    ) -> bool:
         """Return whether this exact child was registered under this parent."""
 
     def is_revoked(self, delegation_id: str) -> bool:
@@ -383,7 +385,9 @@ def verify_delegation_token(
 ) -> VerifiedDelegation:
     """Verify one delegation token and bind it to the expected context."""
     if not isinstance(token, Mapping):
-        raise DelegationVerificationError("DELEGATION_INVALID", "token must be an object")
+        raise DelegationVerificationError(
+            "DELEGATION_INVALID", "token must be an object"
+        )
     allowed = {
         "schema_version",
         "delegation_id",
@@ -590,9 +594,7 @@ def _validate_child_link(parent: VerifiedDelegation, child: VerifiedDelegation) 
             "DELEGATION_SCOPE_ESCALATION",
             "child actions exceed parent authority",
         )
-    if not set(child.allowed_resource_scopes).issubset(
-        parent.allowed_resource_scopes
-    ):
+    if not set(child.allowed_resource_scopes).issubset(parent.allowed_resource_scopes):
         raise DelegationVerificationError(
             "DELEGATION_SCOPE_ESCALATION",
             "child resource scopes exceed parent authority",
@@ -652,13 +654,18 @@ def verify_delegation_chain(
                 "delegation IDs must be unique",
             )
         seen.add(current.delegation_id)
-        if fan_out_guard is not None and fan_out_guard.is_revoked(current.delegation_id):
+        if fan_out_guard is not None and fan_out_guard.is_revoked(
+            current.delegation_id
+        ):
             raise DelegationVerificationError(
                 "DELEGATION_REVOKED",
                 "delegation was revoked",
             )
         if index == 0:
-            if current.parent_delegation_id is not None or current.delegation_depth != 0:
+            if (
+                current.parent_delegation_id is not None
+                or current.delegation_depth != 0
+            ):
                 raise DelegationVerificationError(
                     "DELEGATION_CHAIN_INVALID",
                     "chain must begin with a root delegation",
@@ -735,9 +742,14 @@ class InMemoryFanOutGuard:
             self._children[child_delegation_id] = (parent_delegation_id, expiry)
             return True
 
-    def is_registered(self, parent_delegation_id: str, child_delegation_id: str) -> bool:
+    def is_registered(
+        self, parent_delegation_id: str, child_delegation_id: str
+    ) -> bool:
         with self._lock:
-            return self._children.get(child_delegation_id, (None, None))[0] == parent_delegation_id
+            return (
+                self._children.get(child_delegation_id, (None, None))[0]
+                == parent_delegation_id
+            )
 
     def is_revoked(self, delegation_id: str) -> bool:
         with self._lock:
@@ -831,7 +843,9 @@ class SQLiteFanOutGuard:
                 "unable to reserve delegation child",
             ) from exc
 
-    def is_registered(self, parent_delegation_id: str, child_delegation_id: str) -> bool:
+    def is_registered(
+        self, parent_delegation_id: str, child_delegation_id: str
+    ) -> bool:
         try:
             with self._connect() as connection:
                 row = connection.execute(
@@ -849,10 +863,13 @@ class SQLiteFanOutGuard:
     def is_revoked(self, delegation_id: str) -> bool:
         try:
             with self._connect() as connection:
-                return connection.execute(
-                    "SELECT 1 FROM revoked_delegations WHERE delegation_id = ?",
-                    (delegation_id,),
-                ).fetchone() is not None
+                return (
+                    connection.execute(
+                        "SELECT 1 FROM revoked_delegations WHERE delegation_id = ?",
+                        (delegation_id,),
+                    ).fetchone()
+                    is not None
+                )
         except sqlite3.Error as exc:
             raise FanOutError(
                 "DELEGATION_FANOUT_STORE_UNAVAILABLE",

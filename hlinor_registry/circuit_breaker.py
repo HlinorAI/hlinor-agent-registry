@@ -33,13 +33,17 @@ class BreakerSnapshot:
 class CircuitBreaker(Protocol):
     """Stateful gate used immediately before and after dispatch."""
 
-    def before_dispatch(self, failure_fingerprint: str, threshold: int) -> BreakerSnapshot:
+    def before_dispatch(
+        self, failure_fingerprint: str, threshold: int
+    ) -> BreakerSnapshot:
         """Allow a normal call or a single half-open probe."""
 
     def record_success(self, failure_fingerprint: str) -> BreakerSnapshot:
         """Close the breaker after an observed successful call or probe."""
 
-    def record_failure(self, failure_fingerprint: str, threshold: int) -> BreakerSnapshot:
+    def record_failure(
+        self, failure_fingerprint: str, threshold: int
+    ) -> BreakerSnapshot:
         """Record one observed failure and open at the threshold."""
 
     def start_probe(self, failure_fingerprint: str) -> BreakerSnapshot:
@@ -91,7 +95,11 @@ class SQLiteCircuitBreaker:
 
     @staticmethod
     def _validate_threshold(threshold: int) -> None:
-        if not isinstance(threshold, int) or isinstance(threshold, bool) or threshold < 1:
+        if (
+            not isinstance(threshold, int)
+            or isinstance(threshold, bool)
+            or threshold < 1
+        ):
             raise ValueError("threshold must be a positive integer")
 
     @staticmethod
@@ -104,11 +112,23 @@ class SQLiteCircuitBreaker:
 
     @classmethod
     def _snapshot(cls, row: tuple[object, ...]) -> BreakerSnapshot:
-        fingerprint, threshold, count, state, next_action, _probe_claimed, updated_at = row
+        (
+            fingerprint,
+            threshold,
+            count,
+            state,
+            next_action,
+            _probe_claimed,
+            updated_at,
+        ) = row
         if not isinstance(threshold, int) or not isinstance(count, int):
-            raise CircuitBreakerError("BREAKER_STORE_UNAVAILABLE", "breaker counters are invalid")
+            raise CircuitBreakerError(
+                "BREAKER_STORE_UNAVAILABLE", "breaker counters are invalid"
+            )
         if not isinstance(updated_at, (int, float)):
-            raise CircuitBreakerError("BREAKER_STORE_UNAVAILABLE", "breaker timestamp is invalid")
+            raise CircuitBreakerError(
+                "BREAKER_STORE_UNAVAILABLE", "breaker timestamp is invalid"
+            )
         return BreakerSnapshot(
             failure_fingerprint=str(fingerprint),
             threshold=threshold,
@@ -119,7 +139,9 @@ class SQLiteCircuitBreaker:
         )
 
     @staticmethod
-    def _read(connection: sqlite3.Connection, fingerprint: str) -> tuple[object, ...] | None:
+    def _read(
+        connection: sqlite3.Connection, fingerprint: str
+    ) -> tuple[object, ...] | None:
         row = connection.execute(
             "SELECT failure_fingerprint, threshold, current_count, state, next_action, "
             "probe_claimed, updated_at FROM circuit_breakers WHERE failure_fingerprint = ?",
@@ -143,9 +165,13 @@ class SQLiteCircuitBreaker:
             )
             row = cls._read(connection, fingerprint)
         if row is None:  # pragma: no cover - SQLite invariant
-            raise CircuitBreakerError("BREAKER_STORE_UNAVAILABLE", "breaker row disappeared")
+            raise CircuitBreakerError(
+                "BREAKER_STORE_UNAVAILABLE", "breaker row disappeared"
+            )
         if not isinstance(row[1], int):
-            raise CircuitBreakerError("BREAKER_STORE_UNAVAILABLE", "breaker threshold is invalid")
+            raise CircuitBreakerError(
+                "BREAKER_STORE_UNAVAILABLE", "breaker threshold is invalid"
+            )
         if row[1] != threshold:
             raise CircuitBreakerError(
                 "BREAKER_THRESHOLD_MISMATCH",
@@ -153,7 +179,9 @@ class SQLiteCircuitBreaker:
             )
         return row
 
-    def before_dispatch(self, failure_fingerprint: str, threshold: int) -> BreakerSnapshot:
+    def before_dispatch(
+        self, failure_fingerprint: str, threshold: int
+    ) -> BreakerSnapshot:
         self._validate_fingerprint(failure_fingerprint)
         self._validate_threshold(threshold)
         try:
@@ -176,7 +204,9 @@ class SQLiteCircuitBreaker:
                     connection.execute("COMMIT")
                     updated = self._read(connection, failure_fingerprint)
                     if updated is None:  # pragma: no cover
-                        raise CircuitBreakerError("BREAKER_STORE_UNAVAILABLE", "breaker row disappeared")
+                        raise CircuitBreakerError(
+                            "BREAKER_STORE_UNAVAILABLE", "breaker row disappeared"
+                        )
                     return self._snapshot(updated)
                 connection.execute("COMMIT")
                 return self._snapshot(row)
@@ -188,7 +218,9 @@ class SQLiteCircuitBreaker:
                 f"unable to authorize dispatch: {exc}",
             ) from exc
 
-    def record_failure(self, failure_fingerprint: str, threshold: int) -> BreakerSnapshot:
+    def record_failure(
+        self, failure_fingerprint: str, threshold: int
+    ) -> BreakerSnapshot:
         self._validate_fingerprint(failure_fingerprint)
         self._validate_threshold(threshold)
         try:
@@ -196,7 +228,9 @@ class SQLiteCircuitBreaker:
                 connection.execute("BEGIN IMMEDIATE")
                 row = self._require_row(connection, failure_fingerprint, threshold)
                 if not isinstance(row[2], int):
-                    raise CircuitBreakerError("BREAKER_STORE_UNAVAILABLE", "breaker count is invalid")
+                    raise CircuitBreakerError(
+                        "BREAKER_STORE_UNAVAILABLE", "breaker count is invalid"
+                    )
                 count = row[2] + 1
                 state = "open" if count >= threshold else "closed"
                 next_action = "stop" if state == "open" else "continue"
@@ -209,7 +243,9 @@ class SQLiteCircuitBreaker:
                 connection.execute("COMMIT")
                 updated = self._read(connection, failure_fingerprint)
                 if updated is None:  # pragma: no cover
-                    raise CircuitBreakerError("BREAKER_STORE_UNAVAILABLE", "breaker row disappeared")
+                    raise CircuitBreakerError(
+                        "BREAKER_STORE_UNAVAILABLE", "breaker row disappeared"
+                    )
                 return self._snapshot(updated)
         except CircuitBreakerError:
             raise
@@ -226,7 +262,9 @@ class SQLiteCircuitBreaker:
                 connection.execute("BEGIN IMMEDIATE")
                 row = self._read(connection, failure_fingerprint)
                 if row is None:
-                    raise CircuitBreakerError("BREAKER_UNKNOWN", "no breaker exists for fingerprint")
+                    raise CircuitBreakerError(
+                        "BREAKER_UNKNOWN", "no breaker exists for fingerprint"
+                    )
                 if str(row[3]) == "open":
                     # A normal call may have started before another worker
                     # opened the breaker. Its late success is not evidence that
@@ -242,7 +280,9 @@ class SQLiteCircuitBreaker:
                 connection.execute("COMMIT")
                 updated = self._read(connection, failure_fingerprint)
                 if updated is None:  # pragma: no cover
-                    raise CircuitBreakerError("BREAKER_STORE_UNAVAILABLE", "breaker row disappeared")
+                    raise CircuitBreakerError(
+                        "BREAKER_STORE_UNAVAILABLE", "breaker row disappeared"
+                    )
                 return self._snapshot(updated)
         except CircuitBreakerError:
             raise
@@ -259,9 +299,13 @@ class SQLiteCircuitBreaker:
                 connection.execute("BEGIN IMMEDIATE")
                 row = self._read(connection, failure_fingerprint)
                 if row is None:
-                    raise CircuitBreakerError("BREAKER_UNKNOWN", "no breaker exists for fingerprint")
+                    raise CircuitBreakerError(
+                        "BREAKER_UNKNOWN", "no breaker exists for fingerprint"
+                    )
                 if str(row[3]) != "open":
-                    raise CircuitBreakerError("BREAKER_NOT_OPEN", "only an open breaker can start a probe")
+                    raise CircuitBreakerError(
+                        "BREAKER_NOT_OPEN", "only an open breaker can start a probe"
+                    )
                 now = self._timestamp()
                 connection.execute(
                     "UPDATE circuit_breakers SET state = 'half_open', next_action = 'retry_probe', "
@@ -271,7 +315,9 @@ class SQLiteCircuitBreaker:
                 connection.execute("COMMIT")
                 updated = self._read(connection, failure_fingerprint)
                 if updated is None:  # pragma: no cover
-                    raise CircuitBreakerError("BREAKER_STORE_UNAVAILABLE", "breaker row disappeared")
+                    raise CircuitBreakerError(
+                        "BREAKER_STORE_UNAVAILABLE", "breaker row disappeared"
+                    )
                 return self._snapshot(updated)
         except CircuitBreakerError:
             raise

@@ -312,7 +312,9 @@ def test_jsonl_sink_commits_only_after_durable_write(tmp_path) -> None:
     verify_receipt_chain(sink.records)
 
 
-def test_jsonl_sink_resumes_only_after_chain_and_checkpoint_verification(tmp_path) -> None:
+def test_jsonl_sink_resumes_only_after_chain_and_checkpoint_verification(
+    tmp_path,
+) -> None:
     path = tmp_path / "receipts.jsonl"
     checkpoint = tmp_path / "receipts.checkpoint.json"
     first = JsonlReceiptSink(path, checkpoint_path=checkpoint)
@@ -411,9 +413,9 @@ def test_jsonl_sink_rejects_tampered_checkpoint_and_chain(tmp_path) -> None:
             {
                 "schema_version": "1.0",
                 "last_sequence": 1,
-                "last_receipt_hash": json.loads(
-                    path.read_text(encoding="utf-8")
-                )["receipt_hash"],
+                "last_receipt_hash": json.loads(path.read_text(encoding="utf-8"))[
+                    "receipt_hash"
+                ],
             }
         ),
         encoding="utf-8",
@@ -425,7 +427,9 @@ def test_jsonl_sink_rejects_tampered_checkpoint_and_chain(tmp_path) -> None:
         JsonlReceiptSink(path, resume=True, checkpoint_path=checkpoint)
 
 
-def test_jsonl_sink_fails_closed_after_checkpoint_write_failure(tmp_path, monkeypatch) -> None:
+def test_jsonl_sink_fails_closed_after_checkpoint_write_failure(
+    tmp_path, monkeypatch
+) -> None:
     path = tmp_path / "receipts.jsonl"
     checkpoint = tmp_path / "receipts.checkpoint.json"
     sink = JsonlReceiptSink(path, checkpoint_path=checkpoint)

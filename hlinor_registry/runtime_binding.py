@@ -390,7 +390,9 @@ class BoundTool:
                         else None
                     ),
                     "budget_scope": budget_snapshot.scope if budget_snapshot else None,
-                    "budget_lease_id": budget_snapshot.lease_id if budget_snapshot else None,
+                    "budget_lease_id": budget_snapshot.lease_id
+                    if budget_snapshot
+                    else None,
                     "budget_active_leases": (
                         budget_snapshot.active_leases if budget_snapshot else None
                     ),
@@ -442,9 +444,7 @@ class BoundTool:
                         "DELEGATION_INPUT_AMBIGUOUS",
                         "pass either delegation_chain or signals['delegation'], not both",
                     )
-                effective_signals["delegation"] = (
-                    verified_delegation.as_policy_signal()
-                )
+                effective_signals["delegation"] = verified_delegation.as_policy_signal()
             if approval_token is not None:
                 if "approval" in effective_signals:
                     raise ApprovalVerificationError(

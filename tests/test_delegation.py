@@ -42,7 +42,9 @@ def _keys() -> tuple[dict[str, Ed25519PrivateKey], dict[str, DelegationTrustedKe
 
 def _times() -> tuple[str, str]:
     now = datetime.now(timezone.utc)
-    return (now - timedelta(seconds=1)).isoformat(), (now + timedelta(minutes=5)).isoformat()
+    return (now - timedelta(seconds=1)).isoformat(), (
+        now + timedelta(minutes=5)
+    ).isoformat()
 
 
 def _root_token(
@@ -182,7 +184,9 @@ def test_delegation_rejects_key_agent_mismatch_and_scope_escalation() -> None:
         trusted_keys=trusted,
         expected_audience="hlinor.tool-runtime",
     )
-    with pytest.raises(DelegationVerificationError, match="DELEGATION_SCOPE_ESCALATION"):
+    with pytest.raises(
+        DelegationVerificationError, match="DELEGATION_SCOPE_ESCALATION"
+    ):
         reserve_delegation_child(
             verified_root,
             verified_child,
@@ -190,7 +194,9 @@ def test_delegation_rejects_key_agent_mismatch_and_scope_escalation() -> None:
         )
 
 
-def test_sqlite_fan_out_guard_allows_only_the_configured_number_of_children(tmp_path) -> None:
+def test_sqlite_fan_out_guard_allows_only_the_configured_number_of_children(
+    tmp_path,
+) -> None:
     private, trusted = _keys()
     root = _root_token(private["supervisor"], max_fan_out=2)
     verified_root = verify_delegation_token(
@@ -241,7 +247,9 @@ def test_revoked_delegation_is_rejected_and_child_requires_registration() -> Non
         )
 
     fresh_guard = InMemoryFanOutGuard()
-    with pytest.raises(DelegationVerificationError, match="DELEGATION_FANOUT_UNREGISTERED"):
+    with pytest.raises(
+        DelegationVerificationError, match="DELEGATION_FANOUT_UNREGISTERED"
+    ):
         verify_delegation_chain(
             [root, child],
             trusted_keys=trusted,

@@ -341,14 +341,22 @@ def verify_approval_token(
         _validate_text(token.get(field), field)
     single_use = token.get("single_use")
     if not isinstance(single_use, bool):
-        raise ApprovalVerificationError("APPROVAL_INVALID", "single_use must be boolean")
+        raise ApprovalVerificationError(
+            "APPROVAL_INVALID", "single_use must be boolean"
+        )
     signature = token.get("signature")
     if not isinstance(signature, Mapping):
-        raise ApprovalVerificationError("APPROVAL_SIGNATURE_INVALID", "signature must be an object")
+        raise ApprovalVerificationError(
+            "APPROVAL_SIGNATURE_INVALID", "signature must be an object"
+        )
     if set(signature) != _APPROVAL_SIGNATURE_FIELDS:
-        raise ApprovalVerificationError("APPROVAL_SIGNATURE_INVALID", "signature fields are invalid")
+        raise ApprovalVerificationError(
+            "APPROVAL_SIGNATURE_INVALID", "signature fields are invalid"
+        )
     if signature.get("algorithm") != SIGNATURE_ALGORITHM:
-        raise ApprovalVerificationError("APPROVAL_SIGNATURE_INVALID", "unsupported algorithm")
+        raise ApprovalVerificationError(
+            "APPROVAL_SIGNATURE_INVALID", "unsupported algorithm"
+        )
     key_id = signature.get("key_id")
     issuer = signature.get("issuer")
     _validate_text(key_id, "signature.key_id")
@@ -357,20 +365,30 @@ def verify_approval_token(
     assert isinstance(issuer, str)
     trusted = trusted_keys.get(key_id)
     if trusted is None:
-        raise ApprovalVerificationError("APPROVAL_KEY_UNTRUSTED", f"unknown key: {key_id}")
+        raise ApprovalVerificationError(
+            "APPROVAL_KEY_UNTRUSTED", f"unknown key: {key_id}"
+        )
     if trusted.issuer is not None and trusted.issuer != issuer:
-        raise ApprovalVerificationError("APPROVAL_ISSUER_INVALID", "issuer does not match trusted key")
+        raise ApprovalVerificationError(
+            "APPROVAL_ISSUER_INVALID", "issuer does not match trusted key"
+        )
     encoded = signature.get("value")
     if not isinstance(encoded, str) or not encoded:
-        raise ApprovalVerificationError("APPROVAL_SIGNATURE_INVALID", "signature value is missing")
+        raise ApprovalVerificationError(
+            "APPROVAL_SIGNATURE_INVALID", "signature value is missing"
+        )
     try:
         signature_bytes = base64.b64decode(encoded, validate=True)
     except (binascii.Error, ValueError) as exc:
-        raise ApprovalVerificationError("APPROVAL_SIGNATURE_INVALID", "signature is not valid base64") from exc
+        raise ApprovalVerificationError(
+            "APPROVAL_SIGNATURE_INVALID", "signature is not valid base64"
+        ) from exc
     try:
         trusted.public_key.verify(signature_bytes, _approval_signed_payload(token))
     except InvalidSignature as exc:
-        raise ApprovalVerificationError("APPROVAL_SIGNATURE_INVALID", "signature verification failed") from exc
+        raise ApprovalVerificationError(
+            "APPROVAL_SIGNATURE_INVALID", "signature verification failed"
+        ) from exc
 
     _check_window(
         token["issued_at"],
@@ -393,18 +411,35 @@ def verify_approval_token(
                 "APPROVAL_TARGET_MISMATCH",
                 f"{field} does not match the requested target",
             )
-    if expected_request_digest is not None and token.get("request_digest") != expected_request_digest:
-        raise ApprovalVerificationError("APPROVAL_REQUEST_MISMATCH", "request digest does not match")
+    if (
+        expected_request_digest is not None
+        and token.get("request_digest") != expected_request_digest
+    ):
+        raise ApprovalVerificationError(
+            "APPROVAL_REQUEST_MISMATCH", "request digest does not match"
+        )
     if single_use:
         if replay_guard is None:
-            raise ApprovalVerificationError("APPROVAL_REPLAY_GUARD_REQUIRED", "single-use approval requires a replay guard")
+            raise ApprovalVerificationError(
+                "APPROVAL_REPLAY_GUARD_REQUIRED",
+                "single-use approval requires a replay guard",
+            )
         is_revoked = getattr(replay_guard, "is_revoked", None)
         if not callable(is_revoked):
-            raise ApprovalVerificationError("APPROVAL_REPLAY_GUARD_INVALID", "replay guard must support revocation checks")
+            raise ApprovalVerificationError(
+                "APPROVAL_REPLAY_GUARD_INVALID",
+                "replay guard must support revocation checks",
+            )
         if is_revoked(token["token_id"], token["nonce"]):
-            raise ApprovalVerificationError("APPROVAL_REVOKED", "approval token was revoked")
-        if not replay_guard.claim(token["token_id"], token["nonce"], token["expires_at"]):
-            raise ApprovalVerificationError("APPROVAL_REPLAYED", "approval token was already used")
+            raise ApprovalVerificationError(
+                "APPROVAL_REVOKED", "approval token was revoked"
+            )
+        if not replay_guard.claim(
+            token["token_id"], token["nonce"], token["expires_at"]
+        ):
+            raise ApprovalVerificationError(
+                "APPROVAL_REPLAYED", "approval token was already used"
+            )
 
     return VerifiedApproval(
         token_id=token["token_id"],
@@ -439,7 +474,9 @@ class InMemoryReplayGuard:
         now = datetime.now(timezone.utc)
         key = (token_id, nonce)
         with self._lock:
-            self._claimed = {key_: value for key_, value in self._claimed.items() if value > now}
+            self._claimed = {
+                key_: value for key_, value in self._claimed.items() if value > now
+            }
             if key in self._claimed:
                 return False
             self._claimed[key] = expiry
@@ -447,7 +484,10 @@ class InMemoryReplayGuard:
 
     def is_revoked(self, token_id: str, nonce: str) -> bool:
         with self._lock:
-            return (token_id, None) in self._revoked or (token_id, nonce) in self._revoked
+            return (token_id, None) in self._revoked or (
+                token_id,
+                nonce,
+            ) in self._revoked
 
     def revoke(self, token_id: str, nonce: str | None = None) -> None:
         with self._lock:
@@ -489,7 +529,9 @@ class SQLiteReplayGuard:
         try:
             with self._connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
-                connection.execute("DELETE FROM claimed_approvals WHERE expires_at <= ?", (now,))
+                connection.execute(
+                    "DELETE FROM claimed_approvals WHERE expires_at <= ?", (now,)
+                )
                 if self._is_revoked(connection, token_id, nonce):
                     connection.execute("ROLLBACK")
                     return False
@@ -511,10 +553,13 @@ class SQLiteReplayGuard:
 
     @staticmethod
     def _is_revoked(connection: sqlite3.Connection, token_id: str, nonce: str) -> bool:
-        return connection.execute(
-            "SELECT 1 FROM revoked_approvals WHERE token_id = ? AND (nonce IS NULL OR nonce = ?) LIMIT 1",
-            (token_id, nonce),
-        ).fetchone() is not None
+        return (
+            connection.execute(
+                "SELECT 1 FROM revoked_approvals WHERE token_id = ? AND (nonce IS NULL OR nonce = ?) LIMIT 1",
+                (token_id, nonce),
+            ).fetchone()
+            is not None
+        )
 
     def is_revoked(self, token_id: str, nonce: str) -> bool:
         try:
@@ -587,12 +632,14 @@ class HashChainedReceiptSink:
             else:
                 record.pop("signature", None)
             record["receipt_hash"] = ""
-            record["receipt_hash"] = "sha256:" + hashlib.sha256(
-                _receipt_hash_payload(record)
-            ).hexdigest()
+            record["receipt_hash"] = (
+                "sha256:" + hashlib.sha256(_receipt_hash_payload(record)).hexdigest()
+            )
             if self._private_key is not None:
                 signature = self._private_key.sign(_receipt_signed_payload(record))
-                record["signature"]["value"] = base64.b64encode(signature).decode("ascii")
+                record["signature"]["value"] = base64.b64encode(signature).decode(
+                    "ascii"
+                )
             self._commit(record)
             return copy.deepcopy(record)
 
@@ -640,14 +687,17 @@ def verify_receipt_chain(
         actual_hash = record.get("receipt_hash")
         if not isinstance(actual_hash, str) or not actual_hash:
             raise ReceiptError("receipt hash is missing")
-        expected_hash = "sha256:" + hashlib.sha256(
-            _receipt_hash_payload(record)
-        ).hexdigest()
+        expected_hash = (
+            "sha256:" + hashlib.sha256(_receipt_hash_payload(record)).hexdigest()
+        )
         if actual_hash != expected_hash:
             raise ReceiptError("receipt hash verification failed")
         signature = original.get("signature")
         if signature is not None:
-            if not isinstance(signature, Mapping) or set(signature) != _RECEIPT_SIGNATURE_FIELDS:
+            if (
+                not isinstance(signature, Mapping)
+                or set(signature) != _RECEIPT_SIGNATURE_FIELDS
+            ):
                 raise ReceiptError("receipt signature fields are invalid")
             if signature.get("algorithm") != SIGNATURE_ALGORITHM:
                 raise ReceiptError("receipt signature algorithm is unsupported")
@@ -664,7 +714,9 @@ def verify_receipt_chain(
                 raise ReceiptError("receipt signature value is missing")
             try:
                 signature_bytes = base64.b64decode(encoded, validate=True)
-                trusted.public_key.verify(signature_bytes, _receipt_signed_payload(original))
+                trusted.public_key.verify(
+                    signature_bytes, _receipt_signed_payload(original)
+                )
             except (binascii.Error, ValueError, InvalidSignature) as exc:
                 raise ReceiptError("receipt signature verification failed") from exc
         previous = actual_hash
@@ -712,7 +764,9 @@ class JsonlReceiptSink(HashChainedReceiptSink):
     def _commit(self, record: dict[str, Any]) -> None:
         try:
             with self.path.open("a", encoding="utf-8") as stream:
-                stream.write(json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n")
+                stream.write(
+                    json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n"
+                )
                 stream.flush()
                 os.fsync(stream.fileno())
         except OSError as exc:
