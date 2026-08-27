@@ -32,11 +32,11 @@
         "slash": "/",
         "quote": "\"",
         "line": "\\n",
-        "cyrillic": "ёж",
+        "accented": "café",
         "emoji": "🛡️"
       },
-      "canonical_json": "{\"cyrillic\":\"ёж\",\"emoji\":\"🛡️\",\"line\":\"\\\\n\",\"quote\":\"\\\"\",\"slash\":\"/\"}",
-      "sha256": "ac42461e4da2a46d3e349a41883fc81c800dad648902db2e3b821d941bf4ab4c"
+      "canonical_json": "{\"accented\":\"café\",\"emoji\":\"🛡️\",\"line\":\"\\\\n\",\"quote\":\"\\\"\",\"slash\":\"/\"}",
+      "sha256": "3b9089bdf992db4156c74e4b8f4a59a8b3e94e75c27a920e7be7b4a37eab0ba8"
     },
     {
       "id": "array-order",

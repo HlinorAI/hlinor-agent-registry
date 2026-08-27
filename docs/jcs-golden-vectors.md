@@ -17,5 +17,6 @@ the canonical text and digest. The fixture is deliberately independent of
 Python object ordering, YAML, signatures, or deployment-specific data.
 
 The vectors cover object-key sorting, nested objects, number normalization,
-Unicode and escaping, and array-order preservation. They are contract-level
+Latin-1 Unicode and escaping, and array-order preservation. They are
+contract-level
 interoperability evidence; they do not claim that a non-Python SDK exists yet.
