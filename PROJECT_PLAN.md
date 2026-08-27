@@ -32,7 +32,8 @@ the authority that was approved.
 - The experimental binding path can enforce shared SQLite rate/concurrency
   admission and a propagated kill switch before exact dispatch.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
-  fixture and verified against canonical UTF-8 bytes and SHA-256 digests.
+  fixture and verified against canonical UTF-8 bytes and SHA-256 digests by
+  Python and an independent Node.js implementation.
 
 ## Constraints
 
@@ -67,8 +68,6 @@ authenticated workload identity, cost accounting, MCP support, or A2A support.
 
 ## Open risks
 
-- The published cross-language contract vectors still need to be tested by at
-  least one non-Python implementation.
 - Runtime binding currently trusts the process that exports the observed
   contract and owns the callable; it does not prove artifact provenance.
 - Resource derivation remains an adapter responsibility until a protocol-level

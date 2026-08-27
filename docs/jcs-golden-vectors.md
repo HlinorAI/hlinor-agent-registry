@@ -17,6 +17,14 @@ the canonical text and digest. The fixture is deliberately independent of
 Python object ordering, YAML, signatures, or deployment-specific data.
 
 The vectors cover object-key sorting, nested objects, number normalization,
-Latin-1 Unicode and escaping, and array-order preservation. They are
-contract-level
-interoperability evidence; they do not claim that a non-Python SDK exists yet.
+Unicode and escaping, and array-order preservation. They are
+contract-level interoperability evidence; they do not define or publish a
+production non-Python SDK.
+
+## Independent verification
+
+On 2026-08-27, all four vectors were independently verified with the npm
+`canonicalize@2.1.0` implementation under Node.js 22.23.2. The check compared
+both the canonical JSON text and the SHA-256 digest. The package was installed
+in a temporary directory and is not a runtime or development dependency of
+this Python project.

@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added language-neutral RFC 8785 JCS golden vectors covering key ordering,
   number normalization, Unicode escaping, arrays, canonical UTF-8, and
   SHA-256 digests.
+- Independently verified all published JCS vectors with Node.js
+  `canonicalize@2.1.0` in addition to the Python runtime tests.
 - Added the trusted runtime binding MVP for Tool Contracts: RFC 8785 digests,
   exact callable references, immutable bound registries, normalized argument
   validation, resource-scope checks, and governed dispatch.
