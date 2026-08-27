@@ -40,8 +40,10 @@
 - [x] Enforce explicit project/workspace scope at the `BoundTool` boundary,
   bind it into requests/receipts, compare signed claims, and deny authority
   conveyed through filenames, package metadata, or natural-language messages.
-- [ ] Extend project/workspace scope enforcement to every framework adapter,
-  durable workspace store, and cross-agent message transport.
+- [x] Propagate explicit project/workspace scope through the shared
+  `GovernanceGate`, decorators, LangChain, and CrewAI wrappers.
+- [ ] Extend project/workspace scope enforcement to durable workspace stores,
+  AutoGen execution paths, and cross-agent message transport.
 - [ ] Add a thin MCP `tools/call` integration with protocol-version and auth
   context handling.
 - [ ] Add OpenTelemetry correlation for binding, decision, and dispatch.

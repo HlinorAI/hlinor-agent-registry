@@ -38,6 +38,8 @@ the authority that was approved.
   `ExecutionScope`, bind it into request digests and receipts, and compare it
   with signed approval/delegation claims; filename, package, and message data
   are not authority sources.
+- The shared integration gate propagates this explicit scope through the
+  framework-neutral decorator, LangChain, and CrewAI wrappers.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
   fixture and verified against canonical UTF-8 bytes and SHA-256 digests by
   Python and an independent Node.js implementation.
@@ -87,6 +89,7 @@ accounting, MCP support, or A2A support.
   cost accounting and a global budget across unwrapped agent paths are not
   runtime controls yet; delegation fan-out and the SQLite kill switch are
   bounded experimental controls.
-- `ExecutionScope` enforcement currently covers `BoundTool` only; framework
-  adapters, durable workspace stores, cross-agent message channels, and
-  external workload attestation still require deployment-specific integration.
+- `ExecutionScope` enforcement covers `BoundTool` and the shared framework
+  wrappers, but durable workspace stores, AutoGen execution paths,
+  cross-agent message channels, and external workload attestation still
+  require deployment-specific integration.

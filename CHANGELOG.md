@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pre-dispatch, completion, denial, and binding-failure outcomes.
 - Added explicit `ExecutionScope` project/workspace binding for governed runtime
   requests, receipts, signed approvals, and signed delegations.
+- Propagated explicit execution scope through the shared `GovernanceGate`, the
+  framework-neutral decorator, and LangChain/CrewAI governed wrappers.
 
 ### Security
 
