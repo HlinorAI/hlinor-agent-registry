@@ -47,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added experimental signed agent delegation chains with issuer-key binding,
   audience/context checks, scope attenuation, depth limits, revocation, and
   atomic SQLite bounded fan-out registration.
+- Added experimental SQLite runtime limits for per-scope rate/concurrency
+  admission and a shared kill switch, with lease release wired into
+  `BoundTool.invoke()`.
 
 ## [0.10.0] - 2026-08-03
 

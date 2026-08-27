@@ -29,6 +29,8 @@ the authority that was approved.
 - The experimental binding path can verify a signed root-to-leaf delegation
   chain with exact audience/context, scope attenuation, and atomic SQLite
   child fan-out registration.
+- The experimental binding path can enforce shared SQLite rate/concurrency
+  admission and a propagated kill switch before exact dispatch.
 
 ## Constraints
 
@@ -48,7 +50,9 @@ the authority that was approved.
 5. Thin MCP integration, agent identity/delegation, and OpenTelemetry context —
    signed delegation and bounded fan-out primitives are experimental; workload
    identity and deployment attestation remain open.
-6. Stateful circuit breakers, budgets, kill switch, and runtime isolation.
+6. Stateful circuit breakers, budgets, kill switch, and runtime isolation —
+   rate/concurrency admission and the SQLite kill switch are experimental;
+   cost accounting and broader runtime isolation remain open.
 7. Control-plane capabilities only after runtime pilots validate demand.
 
 ## Current status
@@ -57,8 +61,7 @@ The repository is implementing the phase 4/6 runtime-hardening slice. Signed
 approval, durable replay/revocation, receipt, checkpoint, and circuit-breaker
 primitives are experimental and framework-neutral. The project does not yet
 claim deployment attestation, independently operated receipt collection,
-authenticated workload identity, cost/rate/concurrency budgets, a propagated
-kill switch, MCP support, or A2A support.
+authenticated workload identity, cost accounting, MCP support, or A2A support.
 
 ## Open risks
 
@@ -70,7 +73,8 @@ kill switch, MCP support, or A2A support.
   integration is added.
 - `failure_threshold` in `PolicyChecker` still uses caller-reported state; the
   separate SQLite breaker now provides durable runtime failure state, while
-  cost/fan-out budgets and a propagated kill switch are not runtime controls
-  yet.
+  cost accounting and a global budget across unwrapped agent paths are not
+  runtime controls yet; delegation fan-out and the SQLite kill switch are
+  bounded experimental controls.
 - Workspace, handoff, and cross-agent communication schemas are not yet an
   authenticated delegation or isolation layer.

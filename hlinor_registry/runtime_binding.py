@@ -42,6 +42,11 @@ from .execution_receipts import (
 )
 from .integrations._gate import DecisionSink, GovernanceGate
 from .policy_checker import PolicyChecker
+from .runtime_limits import (
+    RuntimeBudgetGuard,
+    RuntimeLimitError,
+    RuntimeLimitSnapshot,
+)
 from .signing import TrustedKey
 from .tool_contract import tool_contract_errors
 
@@ -293,6 +298,12 @@ class BoundTool:
         delegation_trusted_keys: Mapping[str, DelegationTrustedKey] | None = None,
         delegation_audience: str | None = None,
         delegation_fan_out_guard: FanOutGuard | None = None,
+        runtime_budget: RuntimeBudgetGuard | None = None,
+        budget_scope: str | None = None,
+        max_concurrency: int | None = None,
+        rate_limit: int | None = None,
+        rate_window_seconds: int | None = None,
+        lease_ttl_seconds: int = 300,
         circuit_breaker: CircuitBreaker | None = None,
         failure_fingerprint: str | None = None,
         failure_threshold: int | None = None,
@@ -310,6 +321,8 @@ class BoundTool:
         verified_approval: VerifiedApproval | None = None
         verified_delegation: VerifiedDelegation | None = None
         breaker_snapshot: BreakerSnapshot | None = None
+        budget_snapshot: RuntimeLimitSnapshot | None = None
+        budget_lease_id: str | None = None
         receipt_attempted = False
         effective_failure_fingerprint = failure_fingerprint or (
             f"{agent_id}:{self.tool_id}:{resource or '<none>'}"
@@ -376,8 +389,24 @@ class BoundTool:
                         if verified_delegation
                         else None
                     ),
+                    "budget_scope": budget_snapshot.scope if budget_snapshot else None,
+                    "budget_lease_id": budget_snapshot.lease_id if budget_snapshot else None,
+                    "budget_active_leases": (
+                        budget_snapshot.active_leases if budget_snapshot else None
+                    ),
+                    "budget_rate_events": (
+                        budget_snapshot.rate_events if budget_snapshot else None
+                    ),
                 }
             )
+
+        def release_budget() -> None:
+            nonlocal budget_lease_id
+            if runtime_budget is None or budget_lease_id is None:
+                return
+            lease_id = budget_lease_id
+            budget_lease_id = None
+            runtime_budget.release(lease_id)
 
         try:
             normalized = self.normalize_arguments(*args, **dict(kwargs or {}))
@@ -490,6 +519,21 @@ class BoundTool:
                     effective_failure_fingerprint,
                     failure_threshold,
                 )
+            if runtime_budget is not None:
+                if budget_scope is None:
+                    raise RuntimeBindingError(
+                        "BUDGET_SCOPE_REQUIRED",
+                        "budget_scope is required when runtime_budget is set",
+                    )
+                budget_lease_id = f"lease:{invocation_id}"
+                budget_snapshot = runtime_budget.acquire(
+                    budget_scope,
+                    budget_lease_id,
+                    max_concurrency=max_concurrency,
+                    rate_limit=rate_limit,
+                    rate_window_seconds=rate_window_seconds,
+                    lease_ttl_seconds=lease_ttl_seconds,
+                )
             emit_receipt(
                 authorization_result="allowed",
                 side_effect_state="side_effect_attempted",
@@ -566,6 +610,7 @@ class BoundTool:
             ApprovalVerificationError,
             DelegationVerificationError,
             FanOutError,
+            RuntimeLimitError,
             RuntimeBindingError,
         ) as exc:
             if not receipt_attempted:
@@ -614,6 +659,8 @@ class BoundTool:
                     breaker=getattr(exc, "snapshot", None),
                 )
             raise
+        finally:
+            release_budget()
 
 
 def bind_tool(

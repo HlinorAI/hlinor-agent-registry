@@ -14,6 +14,7 @@ It provides:
 - optional pre-dispatch and completion receipts through a hash-chained sink;
 - optional durable circuit-breaker checks around the exact dispatch;
 - optional signed agent-delegation-chain verification with bounded fan-out;
+- optional shared SQLite rate, concurrency, and kill-switch admission checks;
 - fail-closed errors and negative security tests for drift, argument, scope, and policy denial.
 
 ```python
@@ -46,6 +47,9 @@ With `delegation_chain`, `delegation_trusted_keys`, and an exact
 `delegation_audience`, it verifies a signed root-to-leaf delegation chain
 before policy evaluation. Child delegations require a registered fan-out
 record when the chain has more than one element.
+With `runtime_budget` and explicit limit settings, it checks shared
+rate/concurrency state and the kill switch before the pre-dispatch receipt;
+the lease is released after the call in a `finally` path.
 
 The receipt chain is tamper-evident and may be Ed25519-signed, but a sink in the
 same compromised process is not independent deployment attestation. The MVP

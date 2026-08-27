@@ -31,8 +31,9 @@
   delegation transport boundary.
 - [x] Move runtime circuit-breaker counters out of caller signals into shared
   SQLite state and block `BoundTool` dispatch after real tool failures.
-- [ ] Add cost, rate, concurrency, fan-out, and propagated kill-switch
-  enforcement.
+- [ ] Add cost accounting and a deployment-wide quota across all agent paths.
+- [x] Add shared SQLite rate/concurrency admission and a propagated
+  kill-switch check before `BoundTool` dispatch.
 - [ ] Enforce project/workspace isolation and deny authority conveyed through
   filenames, package metadata, or natural-language inter-agent messages.
 - [ ] Add a thin MCP `tools/call` integration with protocol-version and auth
