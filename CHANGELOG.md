@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added the trusted runtime binding MVP for Tool Contracts: RFC 8785 digests,
+  exact callable references, immutable bound registries, normalized argument
+  validation, resource-scope checks, and governed dispatch.
+- Added negative security tests proving contract drift, runtime tool-set drift,
+  invalid arguments, resource drift, unsupported signatures, and policy denial
+  block execution.
+- Added project continuity documentation in `PROJECT_PLAN.md` and `TODO.md`.
+- Added experimental detached Ed25519 approval tokens bound to agent, action,
+  tool, resource, normalized arguments, session, and tenant.
+- Added single-use replay protection interface with a thread-safe in-memory
+  implementation for tests and one-process development.
+- Added hash-chained execution receipts with optional Ed25519 signatures,
+  verification, and fsync-backed JSONL persistence.
+- Connected `BoundTool.invoke()` to signed approval verification and receipts for
+  pre-dispatch, completion, denial, and binding-failure outcomes.
+
+### Security
+
+- Runtime binding compares reviewed and observed Tool Contract digests before
+  retaining a callable and never performs a late name lookup at dispatch.
+- Tool arguments are normalized and validated against the reviewed JSON Schema
+  before policy evaluation and execution.
+- Single-use approvals fail closed without a replay guard; receipt persistence
+  commits to the in-memory chain only after a durable JSONL write succeeds.
+- Added SQLite-backed atomic replay claims and token revocation, including
+  cross-worker race tests.
+- Added a persistent SQLite circuit breaker with closed/open/half-open states,
+  one-probe recovery, threshold consistency checks, and `BoundTool` dispatch
+  blocking after real tool failures.
+- Added checkpointed JSONL receipt resume with full shape/chain verification,
+  atomic checkpoint replacement, and fail-closed behavior after persistence
+  uncertainty.
+- Added `FailClosedReceiptSink` as the no-retry boundary for external receipt
+  collectors; collector errors block pre-dispatch receipt delivery without
+  exposing collector internals.
+
 ## [0.10.0] - 2026-08-03
 
 ### Added

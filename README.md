@@ -152,6 +152,15 @@ Both need the matching extra: `pip install "hlinor-registry[langchain]"` or
 `[crewai]`. Runnable versions of all three are in
 [`examples/`](examples/).
 
+For a reviewed Tool Contract that must bind to the exact callable being
+dispatched, use the [trusted runtime binding MVP](docs/runtime-binding.md).
+It validates normalized arguments, checks the declared resource scope, runs
+the existing policy gate, and never performs a late name lookup. For a sensitive
+call, pass a detached signed approval, a shared replay guard, and a receipt
+sink; see [signed request-bound approvals](docs/approval-tokens.md). A
+`SQLiteCircuitBreaker` can additionally stop the same governed call after a
+durable failure threshold.
+
 ### Where to go next
 
 - Scope actions to resources and gate them behind policies:
@@ -820,6 +829,8 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Execution model](docs/execution-model.md)
 - [Approval model](docs/approval-model.md)
 - [Runtime bindings and execution receipts](docs/runtime-receipts.md)
+- [Signed request-bound approvals](docs/approval-tokens.md)
+- [Trusted runtime binding MVP](docs/runtime-binding.md)
 - [Audit trail](docs/audit-trail.md)
 - [ActionRequest and decision provenance](docs/action-request.md)
 - [Signed bundles and trust stores](docs/signed-bundles.md)
@@ -842,6 +853,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Evidence-bound claims](docs/patterns/evidence-bound-claims.md)
 - [Capability verification](docs/patterns/capability-verification.md)
 - [Agent lifecycle operating modes](docs/patterns/agent-lifecycle-operating-modes.md)
+- [Repeated failure circuit breaker](docs/patterns/repeated-failure-circuit-breaker.md)
 
 ---
 

@@ -99,14 +99,14 @@ private-key protection, and rollback-floor state remain deployment
 responsibilities. Action patterns give resource-aware authorization when the
 caller supplies `ActionRequest.resource`.
 
-**Argument-aware authorization is not implemented.** Tool Contracts carry JSON
-Schema descriptions of tool inputs, and it would be reasonable to read that as
-the runtime validating arguments. It does not. Those schemas are an authoring
-and CI artifact: `validate-tool-contract` and `contract check` use them before
-anything runs. `PolicyChecker` never sees tool arguments and makes no decision
-based on them. Binding a contract to the runtime is described in
-[RFC 0001](docs/rfcs/0001-trusted-tool-contract-runtime-binding.md), which is a
-proposal, not a shipped control.
+**Argument-aware authorization is available only through the binding MVP.**
+`PolicyChecker` remains a name-and-resource policy engine and does not inspect
+tool arguments by itself. `BoundTool` normalizes supported Python callables,
+validates the normalized object against the reviewed Tool Contract JSON Schema,
+records its RFC 8785 digest in the `ActionRequest`, and invokes the exact
+retained callable only after the existing policy gate allows it. Unbound
+callers and framework paths that do not use `BoundTool` are not covered by
+this argument check.
 
 ## Production Hardening
 
@@ -117,15 +117,18 @@ proposal, not a shipped control.
    issuer.
 5. Set `minimum_bundle_revision` from protected deployment state.
 6. Deploy bundles as complete files and monitor digest changes.
-7. Treat JSONL decision events as application audit records, not immutable or
-   independently authenticated receipts.
+7. Treat the existing JSONL decision events as application audit records, not
+   immutable receipts. Use `HashChainedReceiptSink` or the checkpointed,
+   fsync-backed `JsonlReceiptSink` for the experimental execution-receipt path;
+   configure Ed25519 signing and an external protected collector for
+   high-assurance deployments. Resume a JSONL chain only with explicit
+   checkpoint verification.
 8. Validate framework and dependency versions in your own environment.
-9. Use a `requires_approval` policy for high-impact actions, and keep the
-   system that grants approvals outside the agent process. The policy binds an
-   approval to the request it was granted for and enforces a freshness window,
-   so an approval cannot be replayed onto a different action. What it cannot do
-   is establish that a human granted it — see the signals entry under Known
-   Limitations.
+9. Use a `requires_approval` policy for high-impact actions, keep the system
+   that grants approvals outside the agent process, and pass its detached token
+   through `BoundTool.invoke()` with trusted keys and a shared replay guard.
+   Direct `PolicyChecker` signals remain a compatibility mechanism and do not
+   authenticate the approver.
 
 ## Known Limitations
 
@@ -178,16 +181,32 @@ proposal, not a shipped control.
   a protection that a second process does not have. What the bundle contributes
   is the threshold as a reviewed, signed number rather than a constant in
   application code.
-- **A Tool Contract is a reviewed description, not a runtime boundary.** It
-  records tool identity, governed action, input schema, resource scope, and
-  declared effects, and the drift checks compare it against an agent's action
-  lists. Nothing binds the contract to the tool that actually executes: an
-  exporter reads a framework's tool metadata at authoring time, and the running
-  process can present a different tool under the same name. Drift detection
-  catches a registry that fell behind the code; it does not catch code that
-  lies about itself. The trusted binding is
-  [RFC 0001](docs/rfcs/0001-trusted-tool-contract-runtime-binding.md) and is
-  not implemented.
+- The experimental `SQLiteCircuitBreaker` is a separate runtime control that
+  records failures outside caller-provided signals and persists open state
+  across workers and restarts. It currently covers repeated tool exceptions;
+  returned error values, cost/rate/concurrency budgets, fan-out limits, and a
+  propagated global kill switch still require adapter or control-plane work.
+- **The binding MVP does not attest deployment provenance.** It compares the
+  reviewed and observed Tool Contract digests, retains the exact callable
+  references supplied by the caller, validates normalized arguments, and
+  avoids late name lookup. The caller must export the observed contract from
+  those exact runtime objects. A compromised process can still lie about its
+  observed contract, and the MVP does not verify an OCI image, wheel
+  provenance, signed approval, or independently authenticated execution
+  receipt. Those remain later [RFC 0001](docs/rfcs/0001-trusted-tool-contract-runtime-binding.md)
+  stages.
+- Signed approval tokens are verified by the experimental `BoundTool` path and
+  are bound to agent, action, tool, resource, normalized arguments, session and
+  tenant. `InMemoryReplayGuard` is only suitable for tests and one-process
+  development; a production replay guard must be atomic and durable across
+  workers. The legacy `PolicyChecker` API still accepts asserted approval
+  signals by design.
+- Execution receipts can be hash-chained and Ed25519-signed, but a sink inside
+  the governed process is not an independent witness. `JsonlReceiptSink`
+  supports fail-closed resume through an explicit verified checkpoint, and
+  `FailClosedReceiptSink` defines the no-retry collector boundary. An
+  independently operated collector, its availability policy, and protected
+  deployment of both stores remain deployment work.
 - A policy-test suite proves the bundle decides as the suite says for the
   requests the suite lists. It is a regression net over authored intent, not
   evidence that the intent is safe or the request set is complete.

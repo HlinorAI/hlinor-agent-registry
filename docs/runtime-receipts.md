@@ -77,8 +77,27 @@ negative results. The receipt records:
 - target/resource scope
 - approval or lease id
 
-This receipt is append-only evidence of the authority actually exercised or
-blocked by runtime.
+`BoundTool.invoke()` can emit these records through `HashChainedReceiptSink` or
+the fsync-backed `JsonlReceiptSink`. The sink can additionally sign each
+record with Ed25519. `verify_receipt_chain()` checks receipt shape, sequence
+continuity, previous-hash links, and signatures.
+
+`JsonlReceiptSink` refuses a non-empty file unless the caller explicitly uses
+`resume=True` with a separate `checkpoint_path`. Resume first verifies every
+JSONL record and then requires the checkpoint's sequence and last hash to match
+the verified chain. Each append fsyncs the receipt, atomically replaces the
+checkpoint, and fsyncs its directory before exposing the record in memory. A
+receipt write followed by a checkpoint failure leaves the sink broken and
+requires operator recovery; the process must not continue appending to an
+uncertain chain.
+
+This is append-only, tamper-evident evidence of the authority observed by the
+runtime. A sink inside the same compromised process is not an independent
+witness. `FailClosedReceiptSink` is the explicit adapter boundary for an
+external collector: it does not retry or expose collector internals, and a
+collector failure raises `ReceiptError`. When used for pre-dispatch receipts,
+that failure blocks the governed call. High-assurance deployments still need
+an independently operated collector or protected append-only store.
 
 ## Drift Detection
 
@@ -111,4 +130,6 @@ approved payload is no longer the observed payload.
 
 The safe runtime behavior is to emit a receipt with `denied`, `expired`, or
 `reapproval_required`, record `matched_approved_binding: false`, and block before
-side effect unless fresh approval is granted.
+side effect unless fresh approval is granted. A single-use approval also needs
+an atomic replay guard shared by all workers; the in-memory implementation is
+only for tests and one-process development.
