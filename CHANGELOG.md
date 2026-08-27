@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   framework-neutral decorator, and LangChain/CrewAI governed wrappers.
 - Added experimental SQLite project/workspace-scoped records and recipient-
   filtered message storage with bounded JSON input and revision tracking.
+- Added an experimental Ed25519 message envelope bound to sender key,
+  recipient, project/workspace scope, freshness, nonce, and canonical body,
+  with fail-closed replay protection.
+- Added `GovernedAutoGenTool` over AutoGen Core's public `BaseTool` API; it
+  authorizes `run_json` before delegating to the validated wrapped tool.
 
 ### Security
 
@@ -73,7 +78,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   project/workspace scope, rejects caller-forged scope signals, and never treats
   filenames, package metadata, or natural-language messages as authority.
 - Scoped message bodies remain ordinary data and sender IDs are metadata only;
-  signed transport is still required for authenticated cross-agent identity.
+  signed transport now verifies sender identity, exact recipient, scope,
+  freshness, and replay state before a message is trusted.
+- The signed message API does not provide network delivery, key rotation,
+  external workload attestation, or independent audit collection.
 
 ## [0.10.0] - 2026-08-03
 

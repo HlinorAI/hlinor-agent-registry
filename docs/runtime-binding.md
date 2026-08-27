@@ -61,10 +61,10 @@ authority. Calls without a scope remain a compatibility path and should be
 disabled by the deployment profile when project isolation is required.
 
 The same scope options are available on the shared `GovernanceGate`, the
-`@governed` decorator, and the LangChain/CrewAI governed wrappers. A scope may
-be static or derived by trusted adapter code from the invocation context. The
-AutoGen module currently exports tool contracts only; its execution path and
-durable workspace/message stores remain outside this MVP.
+`@governed` decorator, the LangChain/CrewAI governed wrappers, and
+`GovernedAutoGenTool`. A scope may be static or derived by trusted adapter code
+from the invocation context. The experimental scoped store and signed message
+transport are separate persistence and delivery-boundary primitives.
 
 The caller must export `observed_contract` from the exact runtime objects passed
 in `runtime_tools`. The registry retains those objects and never performs a

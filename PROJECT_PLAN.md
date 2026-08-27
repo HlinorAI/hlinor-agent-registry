@@ -40,9 +40,14 @@ the authority that was approved.
   are not authority sources.
 - The shared integration gate propagates this explicit scope through the
   framework-neutral decorator, LangChain, and CrewAI wrappers.
+- The AutoGen integration now wraps the public `BaseTool` execution path and
+  applies the same fail-closed gate before `run_json` delegates to a tool.
 - The experimental `SQLiteScopedWorkspaceStore` persists JSON records and
   ordinary recipient-filtered messages under a composite project/workspace
   key; it has no global enumeration API and does not authenticate senders.
+- The experimental signed message transport binds sender key, recipient,
+  project/workspace scope, body, freshness, and nonce; receivers require
+  durable replay protection when operating across workers.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
   fixture and verified against canonical UTF-8 bytes and SHA-256 digests by
   Python and an independent Node.js implementation.
@@ -92,7 +97,7 @@ accounting, MCP support, or A2A support.
   cost accounting and a global budget across unwrapped agent paths are not
   runtime controls yet; delegation fan-out and the SQLite kill switch are
   bounded experimental controls.
-- `ExecutionScope` enforcement covers `BoundTool` and the shared framework
-  wrappers, and the experimental scoped store. AutoGen execution paths,
-  authenticated cross-agent message channels, and external workload
-  attestation still require deployment-specific integration.
+- `ExecutionScope` enforcement covers `BoundTool`, the shared framework
+  wrappers, the AutoGen wrapper, and the experimental scoped store. Signed
+  messages still require deployment-specific network delivery, key rotation,
+  external workload attestation, and independent audit collection.

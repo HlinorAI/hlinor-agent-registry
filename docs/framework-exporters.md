@@ -131,6 +131,11 @@ The exporter reads the public AutoGen `BaseTool.schema` contract. It uses the
 tool's `name` and `description` plus the schema's `parameters` object. Hlinor
 does not call `run_json` or inspect private AutoGen state.
 
+For runtime authorization, use `GovernedAutoGenTool` from the same integration
+module. It subclasses the public AutoGen `BaseTool`, authorizes its validated
+`run_json` path through the shared gate, and delegates only after an allow
+decision. Contract export and runtime authorization remain separate steps.
+
 ## Custom Python tools
 
 Custom stacks can supply the same information explicitly without installing an
@@ -216,6 +221,7 @@ process. Applications must export the same collection supplied to the agent
 runtime and must still place `PolicyChecker` or a governed wrapper before every
 side effect.
 
-The AutoGen and custom Python integrations in this release export contracts;
-they do not wrap execution. Applications using those integrations must call a
-governance gate before invoking the underlying tool.
+The AutoGen integration exports contracts and provides a governed execution
+wrapper; the custom Python integration exports contracts only. Applications
+using custom Python tools must call a governance gate before invoking the
+underlying tool.

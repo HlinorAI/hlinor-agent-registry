@@ -63,6 +63,15 @@ from .execution_receipts import (
     verify_receipt_chain,
 )
 from .execution_scope import ExecutionScope, ExecutionScopeError
+from .message_transport import (
+    MESSAGE_SIGNATURE_ALGORITHM,
+    MESSAGE_TRANSPORT_SCHEMA_VERSION,
+    MessageTrustedKey,
+    MessageVerificationError,
+    VerifiedScopedMessage,
+    sign_scoped_message,
+    verify_scoped_message,
+)
 from .policy_checker import PolicyChecker
 from .policy_tests import (
     POLICY_TEST_SCHEMA_VERSION,
@@ -117,6 +126,8 @@ __all__ = [
     "DELEGATION_SCHEMA_VERSION",
     "DELEGATION_SIGNATURE_ALGORITHM",
     "DELEGATION_TRANSPORT_SCHEMA_VERSION",
+    "MESSAGE_SIGNATURE_ALGORITHM",
+    "MESSAGE_TRANSPORT_SCHEMA_VERSION",
     "POLICY_TEST_SCHEMA_VERSION",
     "RECEIPT_CHECKPOINT_SCHEMA_VERSION",
     "TOOL_CONTRACT_SCHEMA_VERSION",
@@ -153,6 +164,8 @@ __all__ = [
     "InMemoryReplayGuard",
     "JsonlReceiptSink",
     "KillSwitchActiveError",
+    "MessageTrustedKey",
+    "MessageVerificationError",
     "PolicyBundleCache",
     "PolicyChecker",
     "PolicyDecision",
@@ -182,6 +195,7 @@ __all__ = [
     "VerifiedApproval",
     "VerifiedDelegation",
     "VerifiedDelegationTransport",
+    "VerifiedScopedMessage",
     "VerifiedSignature",
     "WorkspaceRecord",
     "__version__",
@@ -200,6 +214,7 @@ __all__ = [
     "sign_approval_token",
     "sign_delegation_token",
     "sign_delegation_transport",
+    "sign_scoped_message",
     "tool_contract_schema",
     "validate_tool_contract",
     "verify_approval_token",
@@ -207,5 +222,6 @@ __all__ = [
     "verify_delegation_token",
     "verify_delegation_transport",
     "verify_receipt_chain",
+    "verify_scoped_message",
     "write_tool_contract",
 ]

@@ -743,14 +743,31 @@ observed_contract = export_autogen_tool_contract(
 )
 ```
 
+For an execution boundary, wrap the AutoGen tool itself:
+
+```python
+from hlinor_registry.integrations.autogen import GovernedAutoGenTool
+
+safe_tool = GovernedAutoGenTool(
+    tool=my_autogen_tool,
+    agent_id="research-agent",
+    bundle_path="./dist/policy-bundle.json",
+    execution_scope=scope,
+    require_execution_scope=True,
+)
+```
+
 Custom Python stacks can export explicit schemas with
 `CustomToolDescriptor` and `export_custom_tool_contract` without installing an
-agent framework. AutoGen and custom exporters synchronize Tool Contracts; they
-do not wrap execution by themselves.
+agent framework. AutoGen now has both a governed execution wrapper and Tool
+Contract export; custom export only synchronizes Tool Contracts.
 
 See the [integration compatibility matrix](docs/integration-compatibility.md)
 and [framework exporter guide](docs/framework-exporters.md) for governed
 wrappers, Tool Contract export, and CI drift gates.
+
+For signed, scope-bound cross-agent messages, see
+[Authenticated scoped messages](docs/message-transport.md).
 
 ### Development dependencies
 ```bash

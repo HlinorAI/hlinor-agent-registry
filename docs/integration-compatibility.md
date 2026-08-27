@@ -15,7 +15,7 @@ Hlinor integrations share one invocation contract:
 | --- | --- | --- | --- |
 | LangChain Core | 1.4.9 | 3.11 | `BaseTool`, sync/async, args schema, metadata, callbacks, Tool Contract export |
 | CrewAI | 1.15.6 | 3.11 | `BaseTool`, sync/async, Pydantic lifecycle, args schema, Tool Contract export |
-| Microsoft AutoGen Core | 0.7.5 | 3.11 | Public `BaseTool.schema` Tool Contract export |
+| Microsoft AutoGen Core | 0.7.5 | 3.11 | Public `BaseTool` execution wrapper and Tool Contract export |
 | Custom Python | Standard library | 3.10–3.13 | Explicit JSON Schema Tool Contract export without invocation |
 | Pydantic | 2.12.5 (CrewAI), 2.13.4 (LangChain) | 3.11 | Framework model lifecycle and private adapter state |
 | Python decorator | Standard library | 3.10–3.13 | Native sync/async wrapper and checker injection |
@@ -36,8 +36,7 @@ Every adapter supports:
 
 The shared gate also accepts an explicit `ExecutionScope` (static or derived
 from trusted invocation context) and `require_execution_scope=True`. This is
-implemented by the decorator, LangChain, and CrewAI governed wrappers. AutoGen
-execution wrapping is not yet part of the supported compatibility contract.
+implemented by the decorator, LangChain, CrewAI, and AutoGen governed wrappers.
 
 `request_factory` receives an immutable `InvocationContext` containing the
 agent, action, tool ID, environment, positional arguments, and keyword
@@ -124,11 +123,28 @@ async def search(query: str) -> str: ...
 Checker and decision-sink failures propagate before tool execution. This is
 intentional fail-closed behavior.
 
-## AutoGen and custom Python export
+## AutoGen execution and custom Python export
 
 AutoGen `BaseTool` instances and explicit `CustomToolDescriptor` objects can be
-exported to validated Tool Contracts without invoking them. These integrations
-provide contract synchronization only. They are not execution wrappers and do
-not create a runtime authorization boundary on their own.
+exported to validated Tool Contracts without invoking them. Wrap an AutoGen
+tool with `GovernedAutoGenTool` before passing it to an agent:
+
+```python
+from hlinor_registry.integrations.autogen import GovernedAutoGenTool
+
+safe_tool = GovernedAutoGenTool(
+    tool=search_tool,
+    agent_id="research-agent",
+    bundle_path="bundle.json",
+    execution_scope=scope,
+    require_execution_scope=True,
+)
+```
+
+The wrapper subclasses AutoGen Core's public `BaseTool`, preserves its
+validated argument and return types, authorizes once through the shared gate,
+and delegates only after an allow decision. It supports `run_json`, the public
+AutoGen path used by the compatibility test. Custom Python export remains
+contract synchronization only and does not create an execution boundary.
 
 See [Framework Tool Exporters](framework-exporters.md) for complete examples.

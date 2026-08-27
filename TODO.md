@@ -44,8 +44,13 @@
   `GovernanceGate`, decorators, LangChain, and CrewAI wrappers.
 - [x] Add a durable SQLite workspace/message store with mandatory scope,
   recipient filtering, bounded JSON payloads, and revision tracking.
-- [ ] Add an AutoGen execution wrapper and authenticated cross-agent message
-  transport; sender metadata in the scoped store is not authentication.
+- [x] Add a signed, scope-bound cross-agent message envelope with sender-key
+  binding, exact recipient checks, freshness, payload limits, and replay
+  protection; sender metadata in the scoped store remains non-authenticating.
+- [x] Add an AutoGen execution wrapper over the public `BaseTool` path and
+  verify scope propagation and deny-before-dispatch in the compatibility job.
+- [ ] Add network delivery, key rotation, external workload attestation, and
+  an independently operated audit boundary for authenticated messages.
 - [ ] Add a thin MCP `tools/call` integration with protocol-version and auth
   context handling.
 - [ ] Add OpenTelemetry correlation for binding, decision, and dispatch.
