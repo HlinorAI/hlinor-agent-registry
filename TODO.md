@@ -37,8 +37,11 @@
 - [ ] Add cost accounting and a deployment-wide quota across all agent paths.
 - [x] Add shared SQLite rate/concurrency admission and a propagated
   kill-switch check before `BoundTool` dispatch.
-- [ ] Enforce project/workspace isolation and deny authority conveyed through
-  filenames, package metadata, or natural-language inter-agent messages.
+- [x] Enforce explicit project/workspace scope at the `BoundTool` boundary,
+  bind it into requests/receipts, compare signed claims, and deny authority
+  conveyed through filenames, package metadata, or natural-language messages.
+- [ ] Extend project/workspace scope enforcement to every framework adapter,
+  durable workspace store, and cross-agent message transport.
 - [ ] Add a thin MCP `tools/call` integration with protocol-version and auth
   context handling.
 - [ ] Add OpenTelemetry correlation for binding, decision, and dispatch.

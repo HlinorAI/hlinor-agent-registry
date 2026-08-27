@@ -2,8 +2,8 @@
 
 `ActionRequest` is the canonical runtime input for policy evaluation. It is an
 immutable, JSON-compatible snapshot that identifies the actor, tool, resource,
-environment, optional approval context, and attributes associated with one
-requested action.
+environment, optional project/workspace and approval context, and attributes
+associated with one requested action.
 
 ```python
 from hlinor_registry import ActionRequest, PolicyChecker
@@ -40,6 +40,11 @@ Every decision produced by `evaluate()` contains:
 
 The digest binds records to exact content but is not a digital signature. It
 does not authenticate the request actor, policy issuer, or audit event.
+
+`project_id` and `workspace_id` are optional for compatibility but must be
+provided together. Isolated runtime bindings include them in the digest; they
+are explicit context, not values inferred from filenames, package metadata, or
+agent messages.
 
 ## Compatibility
 

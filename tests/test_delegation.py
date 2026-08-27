@@ -13,6 +13,7 @@ from test_runtime_binding import Checker, contract
 from hlinor_registry import (
     DelegationTrustedKey,
     DelegationVerificationError,
+    ExecutionScope,
     FanOutError,
     InMemoryFanOutGuard,
     SQLiteFanOutGuard,
@@ -288,12 +289,40 @@ def test_bound_tool_checks_delegation_before_policy_and_dispatch() -> None:
         agent_id="reader",
         resource="record/123",
         session_id="session-1",
+        execution_scope=ExecutionScope("project-1", "workspace-1"),
+        require_execution_scope=True,
         delegation_chain=[root],
         delegation_trusted_keys=trusted,
         delegation_audience="hlinor.tool-runtime",
         kwargs={"record_id": "123"},
     )
     assert result == {"record_id": "123"}
+
+
+def test_delegation_scope_mismatch_is_rejected_at_runtime_boundary() -> None:
+    private, trusted = _keys()
+    root = _root_token(private["supervisor"], max_fan_out=0)
+    bound = bind_tool(
+        contract(),
+        contract(),
+        tool_id="records.read",
+        target=lambda *, record_id: {"record_id": record_id},
+    )
+
+    with pytest.raises(
+        DelegationVerificationError, match="DELEGATION_CONTEXT_MISMATCH"
+    ):
+        bound.invoke(
+            Checker(),  # type: ignore[arg-type]
+            agent_id="reader",
+            resource="record/123",
+            session_id="session-1",
+            execution_scope=ExecutionScope("project-2", "workspace-1"),
+            delegation_chain=[root],
+            delegation_trusted_keys=trusted,
+            delegation_audience="hlinor.tool-runtime",
+            kwargs={"record_id": "123"},
+        )
 
 
 def _strict_transport_fixture(

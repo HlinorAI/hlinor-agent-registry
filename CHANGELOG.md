@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verification, and fsync-backed JSONL persistence.
 - Connected `BoundTool.invoke()` to signed approval verification and receipts for
   pre-dispatch, completion, denial, and binding-failure outcomes.
+- Added explicit `ExecutionScope` project/workspace binding for governed runtime
+  requests, receipts, signed approvals, and signed delegations.
 
 ### Security
 
@@ -63,6 +65,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added experimental SQLite runtime limits for per-scope rate/concurrency
   admission and a shared kill switch, with lease release wired into
   `BoundTool.invoke()`.
+- `BoundTool` can now fail closed when an isolated deployment omits an explicit
+  project/workspace scope, rejects caller-forged scope signals, and never treats
+  filenames, package metadata, or natural-language messages as authority.
 
 ## [0.10.0] - 2026-08-03
 

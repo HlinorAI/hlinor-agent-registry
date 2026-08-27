@@ -35,6 +35,31 @@ bound.invoke(
 )
 ```
 
+For an isolated deployment, provide an explicit project/workspace scope and
+make it required:
+
+```python
+from hlinor_registry import ExecutionScope
+
+bound.invoke(
+    checker,
+    agent_id="reader",
+    resource="record/123",
+    execution_scope=ExecutionScope("project-1", "workspace-1"),
+    require_execution_scope=True,
+    kwargs={"record_id": "123"},
+)
+```
+
+The scope is pairwise-required, included in the `ActionRequest` digest, and
+recorded in receipts. `BoundTool` rejects a caller-supplied
+`signals["execution_scope"]`; the runtime creates that signal from the
+explicit typed value. If a signed approval or delegation carries scope
+claims, both identifiers must match before policy evaluation. The binding does
+not accept filenames, package metadata, or natural-language messages as
+authority. Calls without a scope remain a compatibility path and should be
+disabled by the deployment profile when project isolation is required.
+
 The caller must export `observed_contract` from the exact runtime objects passed
 in `runtime_tools`. The registry retains those objects and never performs a
 late name lookup. With `approval_token`, `approval_trusted_keys` and a
@@ -66,4 +91,6 @@ provide external workload attestation.
 
 The `rfc8785` dependency is used for this new digest surface because the RFC
 requires real JCS behavior. Existing policy-bundle and `ActionRequest` digest
-formats are intentionally unchanged for compatibility.
+requires real JCS behavior. Existing unscoped `ActionRequest` digest bytes are
+intentionally unchanged for compatibility; scoped requests include their
+explicit project/workspace identifiers.

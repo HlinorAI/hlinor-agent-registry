@@ -14,6 +14,7 @@ from test_runtime_binding import Checker, contract
 
 from hlinor_registry import (
     ApprovalVerificationError,
+    ExecutionScope,
     FailClosedReceiptSink,
     HashChainedReceiptSink,
     InMemoryReplayGuard,
@@ -42,7 +43,13 @@ def _keys() -> tuple[Ed25519PrivateKey, dict[str, TrustedKey]]:
     return private_key, trusted
 
 
-def _token(private_key: Ed25519PrivateKey, *, arguments_digest: str) -> dict[str, Any]:
+def _token(
+    private_key: Ed25519PrivateKey,
+    *,
+    arguments_digest: str,
+    project_id: str | None = None,
+    workspace_id: str | None = None,
+) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     return sign_approval_token(
         private_key=private_key,
@@ -54,6 +61,8 @@ def _token(private_key: Ed25519PrivateKey, *, arguments_digest: str) -> dict[str
         resource="record/123",
         arguments_digest=arguments_digest,
         session_id="session-1",
+        project_id=project_id,
+        workspace_id=workspace_id,
         nonce="nonce-1",
         approver_role="reviewer",
         issued_at=(now - timedelta(seconds=1)).isoformat(),
@@ -188,6 +197,47 @@ def test_tampered_approval_and_target_mismatch_fail_closed() -> None:
             replay_guard=InMemoryReplayGuard(),
         )
 
+
+def test_signed_approval_is_bound_to_project_and_workspace() -> None:
+    private_key, trusted = _keys()
+    token = _token(
+        private_key,
+        arguments_digest="sha256:args",
+        project_id="project-1",
+        workspace_id="workspace-1",
+    )
+
+    verified = verify_approval_token(
+        token,
+        trusted_keys=trusted,
+        expected_agent_id="reader",
+        expected_action="read_record",
+        expected_tool_id="records.read",
+        expected_resource="record/123",
+        expected_arguments_digest="sha256:args",
+        expected_session_id="session-1",
+        expected_project_id="project-1",
+        expected_workspace_id="workspace-1",
+        replay_guard=InMemoryReplayGuard(),
+    )
+    assert verified.project_id == "project-1"
+    assert verified.workspace_id == "workspace-1"
+
+    with pytest.raises(ApprovalVerificationError, match="APPROVAL_TARGET_MISMATCH"):
+        verify_approval_token(
+            token,
+            trusted_keys=trusted,
+            expected_agent_id="reader",
+            expected_action="read_record",
+            expected_tool_id="records.read",
+            expected_resource="record/123",
+            expected_arguments_digest="sha256:args",
+            expected_session_id="session-1",
+            expected_project_id="project-2",
+            expected_workspace_id="workspace-1",
+            replay_guard=InMemoryReplayGuard(),
+        )
+
     with pytest.raises(ApprovalVerificationError, match="APPROVAL_TARGET_MISMATCH"):
         verify_approval_token(
             token,
@@ -221,7 +271,12 @@ def test_bound_tool_emits_signed_chain_before_and_after_dispatch() -> None:
     # Obtain the exact digest from the same normalized object used by dispatch.
     normalized = bound.normalize_arguments(record_id="123")
     arguments_digest = compute_arguments_digest(normalized)
-    token = _token(approval_key, arguments_digest=arguments_digest)
+    token = _token(
+        approval_key,
+        arguments_digest=arguments_digest,
+        project_id="project-1",
+        workspace_id="workspace-1",
+    )
     sink = HashChainedReceiptSink(
         private_key=receipt_key,
         key_id="receipts-1",
@@ -233,6 +288,7 @@ def test_bound_tool_emits_signed_chain_before_and_after_dispatch() -> None:
         agent_id="reader",
         resource="record/123",
         session_id="session-1",
+        execution_scope=ExecutionScope("project-1", "workspace-1"),
         approval_token=token,
         approval_trusted_keys=trusted,
         replay_guard=InMemoryReplayGuard(),
@@ -245,6 +301,8 @@ def test_bound_tool_emits_signed_chain_before_and_after_dispatch() -> None:
     assert sink.records[0]["phase"] == "pre_dispatch"
     assert sink.records[1]["phase"] == "completed"
     assert sink.records[0]["matched_approved_binding"] is True
+    assert sink.records[0]["project_id"] == "project-1"
+    assert sink.records[0]["workspace_id"] == "workspace-1"
     verify_receipt_chain(sink.records, trusted_keys=receipt_trust)
 
     tampered = list(sink.records)

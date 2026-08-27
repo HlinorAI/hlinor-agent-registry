@@ -42,6 +42,7 @@ from .execution_receipts import (
     VerifiedApproval,
     verify_approval_token,
 )
+from .execution_scope import ExecutionScope, ExecutionScopeError
 from .integrations._gate import DecisionSink, GovernanceGate
 from .policy_checker import PolicyChecker
 from .runtime_limits import (
@@ -296,6 +297,8 @@ class BoundTool:
         request_id: str | None = None,
         session_id: str | None = None,
         tenant_id: str | None = None,
+        execution_scope: ExecutionScope | None = None,
+        require_execution_scope: bool = False,
         delegation_chain: Sequence[Mapping[str, Any]] | None = None,
         delegation_transport: Mapping[str, Any] | None = None,
         delegation_trusted_keys: Mapping[str, DelegationTrustedKey] | None = None,
@@ -335,6 +338,13 @@ class BoundTool:
         effective_failure_fingerprint = failure_fingerprint or (
             f"{agent_id}:{self.tool_id}:{resource or '<none>'}"
         )
+        if execution_scope is not None and not isinstance(
+            execution_scope, ExecutionScope
+        ):
+            raise ExecutionScopeError(
+                "EXECUTION_SCOPE_INVALID",
+                "execution_scope must be an ExecutionScope instance",
+            )
 
         def emit_receipt(
             *,
@@ -362,6 +372,12 @@ class BoundTool:
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "actor": actor_id or agent_id,
                     "agent_id": agent_id,
+                    "project_id": (
+                        execution_scope.project_id if execution_scope else None
+                    ),
+                    "workspace_id": (
+                        execution_scope.workspace_id if execution_scope else None
+                    ),
                     "requested_tool_name": self.tool_id,
                     "tool_id": self.tool_id,
                     "authorization_result": authorization_result,
@@ -424,6 +440,20 @@ class BoundTool:
             arguments_digest = compute_arguments_digest(normalized)
 
             effective_signals = dict(signals or {})
+            if require_execution_scope and execution_scope is None:
+                raise RuntimeBindingError(
+                    "EXECUTION_SCOPE_REQUIRED",
+                    "an explicit project/workspace execution scope is required",
+                )
+            if "execution_scope" in effective_signals:
+                raise RuntimeBindingError(
+                    "EXECUTION_SCOPE_INPUT_AMBIGUOUS",
+                    "execution scope must be supplied through execution_scope",
+                )
+            if execution_scope is not None:
+                effective_signals["execution_scope"] = (
+                    execution_scope.as_policy_signal()
+                )
             if delegation_chain is not None and delegation_transport is not None:
                 raise DelegationVerificationError(
                     "DELEGATION_INPUT_AMBIGUOUS",
@@ -478,6 +508,12 @@ class BoundTool:
                         expected_resource_scope=resource,
                         expected_session_id=session_id,
                         expected_tenant_id=tenant_id,
+                        expected_project_id=(
+                            execution_scope.project_id if execution_scope else None
+                        ),
+                        expected_workspace_id=(
+                            execution_scope.workspace_id if execution_scope else None
+                        ),
                         fan_out_guard=delegation_fan_out_guard,
                         replay_guard=delegation_transport_replay_guard,
                     )
@@ -493,6 +529,12 @@ class BoundTool:
                         expected_resource_scope=resource,
                         expected_session_id=session_id,
                         expected_tenant_id=tenant_id,
+                        expected_project_id=(
+                            execution_scope.project_id if execution_scope else None
+                        ),
+                        expected_workspace_id=(
+                            execution_scope.workspace_id if execution_scope else None
+                        ),
                         fan_out_guard=delegation_fan_out_guard,
                     )
                     verified_delegation = verified_chain[-1]
@@ -523,6 +565,12 @@ class BoundTool:
                     expected_arguments_digest=arguments_digest,
                     expected_session_id=session_id,
                     expected_tenant_id=tenant_id,
+                    expected_project_id=(
+                        execution_scope.project_id if execution_scope else None
+                    ),
+                    expected_workspace_id=(
+                        execution_scope.workspace_id if execution_scope else None
+                    ),
                     replay_guard=replay_guard,
                 )
                 effective_signals["approval"] = verified_approval.as_policy_signal()
@@ -543,6 +591,12 @@ class BoundTool:
                     ),
                     session_id=session_id,
                     tenant_id=tenant_id,
+                    project_id=(
+                        execution_scope.project_id if execution_scope else None
+                    ),
+                    workspace_id=(
+                        execution_scope.workspace_id if execution_scope else None
+                    ),
                     environment=context.environment,
                 )
                 if (

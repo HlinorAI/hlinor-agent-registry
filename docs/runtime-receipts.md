@@ -75,6 +75,7 @@ negative results. The receipt records:
 - tool descriptor or schema digest
 - normalized argument digest
 - target/resource scope
+- project and workspace scope when supplied
 - approval or lease id
 
 `BoundTool.invoke()` can emit these records through `HashChainedReceiptSink` or

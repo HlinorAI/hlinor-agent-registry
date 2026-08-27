@@ -3,7 +3,8 @@
 `sign_approval_token()` creates a detached Ed25519 approval for one exact
 request target. `verify_approval_token()` checks the signature against
 deployment-configured `TrustedKey` values, the issuer, time window, agent,
-action, tool, resource, normalized argument digest, session and tenant.
+action, tool, resource, normalized argument digest, session, tenant, and—when
+used—project/workspace scope.
 
 Single-use tokens require a `ReplayGuard`. `InMemoryReplayGuard` is provided for
 tests and one-process development; `SQLiteReplayGuard` provides atomic
@@ -27,6 +28,8 @@ verified = verify_approval_token(
     expected_resource="record/123",
     expected_arguments_digest=arguments_digest,
     expected_session_id="session-1",
+    expected_project_id="project-1",
+    expected_workspace_id="workspace-1",
     replay_guard=InMemoryReplayGuard(),
 )
 ```
@@ -35,6 +38,10 @@ verified = verify_approval_token(
 passes only the verified fields to the legacy approval policy signal. Passing a
 raw `signals["approval"]` to `PolicyChecker` remains a compatibility path and
 does not authenticate the approver.
+
+Project and workspace claims are optional for compatibility, but they must be
+provided as a pair. An isolated `BoundTool` invocation compares them with its
+explicit `ExecutionScope` and blocks on mismatch.
 
 The signing API accepts an Ed25519 private-key object so applications can place
 key custody in a KMS/HSM adapter. It does not attest the host, process, code

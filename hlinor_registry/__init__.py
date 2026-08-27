@@ -62,6 +62,7 @@ from .execution_receipts import (
     verify_approval_token,
     verify_receipt_chain,
 )
+from .execution_scope import ExecutionScope, ExecutionScopeError
 from .policy_checker import PolicyChecker
 from .policy_tests import (
     POLICY_TEST_SCHEMA_VERSION,
@@ -134,6 +135,8 @@ __all__ = [
     "DelegationTrustedKey",
     "DelegationVerificationError",
     "DriftFinding",
+    "ExecutionScope",
+    "ExecutionScopeError",
     "ExternalReceiptCollector",
     "FailClosedReceiptSink",
     "FanOutError",

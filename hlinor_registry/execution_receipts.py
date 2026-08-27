@@ -178,6 +178,21 @@ def _validate_text(value: object, field: str) -> None:
         )
 
 
+def _validate_scope_pair(
+    project_id: object,
+    workspace_id: object,
+) -> None:
+    if (project_id is None) != (workspace_id is None):
+        raise ApprovalVerificationError(
+            "APPROVAL_SCOPE_INVALID",
+            "project_id and workspace_id must be supplied together",
+        )
+    if project_id is not None:
+        _validate_text(project_id, "project_id")
+    if workspace_id is not None:
+        _validate_text(workspace_id, "workspace_id")
+
+
 def sign_approval_token(
     *,
     private_key: Ed25519PrivateKey,
@@ -193,6 +208,8 @@ def sign_approval_token(
     tool_id: str | None = None,
     session_id: str | None = None,
     tenant_id: str | None = None,
+    project_id: str | None = None,
+    workspace_id: str | None = None,
     request_digest: str | None = None,
     approver_role: str | None = None,
     token_id: str | None = None,
@@ -212,6 +229,7 @@ def sign_approval_token(
         _validate_text(value, name)
     if not isinstance(single_use, bool):
         raise TypeError("single_use must be a boolean")
+    _validate_scope_pair(project_id, workspace_id)
     token: dict[str, Any] = {
         "schema_version": APPROVAL_SCHEMA_VERSION,
         "token_id": token_id or str(uuid.uuid4()),
@@ -223,6 +241,8 @@ def sign_approval_token(
         "request_digest": request_digest,
         "session_id": session_id,
         "tenant_id": tenant_id,
+        "project_id": project_id,
+        "workspace_id": workspace_id,
         "approver_role": approver_role,
         "issued_at": issued_at,
         "expires_at": expires_at,
@@ -261,6 +281,8 @@ class VerifiedApproval:
     tool_id: str | None
     session_id: str | None
     tenant_id: str | None
+    project_id: str | None
+    workspace_id: str | None
     request_digest: str | None
     approver_role: str | None
     issued_at: str
@@ -278,6 +300,8 @@ class VerifiedApproval:
             "approver_role": self.approver_role,
             "granted_for": granted_for,
             "granted_at": self.issued_at,
+            "project_id": self.project_id,
+            "workspace_id": self.workspace_id,
             "verified": True,
         }
 
@@ -293,6 +317,8 @@ def verify_approval_token(
     expected_tool_id: str | None = None,
     expected_session_id: str | None = None,
     expected_tenant_id: str | None = None,
+    expected_project_id: str | None = None,
+    expected_workspace_id: str | None = None,
     expected_request_digest: str | None = None,
     replay_guard: ReplayGuard | None = None,
     current_time: datetime | None = None,
@@ -312,6 +338,8 @@ def verify_approval_token(
         "request_digest",
         "session_id",
         "tenant_id",
+        "project_id",
+        "workspace_id",
         "approver_role",
         "issued_at",
         "expires_at",
@@ -344,6 +372,7 @@ def verify_approval_token(
         raise ApprovalVerificationError(
             "APPROVAL_INVALID", "single_use must be boolean"
         )
+    _validate_scope_pair(token.get("project_id"), token.get("workspace_id"))
     signature = token.get("signature")
     if not isinstance(signature, Mapping):
         raise ApprovalVerificationError(
@@ -404,6 +433,8 @@ def verify_approval_token(
         "tool_id": expected_tool_id,
         "session_id": expected_session_id,
         "tenant_id": expected_tenant_id,
+        "project_id": expected_project_id,
+        "workspace_id": expected_workspace_id,
     }
     for field, value in expected.items():
         if token.get(field) != value:
@@ -452,6 +483,8 @@ def verify_approval_token(
         tool_id=token.get("tool_id"),
         session_id=token.get("session_id"),
         tenant_id=token.get("tenant_id"),
+        project_id=token.get("project_id"),
+        workspace_id=token.get("workspace_id"),
         request_digest=token.get("request_digest"),
         approver_role=token.get("approver_role"),
         issued_at=token["issued_at"],

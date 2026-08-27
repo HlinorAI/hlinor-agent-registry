@@ -52,3 +52,23 @@ def test_request_rejects_ambiguous_identifiers() -> None:
 
     with pytest.raises(ValueError, match="non-empty"):
         ActionRequest(agent_id="finance-agent", action="")
+
+
+def test_request_scope_is_pairwise_and_bound_to_digest() -> None:
+    legacy = ActionRequest(agent_id="finance-agent", action="read")
+    scoped = ActionRequest(
+        agent_id="finance-agent",
+        action="read",
+        project_id="project-1",
+        workspace_id="workspace-1",
+    )
+
+    assert "project_id" not in legacy.to_dict()
+    assert scoped.to_dict()["workspace_id"] == "workspace-1"
+    assert scoped.request_digest != legacy.request_digest
+    with pytest.raises(ValueError, match="supplied together"):
+        ActionRequest(
+            agent_id="finance-agent",
+            action="read",
+            project_id="project-1",
+        )

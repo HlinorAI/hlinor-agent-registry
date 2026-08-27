@@ -11,6 +11,8 @@ from hlinor_registry import (
     ArgumentValidationError,
     BoundToolRegistry,
     ContractBindingError,
+    ExecutionScope,
+    ExecutionScopeError,
     PolicyDecision,
     RuntimeBindingError,
     bind_tool,
@@ -251,3 +253,63 @@ def test_unsupported_variadic_callable_fails_closed() -> None:
 
     with pytest.raises(RuntimeBindingError, match="TOOL_SIGNATURE_UNSUPPORTED"):
         bound.normalize_arguments(record_id="123")
+
+
+def test_explicit_execution_scope_reaches_policy_and_receipt_context() -> None:
+    bound = bind_tool(
+        contract(),
+        contract(),
+        tool_id="records.read",
+        target=lambda *, record_id: {"record_id": record_id},
+    )
+    checker = Checker()
+
+    result = bound.invoke(
+        checker,  # type: ignore[arg-type]
+        agent_id="reader",
+        resource="record/123",
+        execution_scope=ExecutionScope("project-1", "workspace-1"),
+        require_execution_scope=True,
+        kwargs={"record_id": "123"},
+    )
+
+    assert result == {"record_id": "123"}
+    request = checker.requests[0]
+    assert request.project_id == "project-1"
+    assert request.workspace_id == "workspace-1"
+    assert request.signals["execution_scope"]["verified"] is True
+
+
+def test_required_execution_scope_and_caller_scope_signal_fail_closed() -> None:
+    bound = bind_tool(
+        contract(),
+        contract(),
+        tool_id="records.read",
+        target=lambda *, record_id: record_id,
+    )
+
+    with pytest.raises(RuntimeBindingError, match="EXECUTION_SCOPE_REQUIRED"):
+        bound.invoke(
+            Checker(),  # type: ignore[arg-type]
+            agent_id="reader",
+            resource="record/123",
+            require_execution_scope=True,
+            kwargs={"record_id": "123"},
+        )
+
+    with pytest.raises(RuntimeBindingError, match="EXECUTION_SCOPE_INPUT_AMBIGUOUS"):
+        bound.invoke(
+            Checker(),  # type: ignore[arg-type]
+            agent_id="reader",
+            resource="record/123",
+            signals={"execution_scope": {"project_id": "forged"}},
+            kwargs={"record_id": "123"},
+        )
+
+
+def test_execution_scope_rejects_malformed_identifiers() -> None:
+    with pytest.raises(ExecutionScopeError, match="EXECUTION_SCOPE_INVALID"):
+        ExecutionScope("project-1", " workspace-1")
+
+    with pytest.raises(ExecutionScopeError, match="EXECUTION_SCOPE_INVALID"):
+        ExecutionScope("project-1", "")
