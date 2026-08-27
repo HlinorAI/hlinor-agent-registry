@@ -1,0 +1,59 @@
+id: agent-delegation
+
+name: Authenticated Agent Delegation
+
+description: >
+  Defines a signed, bounded transfer of explicit action and resource authority
+  from one authenticated agent principal to another.
+
+purpose: >
+  Prevents agent identity, scope, audience, and delegation depth from being
+  inferred from filenames, chat messages, or caller assertions.
+
+belongs_to:
+  - agent_principal
+  - session
+  - tenant
+  - project
+  - task_workspace
+
+required_fields:
+  - schema_version
+  - delegation_id
+  - issuer_agent_id
+  - subject_agent_id
+  - audience
+  - allowed_actions
+  - allowed_resource_scopes
+  - delegation_depth
+  - max_depth
+  - max_fan_out
+  - issued_at
+  - expires_at
+  - nonce
+  - signature
+
+recommended_fields:
+  - session_id
+  - tenant_id
+  - project_id
+  - workspace_id
+  - parent_delegation_id
+
+binding_requirements:
+  - signing_key_bound_to_issuer_agent_id
+  - exact_audience_match
+  - exact_session_and_tenant_match
+  - child_scope_must_be_subset_of_parent_scope
+  - child_depth_must_increase_by_one
+  - child_max_depth_must_not_exceed_parent_max_depth
+  - child_must_be_registered_in_atomic_fan_out_store
+  - expiry_must_be_checked_at_use
+
+blocked_patterns:
+  - identity_from_caller_assertion_only
+  - authority_from_filename_or_package_metadata
+  - authority_from_natural_language_message
+  - child_scope_expansion
+  - unbounded_delegation_depth
+  - unregistered_child_delegation

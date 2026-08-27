@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `FailClosedReceiptSink` as the no-retry boundary for external receipt
   collectors; collector errors block pre-dispatch receipt delivery without
   exposing collector internals.
+- Added experimental signed agent delegation chains with issuer-key binding,
+  audience/context checks, scope attenuation, depth limits, revocation, and
+  atomic SQLite bounded fan-out registration.
 
 ## [0.10.0] - 2026-08-03
 

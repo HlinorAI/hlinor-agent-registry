@@ -8,7 +8,7 @@ import hmac
 import inspect
 import math
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from types import MappingProxyType
@@ -25,6 +25,14 @@ from .circuit_breaker import (
     CircuitBreakerError,
 )
 from .decision import GovernanceDeniedError
+from .delegation import (
+    DelegationTrustedKey,
+    DelegationVerificationError,
+    FanOutError,
+    FanOutGuard,
+    VerifiedDelegation,
+    verify_delegation_chain,
+)
 from .execution_receipts import (
     ApprovalVerificationError,
     ReceiptSink,
@@ -281,6 +289,10 @@ class BoundTool:
         request_id: str | None = None,
         session_id: str | None = None,
         tenant_id: str | None = None,
+        delegation_chain: Sequence[Mapping[str, Any]] | None = None,
+        delegation_trusted_keys: Mapping[str, DelegationTrustedKey] | None = None,
+        delegation_audience: str | None = None,
+        delegation_fan_out_guard: FanOutGuard | None = None,
         circuit_breaker: CircuitBreaker | None = None,
         failure_fingerprint: str | None = None,
         failure_threshold: int | None = None,
@@ -296,6 +308,7 @@ class BoundTool:
         arguments_digest: str | None = None
         request: ActionRequest | None = None
         verified_approval: VerifiedApproval | None = None
+        verified_delegation: VerifiedDelegation | None = None
         breaker_snapshot: BreakerSnapshot | None = None
         receipt_attempted = False
         effective_failure_fingerprint = failure_fingerprint or (
@@ -353,6 +366,16 @@ class BoundTool:
                     ),
                     "breaker_state": breaker.state if breaker else None,
                     "breaker_count": breaker.current_count if breaker else None,
+                    "delegation_id": (
+                        verified_delegation.delegation_id
+                        if verified_delegation
+                        else None
+                    ),
+                    "delegation_depth": (
+                        verified_delegation.delegation_depth
+                        if verified_delegation
+                        else None
+                    ),
                 }
             )
 
@@ -362,6 +385,37 @@ class BoundTool:
             arguments_digest = compute_arguments_digest(normalized)
 
             effective_signals = dict(signals or {})
+            if delegation_chain is not None:
+                if not delegation_trusted_keys:
+                    raise DelegationVerificationError(
+                        "DELEGATION_TRUST_ROOT_REQUIRED",
+                        "delegation_trusted_keys are required for a delegation chain",
+                    )
+                if delegation_audience is None:
+                    raise DelegationVerificationError(
+                        "DELEGATION_AUDIENCE_REQUIRED",
+                        "delegation_audience is required for a delegation chain",
+                    )
+                verified_chain = verify_delegation_chain(
+                    delegation_chain,
+                    trusted_keys=delegation_trusted_keys,
+                    expected_audience=delegation_audience,
+                    expected_subject_agent_id=agent_id,
+                    expected_action=self.action,
+                    expected_resource_scope=resource,
+                    expected_session_id=session_id,
+                    expected_tenant_id=tenant_id,
+                    fan_out_guard=delegation_fan_out_guard,
+                )
+                verified_delegation = verified_chain[-1]
+                if "delegation" in effective_signals:
+                    raise DelegationVerificationError(
+                        "DELEGATION_INPUT_AMBIGUOUS",
+                        "pass either delegation_chain or signals['delegation'], not both",
+                    )
+                effective_signals["delegation"] = (
+                    verified_delegation.as_policy_signal()
+                )
             if approval_token is not None:
                 if "approval" in effective_signals:
                     raise ApprovalVerificationError(
@@ -508,7 +562,12 @@ class BoundTool:
                     error_code=str(exc.decision.reason_code),
                 )
             raise
-        except (ApprovalVerificationError, RuntimeBindingError) as exc:
+        except (
+            ApprovalVerificationError,
+            DelegationVerificationError,
+            FanOutError,
+            RuntimeBindingError,
+        ) as exc:
             if not receipt_attempted:
                 reapproval_codes = {
                     "APPROVAL_EXPIRED",
@@ -518,9 +577,21 @@ class BoundTool:
                     "APPROVAL_REPLAYED",
                     "APPROVAL_REPLAY_GUARD_REQUIRED",
                 }
-                if isinstance(exc, ApprovalVerificationError) and exc.code == "APPROVAL_EXPIRED":
+                if getattr(exc, "code", "") in {
+                    "APPROVAL_EXPIRED",
+                    "DELEGATION_EXPIRED",
+                }:
                     result = "expired"
-                elif isinstance(exc, ApprovalVerificationError) and exc.code in reapproval_codes:
+                elif getattr(exc, "code", "") in reapproval_codes or getattr(
+                    exc, "code", ""
+                ) in {
+                    "DELEGATION_EXPIRED",
+                    "DELEGATION_NOT_YET_VALID",
+                    "DELEGATION_CONTEXT_MISMATCH",
+                    "DELEGATION_REVOKED",
+                    "DELEGATION_FANOUT_UNREGISTERED",
+                    "DELEGATION_FANOUT_GUARD_REQUIRED",
+                }:
                     result = "reapproval_required"
                 else:
                     result = "denied"

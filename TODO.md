@@ -25,8 +25,10 @@
   receipt collector.
 - [ ] Add an independently operated external receipt collector/checkpoint and
   deployment-specific availability policy.
-- [ ] Add authenticated agent identity, delegation chain, audience, nonce,
-  expiry, and bounded fan-out.
+- [x] Add experimental authenticated delegation chain, audience, nonce, expiry,
+  scope attenuation, and bounded SQLite fan-out.
+- [ ] Bind deployment/workload identity to delegation keys and verify the
+  delegation transport boundary.
 - [x] Move runtime circuit-breaker counters out of caller signals into shared
   SQLite state and block `BoundTool` dispatch after real tool failures.
 - [ ] Add cost, rate, concurrency, fan-out, and propagated kill-switch

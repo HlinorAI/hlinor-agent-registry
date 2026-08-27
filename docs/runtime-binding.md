@@ -13,6 +13,7 @@ It provides:
 - optional detached Ed25519 approval verification bound to the exact target;
 - optional pre-dispatch and completion receipts through a hash-chained sink;
 - optional durable circuit-breaker checks around the exact dispatch;
+- optional signed agent-delegation-chain verification with bounded fan-out;
 - fail-closed errors and negative security tests for drift, argument, scope, and policy denial.
 
 ```python
@@ -41,11 +42,15 @@ evaluation. With `receipt_sink`, it emits a pre-dispatch record and a
 completion record; denied and binding-failure paths emit a blocked record.
 With `circuit_breaker` and an explicit `failure_threshold`, it blocks an open
 breaker before the side effect and records real tool failures in shared state.
+With `delegation_chain`, `delegation_trusted_keys`, and an exact
+`delegation_audience`, it verifies a signed root-to-leaf delegation chain
+before policy evaluation. Child delegations require a registered fan-out
+record when the chain has more than one element.
 
 The receipt chain is tamper-evident and may be Ed25519-signed, but a sink in the
 same compromised process is not independent deployment attestation. The MVP
-does not verify OCI/wheel provenance, provide a cross-process replay store, or
-prove that an arbitrary callable's hidden side effects match its declaration.
+does not verify OCI/wheel provenance, provide workload identity, or prove that
+an arbitrary callable's hidden side effects match its declaration.
 
 The `rfc8785` dependency is used for this new digest surface because the RFC
 requires real JCS behavior. Existing policy-bundle and `ActionRequest` digest

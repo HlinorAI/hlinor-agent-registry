@@ -854,6 +854,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Capability verification](docs/patterns/capability-verification.md)
 - [Agent lifecycle operating modes](docs/patterns/agent-lifecycle-operating-modes.md)
 - [Repeated failure circuit breaker](docs/patterns/repeated-failure-circuit-breaker.md)
+- [Authenticated agent delegation](docs/delegation.md)
 
 ---
 

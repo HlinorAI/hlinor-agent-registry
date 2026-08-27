@@ -38,6 +38,7 @@ pipeline. For most of them it does not.
 | `skill.yaml` | command-validated | `validate-skill` |
 | `validator.yaml` | command-validated | `validate-validator` |
 | `approval-token.yaml` | reference-only | — |
+| `agent-delegation.yaml` | reference-only | — |
 | `audit-event.yaml` | reference-only | — |
 | `execution-receipt.yaml` | runtime-emitted + runtime shape-validated | — |
 | `handoff.yaml` | reference-only | — |
@@ -45,7 +46,7 @@ pipeline. For most of them it does not.
 | `runtime-policy-session-binding.yaml` | reference-only | — |
 | `task-workspace.yaml` | reference-only | — |
 
-Two of twenty-three are enforced. Three reach `compile`. One is runtime-emitted
+Two of twenty-four are enforced. Three reach `compile`. One is runtime-emitted
 by the binding API with runtime shape validation, but no compile or standalone
 CLI loading. Six have no command at all.
 
