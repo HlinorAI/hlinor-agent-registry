@@ -1,0 +1,45 @@
+id: delegation-transport
+
+name: Identity-Bound Delegation Transport
+
+description: >
+  Defines the signed envelope used to carry a complete delegation chain across
+  an agent or tool-runtime boundary.
+
+purpose: >
+  Prevents a receiver from accepting authority copied from filenames, package
+  metadata, natural-language messages, or an unbound transport sender.
+
+required_fields:
+  - schema_version
+  - transport_id
+  - audience
+  - sender_agent_id
+  - sender_deployment_identity
+  - sender_workload_identity
+  - receiver_deployment_identity
+  - receiver_workload_identity
+  - delegation_chain
+  - issued_at
+  - expires_at
+  - nonce
+  - signature
+
+binding_requirements:
+  - transport_signature_key_bound_to_sender_agent_id
+  - transport_signature_key_bound_to_sender_workload_identity
+  - exact_sender_identity_match
+  - exact_receiver_identity_match
+  - exact_audience_match
+  - complete_delegation_chain_must_be_signed_in_envelope
+  - delegation_chain_must_pass_scope_and_context_checks
+  - durable_replay_guard_required
+  - expiry_must_be_checked_at_use
+
+blocked_patterns:
+  - sender_identity_from_envelope_only
+  - receiver_identity_from_envelope_only
+  - authority_from_filename_or_package_metadata
+  - authority_from_natural_language_message
+  - unsigned_chain_transport
+  - overlong_delegation_chain

@@ -15,6 +15,10 @@ Each token binds:
 - delegation depth, maximum depth, and maximum child fan-out;
 - an optional direct parent delegation ID.
 
+`DelegationTrustedKey` may additionally bind a key to a deployment identity
+and workload identity. Those values are configuration-backed identity claims;
+they are not external workload attestation.
+
 `verify_delegation_chain()` verifies the root-to-leaf signature chain, requires
 each child issuer to be the previous subject, prevents scope expansion, and
 requires every child to be registered in a `FanOutGuard`. A child delegation
@@ -49,6 +53,28 @@ parent's fan-out limit atomic across workers and restarts. The in-memory guard
 is only for tests and one-process development.
 
 `BoundTool.invoke()` accepts the same chain and verifies it before policy
-evaluation and exact dispatch. A chain is an authorization input, not a proof
-of process, model, workload, code-artifact, or transport identity. Deployment
-identity and workspace isolation remain separate controls.
+evaluation and exact dispatch. For a transport boundary, use
+`sign_delegation_transport()` and `verify_delegation_transport()` with a
+durable replay guard:
+
+```python
+verified_transport = verify_delegation_transport(
+    envelope,
+    trusted_keys=delegation_trust_store,
+    expected_audience="hlinor.tool-runtime",
+    expected_sender_agent_id="worker",
+    expected_sender_deployment_identity="oci:sha256:worker",
+    expected_sender_workload_identity="workload:worker",
+    expected_receiver_deployment_identity="oci:sha256:tool-runtime",
+    expected_receiver_workload_identity="workload:tool-runtime",
+    replay_guard=sqlite_replay_guard,
+    fan_out_guard=fan_out_guard,
+)
+```
+
+The strict envelope signs the complete chain and sender/receiver identities,
+requires exact local receiver expectations, verifies every delegation key's
+configured identity binding, and atomically claims the transport nonce. A
+plain chain copied from a filename, package metadata, or natural-language
+message is not an accepted transport. This still does not attest the process,
+model, code artifact, or workload to an external identity provider.

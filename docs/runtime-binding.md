@@ -47,14 +47,22 @@ With `delegation_chain`, `delegation_trusted_keys`, and an exact
 `delegation_audience`, it verifies a signed root-to-leaf delegation chain
 before policy evaluation. Child delegations require a registered fan-out
 record when the chain has more than one element.
+For a cross-workload handoff, pass a signed `delegation_transport` instead.
+`BoundTool.invoke()` then requires sender and receiver deployment/workload
+identity expectations plus a durable `delegation_transport_replay_guard`.
+The envelope signs the complete chain and is checked before policy evaluation
+or exact dispatch. This is configured key-to-identity binding, not external
+workload attestation.
 With `runtime_budget` and explicit limit settings, it checks shared
 rate/concurrency state and the kill switch before the pre-dispatch receipt;
 the lease is released after the call in a `finally` path.
 
 The receipt chain is tamper-evident and may be Ed25519-signed, but a sink in the
 same compromised process is not independent deployment attestation. The MVP
-does not verify OCI/wheel provenance, provide workload identity, or prove that
-an arbitrary callable's hidden side effects match its declaration.
+does not verify OCI/wheel provenance or prove that an arbitrary callable's
+hidden side effects match its declaration. The strict delegation transport
+path verifies configured key-to-deployment/workload bindings but does not
+provide external workload attestation.
 
 The `rfc8785` dependency is used for this new digest surface because the RFC
 requires real JCS behavior. Existing policy-bundle and `ActionRequest` digest

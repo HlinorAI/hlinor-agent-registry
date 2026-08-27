@@ -28,8 +28,10 @@
   deployment-specific availability policy.
 - [x] Add experimental authenticated delegation chain, audience, nonce, expiry,
   scope attenuation, and bounded SQLite fan-out.
-- [ ] Bind deployment/workload identity to delegation keys and verify the
-  delegation transport boundary.
+- [x] Bind configured deployment/workload identity to delegation keys and
+  verify the signed delegation transport boundary with durable replay state.
+- [ ] Add external workload/deployment attestation and provider-specific
+  identity verification after a deployment profile is selected.
 - [x] Move runtime circuit-breaker counters out of caller signals into shared
   SQLite state and block `BoundTool` dispatch after real tool failures.
 - [ ] Add cost accounting and a deployment-wide quota across all agent paths.

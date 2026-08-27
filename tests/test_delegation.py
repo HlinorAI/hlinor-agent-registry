@@ -16,15 +16,20 @@ from hlinor_registry import (
     FanOutError,
     InMemoryFanOutGuard,
     SQLiteFanOutGuard,
+    SQLiteReplayGuard,
     bind_tool,
     reserve_delegation_child,
     sign_delegation_token,
+    sign_delegation_transport,
     verify_delegation_chain,
     verify_delegation_token,
+    verify_delegation_transport,
 )
 
 
-def _keys() -> tuple[dict[str, Ed25519PrivateKey], dict[str, DelegationTrustedKey]]:
+def _keys(
+    *, identity_bound: bool = False
+) -> tuple[dict[str, Ed25519PrivateKey], dict[str, DelegationTrustedKey]]:
     private: dict[str, Ed25519PrivateKey] = {}
     trusted: dict[str, DelegationTrustedKey] = {}
     for agent_id in ("supervisor", "reader", "worker"):
@@ -36,6 +41,8 @@ def _keys() -> tuple[dict[str, Ed25519PrivateKey], dict[str, DelegationTrustedKe
             agent_id=agent_id,
             public_key=key.public_key(),
             issuer="synthetic-control-plane",
+            deployment_identity=(f"oci:sha256:{agent_id}" if identity_bound else None),
+            workload_identity=(f"workload:{agent_id}" if identity_bound else None),
         )
     return private, trusted
 
@@ -52,6 +59,7 @@ def _root_token(
     *,
     max_fan_out: int = 2,
     delegation_id: str = "delegation-root",
+    identity_bound: bool = False,
 ) -> dict[str, Any]:
     issued_at, expires_at = _times()
     return sign_delegation_token(
@@ -74,6 +82,10 @@ def _root_token(
         max_depth=2,
         max_fan_out=max_fan_out,
         delegation_id=delegation_id,
+        issuer_deployment_identity=(
+            "oci:sha256:supervisor" if identity_bound else None
+        ),
+        issuer_workload_identity=("workload:supervisor" if identity_bound else None),
     )
 
 
@@ -86,6 +98,7 @@ def _child_token(
     allowed_actions: list[str] | None = None,
     allowed_resource_scopes: list[str] | None = None,
     max_depth: int = 2,
+    identity_bound: bool = False,
 ) -> dict[str, Any]:
     issued_at, expires_at = _times()
     return sign_delegation_token(
@@ -109,6 +122,8 @@ def _child_token(
         max_depth=max_depth,
         max_fan_out=0,
         delegation_id=delegation_id,
+        issuer_deployment_identity=("oci:sha256:reader" if identity_bound else None),
+        issuer_workload_identity=("workload:reader" if identity_bound else None),
     )
 
 
@@ -276,6 +291,218 @@ def test_bound_tool_checks_delegation_before_policy_and_dispatch() -> None:
         delegation_chain=[root],
         delegation_trusted_keys=trusted,
         delegation_audience="hlinor.tool-runtime",
+        kwargs={"record_id": "123"},
+    )
+    assert result == {"record_id": "123"}
+
+
+def _strict_transport_fixture(
+    private: dict[str, Ed25519PrivateKey],
+    trusted: dict[str, DelegationTrustedKey],
+) -> tuple[dict[str, Any], dict[str, Any], InMemoryFanOutGuard]:
+    root = _root_token(private["supervisor"], identity_bound=True)
+    child = _child_token(private["reader"], identity_bound=True)
+    guard = InMemoryFanOutGuard()
+    verified_root = verify_delegation_token(
+        root,
+        trusted_keys=trusted,
+        expected_audience="hlinor.tool-runtime",
+        require_identity_binding=True,
+    )
+    verified_child = verify_delegation_token(
+        child,
+        trusted_keys=trusted,
+        expected_audience="hlinor.tool-runtime",
+        require_identity_binding=True,
+    )
+    reserve_delegation_child(
+        verified_root,
+        verified_child,
+        fan_out_guard=guard,
+    )
+    return root, child, guard
+
+
+def _transport(
+    private: dict[str, Ed25519PrivateKey],
+    chain: list[dict[str, Any]],
+    *,
+    sender_workload_identity: str = "workload:worker",
+) -> dict[str, Any]:
+    issued_at, expires_at = _times()
+    return sign_delegation_transport(
+        private_key=private["worker"],
+        key_id="key-worker",
+        issuer="synthetic-control-plane",
+        transport_id="transport-1",
+        audience="hlinor.tool-runtime",
+        sender_agent_id="worker",
+        sender_deployment_identity="oci:sha256:worker",
+        sender_workload_identity=sender_workload_identity,
+        receiver_deployment_identity="oci:sha256:tool-runtime",
+        receiver_workload_identity="workload:tool-runtime",
+        delegation_chain=chain,
+        issued_at=issued_at,
+        expires_at=expires_at,
+        nonce="transport-nonce-1",
+    )
+
+
+def test_identity_bound_transport_verifies_sender_receiver_and_chain(tmp_path) -> None:
+    private, trusted = _keys(identity_bound=True)
+    root, child, fan_out_guard = _strict_transport_fixture(private, trusted)
+    verified = verify_delegation_transport(
+        _transport(private, [root, child]),
+        trusted_keys=trusted,
+        expected_audience="hlinor.tool-runtime",
+        expected_sender_agent_id="worker",
+        expected_sender_deployment_identity="oci:sha256:worker",
+        expected_sender_workload_identity="workload:worker",
+        expected_receiver_deployment_identity="oci:sha256:tool-runtime",
+        expected_receiver_workload_identity="workload:tool-runtime",
+        expected_action="read_record",
+        expected_resource_scope="record/123",
+        expected_session_id="session-1",
+        expected_tenant_id="tenant-1",
+        fan_out_guard=fan_out_guard,
+        replay_guard=SQLiteReplayGuard(tmp_path / "transport-replay.sqlite3"),
+    )
+    assert verified.sender_agent_id == "worker"
+    assert verified.sender_workload_identity == "workload:worker"
+    assert verified.delegation_chain[-1].subject_agent_id == "worker"
+
+
+def test_transport_rejects_tampering_and_requires_replay_guard(tmp_path) -> None:
+    private, trusted = _keys(identity_bound=True)
+    root, child, fan_out_guard = _strict_transport_fixture(private, trusted)
+    envelope = _transport(private, [root, child])
+    tampered = dict(envelope)
+    tampered_chain = [dict(root), dict(child)]
+    tampered_chain[1]["allowed_actions"] = ["delete_record"]
+    tampered["delegation_chain"] = tampered_chain
+    with pytest.raises(
+        DelegationVerificationError,
+        match="DELEGATION_TRANSPORT_SIGNATURE_INVALID",
+    ):
+        verify_delegation_transport(
+            tampered,
+            trusted_keys=trusted,
+            expected_audience="hlinor.tool-runtime",
+            expected_sender_agent_id="worker",
+            expected_sender_deployment_identity="oci:sha256:worker",
+            expected_sender_workload_identity="workload:worker",
+            expected_receiver_deployment_identity="oci:sha256:tool-runtime",
+            expected_receiver_workload_identity="workload:tool-runtime",
+            fan_out_guard=fan_out_guard,
+            replay_guard=SQLiteReplayGuard(tmp_path / "transport-replay.sqlite3"),
+        )
+    with pytest.raises(
+        DelegationVerificationError,
+        match="DELEGATION_TRANSPORT_REPLAY_GUARD_REQUIRED",
+    ):
+        verify_delegation_transport(
+            envelope,
+            trusted_keys=trusted,
+            expected_audience="hlinor.tool-runtime",
+            expected_sender_agent_id="worker",
+            expected_sender_deployment_identity="oci:sha256:worker",
+            expected_sender_workload_identity="workload:worker",
+            expected_receiver_deployment_identity="oci:sha256:tool-runtime",
+            expected_receiver_workload_identity="workload:tool-runtime",
+            fan_out_guard=fan_out_guard,
+        )
+
+
+def test_transport_rejects_context_mismatch_and_replay(tmp_path) -> None:
+    private, trusted = _keys(identity_bound=True)
+    root, child, fan_out_guard = _strict_transport_fixture(private, trusted)
+    envelope = _transport(
+        private,
+        [root, child],
+        sender_workload_identity="workload:other",
+    )
+    with pytest.raises(
+        DelegationVerificationError, match="DELEGATION_TRANSPORT_CONTEXT_MISMATCH"
+    ):
+        verify_delegation_transport(
+            envelope,
+            trusted_keys=trusted,
+            expected_audience="hlinor.tool-runtime",
+            expected_sender_agent_id="worker",
+            expected_sender_deployment_identity="oci:sha256:worker",
+            expected_sender_workload_identity="workload:worker",
+            expected_receiver_deployment_identity="oci:sha256:tool-runtime",
+            expected_receiver_workload_identity="workload:tool-runtime",
+            fan_out_guard=fan_out_guard,
+            replay_guard=SQLiteReplayGuard(tmp_path / "transport-replay.sqlite3"),
+        )
+
+    envelope = _transport(private, [root, child])
+    replay_guard = SQLiteReplayGuard(tmp_path / "transport-replay.sqlite3")
+    verification_args = {
+        "trusted_keys": trusted,
+        "expected_audience": "hlinor.tool-runtime",
+        "expected_sender_agent_id": "worker",
+        "expected_sender_deployment_identity": "oci:sha256:worker",
+        "expected_sender_workload_identity": "workload:worker",
+        "expected_receiver_deployment_identity": "oci:sha256:tool-runtime",
+        "expected_receiver_workload_identity": "workload:tool-runtime",
+        "fan_out_guard": fan_out_guard,
+        "replay_guard": replay_guard,
+    }
+    verify_delegation_transport(envelope, **verification_args)
+    with pytest.raises(
+        DelegationVerificationError, match="DELEGATION_TRANSPORT_REPLAYED"
+    ):
+        verify_delegation_transport(envelope, **verification_args)
+
+
+def test_strict_transport_rejects_keys_without_identity_binding(tmp_path) -> None:
+    private, trusted = _keys()
+    root, child, fan_out_guard = _strict_transport_fixture(*_keys(identity_bound=True))
+    envelope = _transport(private, [root, child])
+    with pytest.raises(
+        DelegationVerificationError, match="DELEGATION_IDENTITY_UNBOUND"
+    ):
+        verify_delegation_transport(
+            envelope,
+            trusted_keys=trusted,
+            expected_audience="hlinor.tool-runtime",
+            expected_sender_agent_id="worker",
+            expected_sender_deployment_identity="oci:sha256:worker",
+            expected_sender_workload_identity="workload:worker",
+            expected_receiver_deployment_identity="oci:sha256:tool-runtime",
+            expected_receiver_workload_identity="workload:tool-runtime",
+            fan_out_guard=fan_out_guard,
+            replay_guard=SQLiteReplayGuard(tmp_path / "transport-replay.sqlite3"),
+        )
+
+
+def test_bound_tool_accepts_identity_bound_transport(tmp_path) -> None:
+    private, trusted = _keys(identity_bound=True)
+    root, child, fan_out_guard = _strict_transport_fixture(private, trusted)
+    bound = bind_tool(
+        contract(),
+        contract(),
+        tool_id="records.read",
+        target=lambda *, record_id: {"record_id": record_id},
+    )
+    result = bound.invoke(
+        Checker(),  # type: ignore[arg-type]
+        agent_id="worker",
+        resource="record/123",
+        session_id="session-1",
+        delegation_transport=_transport(private, [root, child]),
+        delegation_trusted_keys=trusted,
+        delegation_audience="hlinor.tool-runtime",
+        delegation_fan_out_guard=fan_out_guard,
+        delegation_expected_sender_deployment_identity="oci:sha256:worker",
+        delegation_expected_sender_workload_identity="workload:worker",
+        delegation_receiver_deployment_identity="oci:sha256:tool-runtime",
+        delegation_receiver_workload_identity="workload:tool-runtime",
+        delegation_transport_replay_guard=SQLiteReplayGuard(
+            tmp_path / "transport-replay.sqlite3"
+        ),
         kwargs={"record_id": "123"},
     )
     assert result == {"record_id": "123"}

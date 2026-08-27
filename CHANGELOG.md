@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SHA-256 digests.
 - Independently verified all published JCS vectors with Node.js
   `canonicalize@2.1.0` in addition to the Python runtime tests.
+- Added an experimental signed delegation transport envelope that binds the
+  complete chain to sender/receiver deployment and workload identities and
+  requires durable nonce replay protection at the receiving boundary.
 - Added the trusted runtime binding MVP for Tool Contracts: RFC 8785 digests,
   exact callable references, immutable bound registries, normalized argument
   validation, resource-scope checks, and governed dispatch.
@@ -55,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added experimental signed agent delegation chains with issuer-key binding,
   audience/context checks, scope attenuation, depth limits, revocation, and
   atomic SQLite bounded fan-out registration.
+- Added configured deployment/workload identity bindings for delegation keys,
+  strict transport-envelope verification, and fail-closed `BoundTool` support.
 - Added experimental SQLite runtime limits for per-scope rate/concurrency
   admission and a shared kill switch, with lease release wired into
   `BoundTool.invoke()`.

@@ -29,6 +29,9 @@ the authority that was approved.
 - The experimental binding path can verify a signed root-to-leaf delegation
   chain with exact audience/context, scope attenuation, and atomic SQLite
   child fan-out registration.
+- The experimental delegation transport path signs the complete chain, binds
+  sender keys to configured deployment/workload identities, checks exact
+  receiver identity, and requires durable replay state.
 - The experimental binding path can enforce shared SQLite rate/concurrency
   admission and a propagated kill switch before exact dispatch.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
@@ -51,8 +54,8 @@ the authority that was approved.
 4. Signed request-bound approvals and authenticated execution receipts — first
    primitives complete; independent collection remains deployment work.
 5. Thin MCP integration, agent identity/delegation, and OpenTelemetry context —
-   signed delegation and bounded fan-out primitives are experimental; workload
-   identity and deployment attestation remain open.
+   signed delegation, identity-bound transport, and bounded fan-out primitives
+   are experimental; external workload attestation remains open.
 6. Stateful circuit breakers, budgets, kill switch, and runtime isolation —
    rate/concurrency admission and the SQLite kill switch are experimental;
    cost accounting and broader runtime isolation remain open.
@@ -61,15 +64,18 @@ the authority that was approved.
 ## Current status
 
 The repository is implementing the phase 4/6 runtime-hardening slice. Signed
-approval, durable replay/revocation, receipt, checkpoint, and circuit-breaker
-primitives are experimental and framework-neutral. The project does not yet
-claim deployment attestation, independently operated receipt collection,
-authenticated workload identity, cost accounting, MCP support, or A2A support.
+approval, durable replay/revocation, receipt, checkpoint, circuit-breaker,
+and identity-bound delegation transport primitives are experimental and
+framework-neutral. The project does not yet claim external deployment or
+workload attestation, independently operated receipt collection, cost
+accounting, MCP support, or A2A support.
 
 ## Open risks
 
 - Runtime binding currently trusts the process that exports the observed
   contract and owns the callable; it does not prove artifact provenance.
+- Delegation identity bindings are deployment-configured key metadata, not
+  proof from an external workload identity or attestation provider.
 - Resource derivation remains an adapter responsibility until a protocol-level
   integration is added.
 - `failure_threshold` in `PolicyChecker` still uses caller-reported state; the

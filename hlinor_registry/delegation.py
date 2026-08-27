@@ -2,8 +2,9 @@
 
 Delegation is deliberately narrower than agent identity in a host platform. It
 proves that a configured signing key for one agent authorized another agent for
-an explicit audience, scope, and time window. It does not attest the process,
-workload, model, or transport carrying the token.
+an explicit audience, scope, and time window. The strict transport envelope
+also binds configured deployment/workload identities and replay state; it does
+not provide external workload attestation.
 """
 
 from __future__ import annotations
@@ -28,8 +29,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 
 DELEGATION_SCHEMA_VERSION = "1.0"
+DELEGATION_TRANSPORT_SCHEMA_VERSION = "1.0"
 DELEGATION_SIGNATURE_ALGORITHM = "Ed25519"
 _DOMAIN_DELEGATION = "hlinor/agent-delegation/v1"
+_DOMAIN_DELEGATION_TRANSPORT = "hlinor/agent-delegation-transport/v1"
 _SIGNATURE_FIELDS = {"algorithm", "key_id", "issuer", "value"}
 
 
@@ -57,6 +60,8 @@ class DelegationTrustedKey:
     agent_id: str
     public_key: Ed25519PublicKey
     issuer: str | None = None
+    deployment_identity: str | None = None
+    workload_identity: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +87,8 @@ class VerifiedDelegation:
     nonce: str
     key_id: str
     issuer: str
+    deployment_identity: str | None
+    workload_identity: str | None
 
     def as_policy_signal(self) -> dict[str, Any]:
         """Return only verified identity facts for legacy policy consumers."""
@@ -90,8 +97,39 @@ class VerifiedDelegation:
             "issuer_agent_id": self.issuer_agent_id,
             "subject_agent_id": self.subject_agent_id,
             "audience": self.audience,
+            "deployment_identity": self.deployment_identity,
+            "workload_identity": self.workload_identity,
             "verified": True,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedDelegationTransport:
+    """Verified transport and authorization facts for one handoff."""
+
+    transport_id: str
+    audience: str
+    sender_agent_id: str
+    sender_deployment_identity: str
+    sender_workload_identity: str
+    receiver_deployment_identity: str
+    receiver_workload_identity: str
+    issued_at: str
+    expires_at: str
+    nonce: str
+    key_id: str
+    issuer: str
+    delegation_chain: tuple[VerifiedDelegation, ...]
+
+
+class DelegationReplayGuard(Protocol):
+    """Atomic replay state required by the strict transport boundary."""
+
+    def claim(self, token_id: str, nonce: str, expires_at: str) -> bool:
+        """Claim one transport nonce until its expiry."""
+
+    def is_revoked(self, token_id: str, nonce: str) -> bool:
+        """Return whether this transport ID or nonce was revoked."""
 
 
 class FanOutGuard(Protocol):
@@ -139,6 +177,57 @@ def _validate_text(value: object, field: str) -> None:
 def _validate_optional_text(value: object, field: str) -> None:
     if value is not None:
         _validate_text(value, field)
+
+
+def _validate_identity_pair(
+    deployment_identity: object,
+    workload_identity: object,
+) -> None:
+    if (deployment_identity is None) != (workload_identity is None):
+        raise DelegationVerificationError(
+            "DELEGATION_IDENTITY_INVALID",
+            "deployment and workload identities must be supplied together",
+        )
+    _validate_optional_text(deployment_identity, "deployment_identity")
+    _validate_optional_text(workload_identity, "workload_identity")
+
+
+def _verify_identity_binding(
+    trusted: DelegationTrustedKey,
+    claimed_deployment_identity: object,
+    claimed_workload_identity: object,
+    *,
+    expected_deployment_identity: str | None,
+    expected_workload_identity: str | None,
+    require_identity_binding: bool,
+) -> None:
+    _validate_identity_pair(trusted.deployment_identity, trusted.workload_identity)
+    if require_identity_binding and (
+        trusted.deployment_identity is None
+        or trusted.workload_identity is None
+        or claimed_deployment_identity is None
+        or claimed_workload_identity is None
+    ):
+        raise DelegationVerificationError(
+            "DELEGATION_IDENTITY_UNBOUND",
+            "strict verification requires a key and token workload identity",
+        )
+    if trusted.deployment_identity is not None and (
+        claimed_deployment_identity != trusted.deployment_identity
+        or claimed_workload_identity != trusted.workload_identity
+    ):
+        raise DelegationVerificationError(
+            "DELEGATION_IDENTITY_MISMATCH",
+            "token identity does not match the trusted signing key",
+        )
+    if expected_deployment_identity is not None and (
+        trusted.deployment_identity != expected_deployment_identity
+        or trusted.workload_identity != expected_workload_identity
+    ):
+        raise DelegationVerificationError(
+            "DELEGATION_IDENTITY_MISMATCH",
+            "signing key identity does not match the expected workload",
+        )
 
 
 def _parse_time(value: object, field: str) -> datetime:
@@ -271,6 +360,315 @@ def _signed_payload(token: Mapping[str, Any]) -> bytes:
     return _canonical({"domain": _DOMAIN_DELEGATION, "payload": payload})
 
 
+def _signed_transport_payload(envelope: Mapping[str, Any]) -> bytes:
+    payload = copy.deepcopy(dict(envelope))
+    signature = payload.get("signature")
+    if not isinstance(signature, Mapping):
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_SIGNATURE_INVALID",
+            "signature must be an object",
+        )
+    payload["signature"] = dict(signature)
+    payload["signature"]["value"] = ""
+    return _canonical({"domain": _DOMAIN_DELEGATION_TRANSPORT, "payload": payload})
+
+
+def sign_delegation_transport(
+    *,
+    private_key: Ed25519PrivateKey,
+    key_id: str,
+    issuer: str,
+    transport_id: str,
+    audience: str,
+    sender_agent_id: str,
+    sender_deployment_identity: str,
+    sender_workload_identity: str,
+    receiver_deployment_identity: str,
+    receiver_workload_identity: str,
+    delegation_chain: Sequence[Mapping[str, Any]],
+    issued_at: str,
+    expires_at: str,
+    nonce: str,
+) -> dict[str, Any]:
+    """Sign a bounded, identity-bound envelope carrying a delegation chain."""
+    if not isinstance(private_key, Ed25519PrivateKey):
+        raise TypeError("private_key must be an Ed25519PrivateKey")
+    for field, value in (
+        ("key_id", key_id),
+        ("issuer", issuer),
+        ("transport_id", transport_id),
+        ("audience", audience),
+        ("sender_agent_id", sender_agent_id),
+        ("receiver_deployment_identity", receiver_deployment_identity),
+        ("receiver_workload_identity", receiver_workload_identity),
+        ("nonce", nonce),
+    ):
+        _validate_text(value, field)
+    _validate_identity_pair(sender_deployment_identity, sender_workload_identity)
+    if (
+        isinstance(delegation_chain, (str, bytes))
+        or not isinstance(delegation_chain, Sequence)
+        or not delegation_chain
+    ):
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_INVALID",
+            "delegation_chain must be a non-empty sequence",
+        )
+    chain: list[dict[str, Any]] = []
+    for token in delegation_chain:
+        if not isinstance(token, Mapping):
+            raise DelegationVerificationError(
+                "DELEGATION_TRANSPORT_INVALID",
+                "delegation_chain entries must be objects",
+            )
+        chain.append(copy.deepcopy(dict(token)))
+    _check_window(
+        issued_at,
+        expires_at,
+        current_time=None,
+        clock_skew_seconds=0,
+    )
+    envelope: dict[str, Any] = {
+        "schema_version": DELEGATION_TRANSPORT_SCHEMA_VERSION,
+        "transport_id": transport_id,
+        "audience": audience,
+        "sender_agent_id": sender_agent_id,
+        "sender_deployment_identity": sender_deployment_identity,
+        "sender_workload_identity": sender_workload_identity,
+        "receiver_deployment_identity": receiver_deployment_identity,
+        "receiver_workload_identity": receiver_workload_identity,
+        "delegation_chain": chain,
+        "issued_at": issued_at,
+        "expires_at": expires_at,
+        "nonce": nonce,
+        "signature": {
+            "algorithm": DELEGATION_SIGNATURE_ALGORITHM,
+            "key_id": key_id,
+            "issuer": issuer,
+            "value": "",
+        },
+    }
+    envelope["signature"]["value"] = base64.b64encode(
+        private_key.sign(_signed_transport_payload(envelope))
+    ).decode("ascii")
+    return envelope
+
+
+def verify_delegation_transport(
+    envelope: Mapping[str, Any],
+    *,
+    trusted_keys: Mapping[str, DelegationTrustedKey],
+    expected_audience: str,
+    expected_sender_agent_id: str,
+    expected_sender_deployment_identity: str,
+    expected_sender_workload_identity: str,
+    expected_receiver_deployment_identity: str,
+    expected_receiver_workload_identity: str,
+    expected_action: str | None = None,
+    expected_resource_scope: str | None = None,
+    expected_session_id: str | None = None,
+    expected_tenant_id: str | None = None,
+    expected_project_id: str | None = None,
+    expected_workspace_id: str | None = None,
+    replay_guard: DelegationReplayGuard | None = None,
+    fan_out_guard: FanOutGuard | None = None,
+    current_time: datetime | None = None,
+    clock_skew_seconds: int = 60,
+    max_chain_length: int = 8,
+) -> VerifiedDelegationTransport:
+    """Verify an identity-bound transport envelope before accepting its chain."""
+    if not isinstance(envelope, Mapping):
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_INVALID",
+            "transport envelope must be an object",
+        )
+    allowed = {
+        "schema_version",
+        "transport_id",
+        "audience",
+        "sender_agent_id",
+        "sender_deployment_identity",
+        "sender_workload_identity",
+        "receiver_deployment_identity",
+        "receiver_workload_identity",
+        "delegation_chain",
+        "issued_at",
+        "expires_at",
+        "nonce",
+        "signature",
+    }
+    unknown = set(envelope).difference(allowed)
+    if unknown:
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_INVALID",
+            f"unknown fields: {sorted(unknown)}",
+        )
+    if envelope.get("schema_version") != DELEGATION_TRANSPORT_SCHEMA_VERSION:
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_VERSION_UNSUPPORTED",
+            f"expected {DELEGATION_TRANSPORT_SCHEMA_VERSION}",
+        )
+    for field in (
+        "transport_id",
+        "audience",
+        "sender_agent_id",
+        "receiver_deployment_identity",
+        "receiver_workload_identity",
+        "issued_at",
+        "expires_at",
+        "nonce",
+    ):
+        _validate_text(envelope.get(field), field)
+    sender_deployment_identity = envelope.get("sender_deployment_identity")
+    sender_workload_identity = envelope.get("sender_workload_identity")
+    _validate_identity_pair(sender_deployment_identity, sender_workload_identity)
+    _validate_identity_pair(
+        expected_sender_deployment_identity,
+        expected_sender_workload_identity,
+    )
+    for field, expected in (
+        ("audience", expected_audience),
+        ("sender_agent_id", expected_sender_agent_id),
+        ("sender_deployment_identity", expected_sender_deployment_identity),
+        ("sender_workload_identity", expected_sender_workload_identity),
+        ("receiver_deployment_identity", expected_receiver_deployment_identity),
+        ("receiver_workload_identity", expected_receiver_workload_identity),
+    ):
+        if envelope.get(field) != expected:
+            raise DelegationVerificationError(
+                "DELEGATION_TRANSPORT_CONTEXT_MISMATCH",
+                f"{field} does not match the receiving context",
+            )
+    _check_window(
+        envelope["issued_at"],
+        envelope["expires_at"],
+        current_time=current_time,
+        clock_skew_seconds=clock_skew_seconds,
+    )
+    signature = envelope.get("signature")
+    if not isinstance(signature, Mapping) or set(signature) != _SIGNATURE_FIELDS:
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_SIGNATURE_INVALID",
+            "signature fields are invalid",
+        )
+    if signature.get("algorithm") != DELEGATION_SIGNATURE_ALGORITHM:
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_SIGNATURE_INVALID",
+            "unsupported signature algorithm",
+        )
+    key_id = signature.get("key_id")
+    issuer = signature.get("issuer")
+    _validate_text(key_id, "signature.key_id")
+    _validate_text(issuer, "signature.issuer")
+    assert isinstance(key_id, str)
+    assert isinstance(issuer, str)
+    trusted = trusted_keys.get(key_id)
+    if trusted is None:
+        raise DelegationVerificationError(
+            "DELEGATION_KEY_UNTRUSTED",
+            f"unknown key: {key_id}",
+        )
+    if trusted.agent_id != envelope["sender_agent_id"]:
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_SENDER_UNBOUND",
+            "transport signing key is not bound to sender_agent_id",
+        )
+    _verify_identity_binding(
+        trusted,
+        sender_deployment_identity,
+        sender_workload_identity,
+        expected_deployment_identity=expected_sender_deployment_identity,
+        expected_workload_identity=expected_sender_workload_identity,
+        require_identity_binding=True,
+    )
+    if trusted.issuer is not None and trusted.issuer != issuer:
+        raise DelegationVerificationError(
+            "DELEGATION_ISSUER_INVALID",
+            "issuer does not match trusted key",
+        )
+    encoded = signature.get("value")
+    if not isinstance(encoded, str) or not encoded:
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_SIGNATURE_INVALID",
+            "signature value is missing",
+        )
+    try:
+        signature_bytes = base64.b64decode(encoded, validate=True)
+        trusted.public_key.verify(signature_bytes, _signed_transport_payload(envelope))
+    except (binascii.Error, ValueError, InvalidSignature) as exc:
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_SIGNATURE_INVALID",
+            "signature verification failed",
+        ) from exc
+    chain = envelope.get("delegation_chain")
+    if isinstance(chain, (str, bytes)) or not isinstance(chain, Sequence):
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_INVALID",
+            "delegation_chain must be a sequence",
+        )
+    verified_chain = verify_delegation_chain(
+        chain,
+        trusted_keys=trusted_keys,
+        expected_audience=expected_audience,
+        expected_subject_agent_id=expected_sender_agent_id,
+        expected_action=expected_action,
+        expected_resource_scope=expected_resource_scope,
+        expected_session_id=expected_session_id,
+        expected_tenant_id=expected_tenant_id,
+        expected_project_id=expected_project_id,
+        expected_workspace_id=expected_workspace_id,
+        fan_out_guard=fan_out_guard,
+        current_time=current_time,
+        clock_skew_seconds=clock_skew_seconds,
+        max_chain_length=max_chain_length,
+        require_identity_binding=True,
+    )
+    if replay_guard is None:
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_REPLAY_GUARD_REQUIRED",
+            "strict transport verification requires a replay guard",
+        )
+    try:
+        if replay_guard.is_revoked(envelope["transport_id"], envelope["nonce"]):
+            raise DelegationVerificationError(
+                "DELEGATION_TRANSPORT_REVOKED",
+                "transport envelope was revoked",
+            )
+        if not replay_guard.claim(
+            envelope["transport_id"],
+            envelope["nonce"],
+            envelope["expires_at"],
+        ):
+            raise DelegationVerificationError(
+                "DELEGATION_TRANSPORT_REPLAYED",
+                "transport envelope was already claimed",
+            )
+    except DelegationVerificationError:
+        raise
+    except Exception as exc:
+        raise DelegationVerificationError(
+            "DELEGATION_TRANSPORT_REPLAY_STATE_UNAVAILABLE",
+            "unable to verify transport replay state",
+        ) from exc
+    assert isinstance(sender_deployment_identity, str)
+    assert isinstance(sender_workload_identity, str)
+    return VerifiedDelegationTransport(
+        transport_id=envelope["transport_id"],
+        audience=envelope["audience"],
+        sender_agent_id=envelope["sender_agent_id"],
+        sender_deployment_identity=sender_deployment_identity,
+        sender_workload_identity=sender_workload_identity,
+        receiver_deployment_identity=envelope["receiver_deployment_identity"],
+        receiver_workload_identity=envelope["receiver_workload_identity"],
+        issued_at=envelope["issued_at"],
+        expires_at=envelope["expires_at"],
+        nonce=envelope["nonce"],
+        key_id=key_id,
+        issuer=issuer,
+        delegation_chain=verified_chain,
+    )
+
+
 def sign_delegation_token(
     *,
     private_key: Ed25519PrivateKey,
@@ -293,6 +691,8 @@ def sign_delegation_token(
     max_depth: int = 0,
     max_fan_out: int = 0,
     delegation_id: str | None = None,
+    issuer_deployment_identity: str | None = None,
+    issuer_workload_identity: str | None = None,
 ) -> dict[str, Any]:
     """Create a signed delegation token for one bounded child principal."""
     if not isinstance(private_key, Ed25519PrivateKey):
@@ -306,6 +706,10 @@ def sign_delegation_token(
         ("nonce", nonce),
     ):
         _validate_text(required_value, field)
+    _validate_identity_pair(
+        issuer_deployment_identity,
+        issuer_workload_identity,
+    )
     if issuer_agent_id == subject_agent_id:
         raise DelegationVerificationError(
             "DELEGATION_CHAIN_INVALID",
@@ -357,6 +761,8 @@ def sign_delegation_token(
         "issued_at": issued_at,
         "expires_at": expires_at,
         "nonce": nonce,
+        "issuer_deployment_identity": issuer_deployment_identity,
+        "issuer_workload_identity": issuer_workload_identity,
         "signature": {
             "algorithm": DELEGATION_SIGNATURE_ALGORITHM,
             "key_id": key_id,
@@ -380,6 +786,9 @@ def verify_delegation_token(
     expected_tenant_id: str | None = None,
     expected_project_id: str | None = None,
     expected_workspace_id: str | None = None,
+    expected_issuer_deployment_identity: str | None = None,
+    expected_issuer_workload_identity: str | None = None,
+    require_identity_binding: bool = False,
     current_time: datetime | None = None,
     clock_skew_seconds: int = 60,
 ) -> VerifiedDelegation:
@@ -407,6 +816,8 @@ def verify_delegation_token(
         "issued_at",
         "expires_at",
         "nonce",
+        "issuer_deployment_identity",
+        "issuer_workload_identity",
         "signature",
     }
     unknown = set(token).difference(allowed)
@@ -442,6 +853,13 @@ def verify_delegation_token(
     )
     parent_delegation_id = token.get("parent_delegation_id")
     _validate_optional_text(parent_delegation_id, "parent_delegation_id")
+    issuer_deployment_identity = token.get("issuer_deployment_identity")
+    issuer_workload_identity = token.get("issuer_workload_identity")
+    _validate_identity_pair(issuer_deployment_identity, issuer_workload_identity)
+    _validate_identity_pair(
+        expected_issuer_deployment_identity,
+        expected_issuer_workload_identity,
+    )
     delegation_depth, max_depth, max_fan_out = _validate_limits(
         token.get("delegation_depth"),
         token.get("max_depth"),
@@ -489,6 +907,14 @@ def verify_delegation_token(
             "DELEGATION_ISSUER_UNBOUND",
             "signing key is not bound to issuer_agent_id",
         )
+    _verify_identity_binding(
+        trusted,
+        issuer_deployment_identity,
+        issuer_workload_identity,
+        expected_deployment_identity=expected_issuer_deployment_identity,
+        expected_workload_identity=expected_issuer_workload_identity,
+        require_identity_binding=require_identity_binding,
+    )
     if trusted.issuer is not None and trusted.issuer != issuer:
         raise DelegationVerificationError(
             "DELEGATION_ISSUER_INVALID",
@@ -534,6 +960,8 @@ def verify_delegation_token(
         nonce=token["nonce"],
         key_id=key_id,
         issuer=issuer,
+        deployment_identity=trusted.deployment_identity,
+        workload_identity=trusted.workload_identity,
     )
 
 
@@ -617,6 +1045,9 @@ def verify_delegation_chain(
     current_time: datetime | None = None,
     clock_skew_seconds: int = 60,
     max_chain_length: int = 8,
+    expected_leaf_deployment_identity: str | None = None,
+    expected_leaf_workload_identity: str | None = None,
+    require_identity_binding: bool = False,
 ) -> tuple[VerifiedDelegation, ...]:
     """Verify root-to-leaf identity, scope attenuation, and fan-out records."""
     if isinstance(chain, (str, bytes)) or not isinstance(chain, Sequence) or not chain:
@@ -641,6 +1072,13 @@ def verify_delegation_chain(
             expected_subject_agent_id=(
                 expected_subject_agent_id if index == len(chain) - 1 else None
             ),
+            expected_issuer_deployment_identity=(
+                expected_leaf_deployment_identity if index == len(chain) - 1 else None
+            ),
+            expected_issuer_workload_identity=(
+                expected_leaf_workload_identity if index == len(chain) - 1 else None
+            ),
+            require_identity_binding=require_identity_binding,
             expected_session_id=expected_session_id,
             expected_tenant_id=expected_tenant_id,
             expected_project_id=expected_project_id,
@@ -893,6 +1331,8 @@ class SQLiteFanOutGuard:
 __all__ = [
     "DELEGATION_SCHEMA_VERSION",
     "DELEGATION_SIGNATURE_ALGORITHM",
+    "DELEGATION_TRANSPORT_SCHEMA_VERSION",
+    "DelegationReplayGuard",
     "DelegationTrustedKey",
     "DelegationVerificationError",
     "FanOutError",
@@ -900,8 +1340,11 @@ __all__ = [
     "InMemoryFanOutGuard",
     "SQLiteFanOutGuard",
     "VerifiedDelegation",
+    "VerifiedDelegationTransport",
     "reserve_delegation_child",
     "sign_delegation_token",
+    "sign_delegation_transport",
     "verify_delegation_chain",
     "verify_delegation_token",
+    "verify_delegation_transport",
 ]

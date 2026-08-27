@@ -26,12 +26,14 @@ from .circuit_breaker import (
 )
 from .decision import GovernanceDeniedError
 from .delegation import (
+    DelegationReplayGuard,
     DelegationTrustedKey,
     DelegationVerificationError,
     FanOutError,
     FanOutGuard,
     VerifiedDelegation,
     verify_delegation_chain,
+    verify_delegation_transport,
 )
 from .execution_receipts import (
     ApprovalVerificationError,
@@ -295,9 +297,15 @@ class BoundTool:
         session_id: str | None = None,
         tenant_id: str | None = None,
         delegation_chain: Sequence[Mapping[str, Any]] | None = None,
+        delegation_transport: Mapping[str, Any] | None = None,
         delegation_trusted_keys: Mapping[str, DelegationTrustedKey] | None = None,
         delegation_audience: str | None = None,
         delegation_fan_out_guard: FanOutGuard | None = None,
+        delegation_expected_sender_deployment_identity: str | None = None,
+        delegation_expected_sender_workload_identity: str | None = None,
+        delegation_receiver_deployment_identity: str | None = None,
+        delegation_receiver_workload_identity: str | None = None,
+        delegation_transport_replay_guard: DelegationReplayGuard | None = None,
         runtime_budget: RuntimeBudgetGuard | None = None,
         budget_scope: str | None = None,
         max_concurrency: int | None = None,
@@ -416,7 +424,12 @@ class BoundTool:
             arguments_digest = compute_arguments_digest(normalized)
 
             effective_signals = dict(signals or {})
-            if delegation_chain is not None:
+            if delegation_chain is not None and delegation_transport is not None:
+                raise DelegationVerificationError(
+                    "DELEGATION_INPUT_AMBIGUOUS",
+                    "pass either delegation_chain or delegation_transport, not both",
+                )
+            if delegation_chain is not None or delegation_transport is not None:
                 if not delegation_trusted_keys:
                     raise DelegationVerificationError(
                         "DELEGATION_TRUST_ROOT_REQUIRED",
@@ -427,18 +440,62 @@ class BoundTool:
                         "DELEGATION_AUDIENCE_REQUIRED",
                         "delegation_audience is required for a delegation chain",
                     )
-                verified_chain = verify_delegation_chain(
-                    delegation_chain,
-                    trusted_keys=delegation_trusted_keys,
-                    expected_audience=delegation_audience,
-                    expected_subject_agent_id=agent_id,
-                    expected_action=self.action,
-                    expected_resource_scope=resource,
-                    expected_session_id=session_id,
-                    expected_tenant_id=tenant_id,
-                    fan_out_guard=delegation_fan_out_guard,
-                )
-                verified_delegation = verified_chain[-1]
+                if delegation_transport is not None:
+                    transport_identities = (
+                        delegation_expected_sender_deployment_identity,
+                        delegation_expected_sender_workload_identity,
+                        delegation_receiver_deployment_identity,
+                        delegation_receiver_workload_identity,
+                    )
+                    if any(identity is None for identity in transport_identities):
+                        raise DelegationVerificationError(
+                            "DELEGATION_TRANSPORT_IDENTITY_REQUIRED",
+                            "strict transport requires sender and receiver identities",
+                        )
+                    assert all(
+                        isinstance(identity, str) for identity in transport_identities
+                    )
+                    (
+                        expected_sender_deployment_identity,
+                        expected_sender_workload_identity,
+                        receiver_deployment_identity,
+                        receiver_workload_identity,
+                    ) = transport_identities
+                    assert isinstance(expected_sender_deployment_identity, str)
+                    assert isinstance(expected_sender_workload_identity, str)
+                    assert isinstance(receiver_deployment_identity, str)
+                    assert isinstance(receiver_workload_identity, str)
+                    verified_transport = verify_delegation_transport(
+                        delegation_transport,
+                        trusted_keys=delegation_trusted_keys,
+                        expected_audience=delegation_audience,
+                        expected_sender_agent_id=agent_id,
+                        expected_sender_deployment_identity=expected_sender_deployment_identity,
+                        expected_sender_workload_identity=expected_sender_workload_identity,
+                        expected_receiver_deployment_identity=receiver_deployment_identity,
+                        expected_receiver_workload_identity=receiver_workload_identity,
+                        expected_action=self.action,
+                        expected_resource_scope=resource,
+                        expected_session_id=session_id,
+                        expected_tenant_id=tenant_id,
+                        fan_out_guard=delegation_fan_out_guard,
+                        replay_guard=delegation_transport_replay_guard,
+                    )
+                    verified_delegation = verified_transport.delegation_chain[-1]
+                else:
+                    assert delegation_chain is not None
+                    verified_chain = verify_delegation_chain(
+                        delegation_chain,
+                        trusted_keys=delegation_trusted_keys,
+                        expected_audience=delegation_audience,
+                        expected_subject_agent_id=agent_id,
+                        expected_action=self.action,
+                        expected_resource_scope=resource,
+                        expected_session_id=session_id,
+                        expected_tenant_id=tenant_id,
+                        fan_out_guard=delegation_fan_out_guard,
+                    )
+                    verified_delegation = verified_chain[-1]
                 if "delegation" in effective_signals:
                     raise DelegationVerificationError(
                         "DELEGATION_INPUT_AMBIGUOUS",
@@ -633,9 +690,13 @@ class BoundTool:
                     "DELEGATION_EXPIRED",
                     "DELEGATION_NOT_YET_VALID",
                     "DELEGATION_CONTEXT_MISMATCH",
+                    "DELEGATION_TRANSPORT_CONTEXT_MISMATCH",
                     "DELEGATION_REVOKED",
                     "DELEGATION_FANOUT_UNREGISTERED",
                     "DELEGATION_FANOUT_GUARD_REQUIRED",
+                    "DELEGATION_TRANSPORT_REPLAYED",
+                    "DELEGATION_TRANSPORT_REVOKED",
+                    "DELEGATION_TRANSPORT_REPLAY_GUARD_REQUIRED",
                 }:
                     result = "reapproval_required"
                 else:
