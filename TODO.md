@@ -12,7 +12,8 @@
 
 ## Next milestones
 
-- [ ] Publish cross-language JCS golden vectors.
+- [x] Publish cross-language JCS golden vectors and verify them in the Python
+  runtime.
 - [x] Define and verify signed request-bound approval tokens in the experimental
   `BoundTool` path.
 - [x] Define and emit hash-chained, optionally signed execution receipts for

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added language-neutral RFC 8785 JCS golden vectors covering key ordering,
+  number normalization, Unicode escaping, arrays, canonical UTF-8, and
+  SHA-256 digests.
 - Added the trusted runtime binding MVP for Tool Contracts: RFC 8785 digests,
   exact callable references, immutable bound registries, normalized argument
   validation, resource-scope checks, and governed dispatch.
@@ -27,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Added exact Gitleaks fingerprints for six reviewed synthetic false positives
+  from the initial runtime-receipt history scan; future findings remain
+  blocking.
 - Runtime binding compares reviewed and observed Tool Contract digests before
   retaining a callable and never performs a late name lookup at dispatch.
 - Tool arguments are normalized and validated against the reviewed JSON Schema
