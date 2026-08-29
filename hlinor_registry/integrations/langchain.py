@@ -20,6 +20,7 @@ from ..tool_export import (
 )
 from ._gate import (
     DecisionSink,
+    ExecutionScopeSpec,
     GovernanceGate,
     RequestFactory,
     ResourceSpec,
@@ -98,6 +99,8 @@ class GovernedTool(BaseTool):
         request_factory: RequestFactory | None = None,
         resource: ResourceSpec = None,
         signals: SignalsSpec = None,
+        execution_scope: ExecutionScopeSpec = None,
+        require_execution_scope: bool = False,
     ) -> None:
         resolved_bundle_path = registry_dir or bundle_path
         action_candidate = (
@@ -155,6 +158,8 @@ class GovernedTool(BaseTool):
             request_factory=request_factory,
             resource=resource,
             signals=signals,
+            execution_scope=execution_scope,
+            require_execution_scope=require_execution_scope,
         )
 
     @property
@@ -244,6 +249,8 @@ class GovernedAgent:
         request_factory: RequestFactory | None = None,
         resource: ResourceSpec = None,
         signals: SignalsSpec = None,
+        execution_scope: ExecutionScopeSpec = None,
+        require_execution_scope: bool = False,
     ) -> None:
         self.agent_executor = agent_executor
         self.agent_id = agent_id
@@ -253,6 +260,8 @@ class GovernedAgent:
         self._request_factory = request_factory
         self._resource = resource
         self._signals = signals
+        self._execution_scope = execution_scope
+        self._require_execution_scope = require_execution_scope
         self._wrap_tools()
 
     def _wrap_tools(self) -> None:
@@ -290,6 +299,8 @@ class GovernedAgent:
                 request_factory=self._request_factory,
                 resource=self._resource,
                 signals=self._signals,
+                execution_scope=self._execution_scope,
+                require_execution_scope=self._require_execution_scope,
             )
             for tool in tools
         ]

@@ -9,7 +9,13 @@ from typing import Any
 
 import pytest
 
-from hlinor_registry import ActionRequest, GovernanceDeniedError, PolicyDecision
+from hlinor_registry import (
+    ActionRequest,
+    ExecutionScope,
+    ExecutionScopeError,
+    GovernanceDeniedError,
+    PolicyDecision,
+)
 from hlinor_registry.decision import ReasonCode
 from hlinor_registry.integrations._gate import GovernanceGate, InvocationContext
 
@@ -126,6 +132,51 @@ def test_gate_denies_before_the_adapter_can_execute() -> None:
 
     assert len(checker.requests) == 1
     assert emitted == [error.value.decision]
+
+
+def test_gate_injects_explicit_scope_and_can_derive_it_per_invocation() -> None:
+    checker = RecordingChecker()
+    gate = GovernanceGate(
+        agent_id="agent",
+        action="read",
+        bundle_path="unused.json",
+        checker=checker,  # type: ignore[arg-type]
+        execution_scope=lambda context: ExecutionScope(
+            "project-1", context.kwargs["workspace_id"]
+        ),
+        require_execution_scope=True,
+    )
+
+    gate.authorize(kwargs={"workspace_id": "workspace-1"})
+
+    request = checker.requests[0]
+    assert request.project_id == "project-1"
+    assert request.workspace_id == "workspace-1"
+    assert request.signals["execution_scope"]["verified"] is True
+
+
+def test_gate_requires_scope_and_rejects_forged_scope_signal() -> None:
+    checker = RecordingChecker()
+    required = GovernanceGate(
+        agent_id="agent",
+        action="read",
+        bundle_path="unused.json",
+        checker=checker,  # type: ignore[arg-type]
+        require_execution_scope=True,
+    )
+
+    with pytest.raises(ExecutionScopeError, match="EXECUTION_SCOPE_REQUIRED"):
+        required.authorize()
+
+    forged = GovernanceGate(
+        agent_id="agent",
+        action="read",
+        bundle_path="unused.json",
+        checker=checker,  # type: ignore[arg-type]
+        signals={"execution_scope": {"project_id": "forged"}},
+    )
+    with pytest.raises(ValueError, match="not signals"):
+        forged.authorize()
 
 
 def test_gates_serialize_access_to_a_shared_checker() -> None:

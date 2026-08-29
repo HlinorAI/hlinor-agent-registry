@@ -23,9 +23,12 @@ Dispatch remains fail-closed. A tool may execute only when the binding, policy
 decision, arguments, and target scope all match immediately before the side
 effect.
 
-This document is a design proposal. Tool Contracts remain authoring and drift
-inputs in v0.9. `PolicyChecker` does not read them, and this RFC does not claim
-that current exporters prove which code a process will execute.
+This document remains a design proposal for the full signed binding protocol.
+An in-process MVP now implements the exact-object, JCS digest, normalized
+argument, resource-scope, and fail-closed dispatch subset described in
+[`docs/runtime-binding.md`](../runtime-binding.md). Tool Contracts still do not
+grant policy authority, and the MVP does not claim that current exporters prove
+deployment artifact provenance or human approval.
 
 ## Motivation
 
@@ -78,8 +81,15 @@ The current release already provides:
 - immutable `ActionRequest` and provenance-rich `PolicyDecision` records;
 - wrappers that call policy evaluation before the wrapped tool.
 
-The missing guarantee is the cryptographic and in-process relationship between
-the reviewed descriptor and the implementation that receives an allowed call.
+The runtime binding MVP additionally provides an immutable in-process map from
+reviewed contract tool IDs to exact callable references, RFC 8785 contract and
+argument digests, normalized argument validation, and contract resource-scope
+checks before the existing policy gate.
+
+The in-process exact-object relationship is now implemented by the binding MVP.
+The remaining guarantees are the cryptographic relationship to an approved
+request, deployment provenance, and independently durable evidence of what was
+dispatched.
 
 ## Terms
 
@@ -398,8 +408,10 @@ must never report successful durable audit delivery before it occurs.
 4. Prototype in-process binding for custom Python tools.
 5. Extend existing LangChain and CrewAI wrappers to bind the same objects they
    dispatch.
-6. Add argument validation, resource extractors, and receipts behind an
-   experimental API.
+6. Add argument validation, resource extractors, signed approvals, and receipts
+   behind an experimental API. Signed approval, durable replay/revocation,
+   checkpointed receipts, and circuit-breaker primitives now exist; independent
+   collection remains open.
 7. Run adversarial substitution, replay, coercion, and race tests.
 8. Stabilize only after two independent SDKs produce identical vectors.
 

@@ -5,6 +5,95 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added language-neutral RFC 8785 JCS golden vectors covering key ordering,
+  number normalization, Unicode escaping, arrays, canonical UTF-8, and
+  SHA-256 digests.
+- Independently verified all published JCS vectors with Node.js
+  `canonicalize@2.1.0` in addition to the Python runtime tests.
+- Added an experimental signed delegation transport envelope that binds the
+  complete chain to sender/receiver deployment and workload identities and
+  requires durable nonce replay protection at the receiving boundary.
+- Added the trusted runtime binding MVP for Tool Contracts: RFC 8785 digests,
+  exact callable references, immutable bound registries, normalized argument
+  validation, resource-scope checks, and governed dispatch.
+- Added negative security tests proving contract drift, runtime tool-set drift,
+  invalid arguments, resource drift, unsupported signatures, and policy denial
+  block execution.
+- Added project continuity documentation in `PROJECT_PLAN.md` and `TODO.md`.
+- Added experimental detached Ed25519 approval tokens bound to agent, action,
+  tool, resource, normalized arguments, session, and tenant.
+- Added single-use replay protection interface with a thread-safe in-memory
+  implementation for tests and one-process development.
+- Added hash-chained execution receipts with optional Ed25519 signatures,
+  verification, and fsync-backed JSONL persistence.
+- Connected `BoundTool.invoke()` to signed approval verification and receipts for
+  pre-dispatch, completion, denial, and binding-failure outcomes.
+- Added explicit `ExecutionScope` project/workspace binding for governed runtime
+  requests, receipts, signed approvals, and signed delegations.
+- Propagated explicit execution scope through the shared `GovernanceGate`, the
+  framework-neutral decorator, and LangChain/CrewAI governed wrappers.
+- Added experimental SQLite project/workspace-scoped records and recipient-
+  filtered message storage with bounded JSON input and revision tracking.
+- Added an experimental Ed25519 message envelope bound to sender key,
+  recipient, project/workspace scope, freshness, nonce, and canonical body,
+  with fail-closed replay protection.
+- Added `GovernedAutoGenTool` over AutoGen Core's public `BaseTool` API; it
+  authorizes `run_json` before delegating to the validated wrapped tool.
+
+### Changed
+
+- Established the OSS/commercial boundary in
+  `docs/open-core-boundary.md`: this repository remains a portable policy,
+  verification, and reference-runtime core; hosted control-plane, managed
+  identity, network delivery, independent audit, fleet analytics, and
+  production protocol gateways are outside its scope.
+- Clarified the README Enterprise section with the availability of paid
+  implementation services and extended integration support around the OSS
+  core.
+
+### Security
+
+- Added exact Gitleaks fingerprints for six reviewed synthetic false positives
+  from the initial runtime-receipt history scan; future findings remain
+  blocking.
+- Runtime binding compares reviewed and observed Tool Contract digests before
+  retaining a callable and never performs a late name lookup at dispatch.
+- Tool arguments are normalized and validated against the reviewed JSON Schema
+  before policy evaluation and execution.
+- Single-use approvals fail closed without a replay guard; receipt persistence
+  commits to the in-memory chain only after a durable JSONL write succeeds.
+- Added SQLite-backed atomic replay claims and token revocation, including
+  cross-worker race tests.
+- Added a persistent SQLite circuit breaker with closed/open/half-open states,
+  one-probe recovery, threshold consistency checks, and `BoundTool` dispatch
+  blocking after real tool failures.
+- Added checkpointed JSONL receipt resume with full shape/chain verification,
+  atomic checkpoint replacement, and fail-closed behavior after persistence
+  uncertainty.
+- Added `FailClosedReceiptSink` as the no-retry boundary for external receipt
+  collectors; collector errors block pre-dispatch receipt delivery without
+  exposing collector internals.
+- Added experimental signed agent delegation chains with issuer-key binding,
+  audience/context checks, scope attenuation, depth limits, revocation, and
+  atomic SQLite bounded fan-out registration.
+- Added configured deployment/workload identity bindings for delegation keys,
+  strict transport-envelope verification, and fail-closed `BoundTool` support.
+- Added experimental SQLite runtime limits for per-scope rate/concurrency
+  admission and a shared kill switch, with lease release wired into
+  `BoundTool.invoke()`.
+- `BoundTool` can now fail closed when an isolated deployment omits an explicit
+  project/workspace scope, rejects caller-forged scope signals, and never treats
+  filenames, package metadata, or natural-language messages as authority.
+- Scoped message bodies remain ordinary data and sender IDs are metadata only;
+  signed transport now verifies sender identity, exact recipient, scope,
+  freshness, and replay state before a message is trusted.
+- The signed message API does not provide network delivery, key rotation,
+  external workload attestation, or independent audit collection.
+
 ## [0.10.0] - 2026-08-03
 
 ### Added

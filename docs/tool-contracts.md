@@ -12,6 +12,12 @@ The contract is declarative. It does not import agent code, execute tools, or
 grant permission. Agent action lists and compiled policies remain the runtime
 authorization source.
 
+For an in-process runtime that needs to bind the reviewed description to the
+callable it will execute, use the [trusted runtime binding MVP](runtime-binding.md).
+That layer keeps Tool Contracts from becoming authority by itself: it compares
+the reviewed and observed contract digests, then invokes the existing policy
+gate before dispatching the exact retained object.
+
 ## Validate a contract
 
 Tool Contracts may be written as YAML or JSON:

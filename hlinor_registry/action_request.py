@@ -64,6 +64,8 @@ class ActionRequest:
     approval_id: str | None = None
     session_id: str | None = None
     tenant_id: str | None = None
+    project_id: str | None = None
+    workspace_id: str | None = None
     environment: str | None = None
     requested_at: str = field(default_factory=_utc_now)
 
@@ -87,6 +89,8 @@ class ActionRequest:
             "approval_id",
             "session_id",
             "tenant_id",
+            "project_id",
+            "workspace_id",
             "environment",
         ):
             value = getattr(self, field_name)
@@ -98,13 +102,17 @@ class ActionRequest:
                 raise ValueError(
                     f"ActionRequest {field_name} cannot contain outer whitespace"
                 )
+        if (self.project_id is None) != (self.workspace_id is None):
+            raise ValueError(
+                "ActionRequest project_id and workspace_id must be supplied together"
+            )
 
         object.__setattr__(self, "attributes", _freeze_json(self.attributes))
         object.__setattr__(self, "signals", _freeze_json(self.signals))
 
     def to_dict(self) -> dict[str, Any]:
         """Return the stable JSON-compatible representation used for hashing."""
-        return {
+        payload = {
             "request_id": self.request_id,
             "agent_id": self.agent_id,
             "action": self.action,
@@ -120,6 +128,11 @@ class ActionRequest:
             "environment": self.environment,
             "requested_at": self.requested_at,
         }
+        # Keep legacy request digests stable when no project scope was supplied.
+        if self.project_id is not None and self.workspace_id is not None:
+            payload["project_id"] = self.project_id
+            payload["workspace_id"] = self.workspace_id
+        return payload
 
     @property
     def request_digest(self) -> str:

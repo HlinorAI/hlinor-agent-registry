@@ -13,6 +13,13 @@ Open-source registry layer for auditable AI agent systems. Define what your AI a
 
 Hlinor Agent Registry is a declarative governance layer for agent systems. It turns action boundaries, policies, approvals, and runtime evidence into reviewable YAML contracts that developers and security teams can understand.
 
+This repository is the public OSS core: portable policies, verifiers, local
+reference runtimes, and conformance tests. Hosted multi-tenant control plane,
+managed identity and key lifecycle, network message delivery, centralized audit,
+fleet analytics, and production gateways belong to the separate commercial
+layer. See the [open-core boundary](docs/open-core-boundary.md) before adding
+new capabilities.
+
 ---
 
 ## ⚡ Quickstart
@@ -151,6 +158,15 @@ safe_tool = GovernedTool(
 Both need the matching extra: `pip install "hlinor-registry[langchain]"` or
 `[crewai]`. Runnable versions of all three are in
 [`examples/`](examples/).
+
+For a reviewed Tool Contract that must bind to the exact callable being
+dispatched, use the [trusted runtime binding MVP](docs/runtime-binding.md).
+It validates normalized arguments, checks the declared resource scope, runs
+the existing policy gate, and never performs a late name lookup. For a sensitive
+call, pass a detached signed approval, a shared replay guard, and a receipt
+sink; see [signed request-bound approvals](docs/approval-tokens.md). A
+`SQLiteCircuitBreaker` can additionally stop the same governed call after a
+durable failure threshold.
 
 ### Where to go next
 
@@ -734,14 +750,31 @@ observed_contract = export_autogen_tool_contract(
 )
 ```
 
+For an execution boundary, wrap the AutoGen tool itself:
+
+```python
+from hlinor_registry.integrations.autogen import GovernedAutoGenTool
+
+safe_tool = GovernedAutoGenTool(
+    tool=my_autogen_tool,
+    agent_id="research-agent",
+    bundle_path="./dist/policy-bundle.json",
+    execution_scope=scope,
+    require_execution_scope=True,
+)
+```
+
 Custom Python stacks can export explicit schemas with
 `CustomToolDescriptor` and `export_custom_tool_contract` without installing an
-agent framework. AutoGen and custom exporters synchronize Tool Contracts; they
-do not wrap execution by themselves.
+agent framework. AutoGen now has both a governed execution wrapper and Tool
+Contract export; custom export only synchronizes Tool Contracts.
 
 See the [integration compatibility matrix](docs/integration-compatibility.md)
 and [framework exporter guide](docs/framework-exporters.md) for governed
 wrappers, Tool Contract export, and CI drift gates.
+
+For signed, scope-bound cross-agent messages, see
+[Authenticated scoped messages](docs/message-transport.md).
 
 ### Development dependencies
 ```bash
@@ -820,6 +853,9 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Execution model](docs/execution-model.md)
 - [Approval model](docs/approval-model.md)
 - [Runtime bindings and execution receipts](docs/runtime-receipts.md)
+- [Signed request-bound approvals](docs/approval-tokens.md)
+- [Trusted runtime binding MVP](docs/runtime-binding.md)
+- [Scoped workspace state and messages](docs/scoped-state.md)
 - [Audit trail](docs/audit-trail.md)
 - [ActionRequest and decision provenance](docs/action-request.md)
 - [Signed bundles and trust stores](docs/signed-bundles.md)
@@ -842,6 +878,9 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Evidence-bound claims](docs/patterns/evidence-bound-claims.md)
 - [Capability verification](docs/patterns/capability-verification.md)
 - [Agent lifecycle operating modes](docs/patterns/agent-lifecycle-operating-modes.md)
+- [Repeated failure circuit breaker](docs/patterns/repeated-failure-circuit-breaker.md)
+- [Authenticated agent delegation](docs/delegation.md)
+- [Shared runtime limits](docs/runtime-limits.md)
 
 ---
 
@@ -869,7 +908,12 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 
 ## 🏢 Enterprise
 
-Teams adopting agent governance at scale can contact the HlinorAI team at `hello@hlinor.com` for architecture guidance, policy design, and integration support.
+Teams adopting agent governance at scale can contact the HlinorAI team at
+`hello@hlinor.com` for paid implementation services, architecture guidance,
+policy design, deployment hardening, and extended integration support. The
+managed control-plane and hosted operational capabilities are provided as a
+separate commercial offering around this OSS core; pricing and scope are
+agreed for each engagement.
 
 ---
 

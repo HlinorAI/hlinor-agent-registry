@@ -11,6 +11,7 @@ from ..decision import GovernanceDeniedError
 from ..policy_checker import PolicyChecker
 from ._gate import (
     DecisionSink,
+    ExecutionScopeSpec,
     GovernanceGate,
     RequestFactory,
     ResourceSpec,
@@ -32,6 +33,8 @@ def governed(
     tool_id: str | None = None,
     resource: ResourceSpec = None,
     signals: SignalsSpec = None,
+    execution_scope: ExecutionScopeSpec = None,
+    require_execution_scope: bool = False,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorate a sync or async function with one governance evaluation.
 
@@ -53,6 +56,8 @@ def governed(
             request_factory=request_factory,
             resource=resource,
             signals=signals,
+            execution_scope=execution_scope,
+            require_execution_scope=require_execution_scope,
         )
 
         if inspect.iscoroutinefunction(func):

@@ -92,6 +92,39 @@ Examples:
 
 Approval records should include the project identifier and the scope of the approved action.
 
+## Runtime enforcement
+
+The experimental `BoundTool` path represents this boundary with an explicit
+`ExecutionScope(project_id, workspace_id)` value. The two identifiers are
+pairwise-required, included in the `ActionRequest` digest, exposed to policy as
+runtime-generated scope context, and copied into execution receipts.
+
+Deployments that require isolation pass `require_execution_scope=True`; a
+missing scope then blocks before policy evaluation and dispatch. A caller may
+not provide `signals["execution_scope"]`, because policy input must not be able
+to manufacture a verified scope signal.
+
+When a signed approval or delegation is supplied, the runtime compares its
+project and workspace claims with the explicit execution scope. A mismatch
+blocks the action. An unscoped legacy invocation remains available for
+backward compatibility, but it does not claim project isolation and should not
+be enabled for isolated deployment profiles.
+
+The runtime does not derive authority from filenames, package metadata,
+directory names, chat history, or natural-language inter-agent messages. Those
+values may be ordinary data, but they are never accepted as the project,
+workspace, approval, or delegation boundary.
+
+This MVP enforces the scope at `BoundTool`; framework adapters, workspace
+stores, and external workload attestation still require deployment-specific
+integration before the repository can claim end-to-end isolation.
+
+The repository now also includes an experimental
+`SQLiteScopedWorkspaceStore` for durable records and ordinary messages. It
+requires the same explicit scope for every operation and has no global listing
+API. It prevents accidental cross-project reads, but it does not authenticate
+the `sender_agent_id` of a message or replace signed delegation transport.
+
 ## Memory boundary
 
 Durable memory must be project-aware.

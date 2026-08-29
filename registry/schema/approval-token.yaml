@@ -1,0 +1,43 @@
+id: approval-token
+
+name: Signed Request-bound Approval Token
+
+description: >
+  Defines a detached, short-lived approval for one exact agent, tool, action,
+  resource, normalized argument digest, and optional session or tenant.
+  Project and workspace claims may additionally bind the approval to one
+  isolated execution domain.
+
+purpose: >
+  Prevents an agent or adapter from turning an informal approval message into
+  authority for a different request.
+
+required_fields:
+  - schema_version
+  - token_id
+  - subject_agent_id
+  - action
+  - arguments_digest
+  - issued_at
+  - expires_at
+  - nonce
+  - single_use
+  - signature
+
+signature_requirements:
+  - detached_from_tool_contract
+  - ed25519
+  - trusted_issuer
+  - trusted_key_id
+  - bounded_validity_window
+  - request_target_equality
+  - single_use_requires_atomic_replay_guard
+  - project_workspace_pair_when_present
+
+blocked_patterns:
+  - accept_unsigned_approval
+  - accept_approval_for_different_arguments
+  - accept_approval_for_different_resource
+  - accept_approval_for_different_project_or_workspace
+  - reuse_single_use_approval
+  - treat_agent_message_as_human_approval

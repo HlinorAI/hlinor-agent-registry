@@ -18,6 +18,7 @@ from ..tool_export import (
 )
 from ._gate import (
     DecisionSink,
+    ExecutionScopeSpec,
     GovernanceGate,
     RequestFactory,
     ResourceSpec,
@@ -84,6 +85,8 @@ class GovernedCrewTool(BaseTool):
         request_factory: RequestFactory | None = None,
         resource: ResourceSpec = None,
         signals: SignalsSpec = None,
+        execution_scope: ExecutionScopeSpec = None,
+        require_execution_scope: bool = False,
         **kwargs: Any,
     ) -> None:
         if isinstance(executor, BaseTool):
@@ -110,6 +113,8 @@ class GovernedCrewTool(BaseTool):
             request_factory=request_factory,
             resource=resource,
             signals=signals,
+            execution_scope=execution_scope,
+            require_execution_scope=require_execution_scope,
         )
 
     def _authorize(self, args: tuple[Any, ...], kwargs: dict[str, Any]) -> None:

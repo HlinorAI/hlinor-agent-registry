@@ -1,9 +1,8 @@
 # Repeated Failure Circuit Breaker
 
-> **Scope.** This is an authoring contract, not a runtime control. The schema is
-> validated when you compile a bundle; `PolicyChecker` does not evaluate it.
-> Enforcement is your adapter's, your preflight step's, or a reviewer's job. See
-> [What is enforced at runtime](../../README.md#what-is-enforced-at-runtime).
+> **Scope.** The YAML schema remains an authoring contract, not a policy checked
+> by `PolicyChecker`. The experimental `SQLiteCircuitBreaker` is a separate
+> runtime control that stores state durably and blocks `BoundTool` dispatch.
 
 A control loop must stop when the same failure repeats beyond a configured threshold.
 
@@ -15,4 +14,6 @@ The breaker should use a stable failure fingerprint and distinguish:
 - policy denial;
 - invalid execution context.
 
-When opened, the breaker blocks additional cost and side effects until review or a successful probe.
+When opened, the breaker blocks additional cost and side effects until review or
+a successful probe. A normal in-flight call cannot clear an already-open
+breaker; only an explicit half-open probe may do that.
