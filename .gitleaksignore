@@ -4,3 +4,9 @@
 5f610b11dac898d6682fece2a10cea7e1cf2cfdf:tests/test_execution_receipts.py:generic-api-key:146
 5f610b11dac898d6682fece2a10cea7e1cf2cfdf:tests/test_execution_receipts.py:generic-api-key:174
 5f610b11dac898d6682fece2a10cea7e1cf2cfdf:hlinor_registry/execution_receipts.py:generic-api-key:549
+7bd68d7dc946425a6f45c12d4cda3cb497bc04ee:tests/test_execution_receipts.py:generic-api-key:75
+7bd68d7dc946425a6f45c12d4cda3cb497bc04ee:tests/test_execution_receipts.py:generic-api-key:108
+7bd68d7dc946425a6f45c12d4cda3cb497bc04ee:tests/test_execution_receipts.py:generic-api-key:137
+7bd68d7dc946425a6f45c12d4cda3cb497bc04ee:tests/test_execution_receipts.py:generic-api-key:155
+7bd68d7dc946425a6f45c12d4cda3cb497bc04ee:tests/test_execution_receipts.py:generic-api-key:183
+7bd68d7dc946425a6f45c12d4cda3cb497bc04ee:hlinor_registry/execution_receipts.py:generic-api-key:627

@@ -57,9 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- Added exact Gitleaks fingerprints for six reviewed synthetic false positives
-  from the initial runtime-receipt history scan; future findings remain
-  blocking.
+- Added exact Gitleaks fingerprints for reviewed synthetic false positives from
+  the runtime-receipt history, including the squash-merge commit; future
+  findings remain blocking.
 - Runtime binding compares reviewed and observed Tool Contract digests before
   retaining a callable and never performs a late name lookup at dispatch.
 - Tool arguments are normalized and validated against the reviewed JSON Schema
