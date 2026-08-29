@@ -908,7 +908,12 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 
 ## 🏢 Enterprise
 
-Teams adopting agent governance at scale can contact the HlinorAI team at `hello@hlinor.com` for architecture guidance, policy design, and integration support.
+Teams adopting agent governance at scale can contact the HlinorAI team at
+`hello@hlinor.com` for paid implementation services, architecture guidance,
+policy design, deployment hardening, and extended integration support. The
+managed control-plane and hosted operational capabilities are provided as a
+separate commercial offering around this OSS core; pricing and scope are
+agreed for each engagement.
 
 ---
 

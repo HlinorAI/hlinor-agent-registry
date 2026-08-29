@@ -51,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verification, and reference-runtime core; hosted control-plane, managed
   identity, network delivery, independent audit, fleet analytics, and
   production protocol gateways are outside its scope.
+- Clarified the README Enterprise section with the availability of paid
+  implementation services and extended integration support around the OSS
+  core.
 
 ### Security
 
