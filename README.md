@@ -454,7 +454,7 @@ The registry makes the constraint visible, versionable, and reviewable instead o
 
 ## ⚖️ What is enforced at runtime
 
-The repository ships 22 schemas and a set of governance patterns. Most of them
+The repository ships 26 schemas and a set of governance patterns. Most of them
 are **authoring contracts**: they give reviewers a shared vocabulary, and they
 are not evaluated when an agent asks to do something.
 
@@ -462,7 +462,7 @@ Be precise about where they are checked, because "a schema exists" is not the
 same claim as "something checks it". `compile` reads only the files your
 manifest names, and it accepts three entity types: `agent`, `policy` and
 `capability`. Every other schema is checked only if you run its `validate-*`
-command yourself, and six have no command at all. Two of the twenty-two reach a
+command yourself, and six have no command at all. Two of the twenty-six reach a
 runtime decision. [`docs/contract-status.md`](docs/contract-status.md) gives the
 status of each one; read this table before you rely on any of it.
 
@@ -817,6 +817,7 @@ hlinor-registry compile --manifest registry.yaml --output dist/policy-bundle.jso
 
 # Validate a registry file
 hlinor-registry validate-agent examples/search-agent.yaml
+hlinor-registry validate-agent-contract examples/agent-contract.yaml
 
 # Validate runtime governance contracts
 hlinor-registry validate-execution-context <path>
@@ -831,6 +832,12 @@ hlinor-registry validate-circuit-breaker <path>
 # Detect undeclared tool scopes and stale agent permissions
 hlinor-registry contract check \
   --agent examples/tool-contracts/customer-support-agent.yaml \
+  --tools examples/tool-contracts/customer-support-tools.yaml
+
+# Check a first-class Agent Contract against both declarations
+hlinor-registry contract verify-agent \
+  --contract examples/agent-contract.yaml \
+  --agent examples/search-agent.yaml \
   --tools examples/tool-contracts/customer-support-tools.yaml
 
 # Compare a reviewed Tool Contract with a fresh runtime export
@@ -854,6 +861,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Approval model](docs/approval-model.md)
 - [Runtime bindings and execution receipts](docs/runtime-receipts.md)
 - [Outcome and acceptance gate](docs/outcome-acceptance.md)
+- [Agent Contracts](docs/agent-contracts.md)
 - [Signed request-bound approvals](docs/approval-tokens.md)
 - [Trusted runtime binding MVP](docs/runtime-binding.md)
 - [Scoped workspace state and messages](docs/scoped-state.md)

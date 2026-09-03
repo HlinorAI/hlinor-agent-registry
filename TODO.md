@@ -48,10 +48,10 @@
   when every declared acceptance criterion has verified evidence; timeout,
   interruption, blocked, approval-pending, and partial states remain
   non-success outcomes.
-- [ ] Add a first-class public Agent Contract validator for owner, goals,
+- [x] Add a first-class public Agent Contract validator for owner, goals,
   forbidden actions, action levels, approvals, stop conditions, data access,
-  and failure mode. It must cross-check policy and Tool Contract without
-  becoming an authority store.
+  and failure mode. Its stateless compatibility check cross-checks policy and
+  Tool Contract declarations without becoming an authority store.
 - [ ] Add a governance coverage checker and CI failure for known sensitive
   tool paths that bypass `BoundTool` or the shared governance gate.
 - [ ] Add an adversarial conformance suite for spoofing, poisoned messages,

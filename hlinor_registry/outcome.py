@@ -90,9 +90,7 @@ class EvidenceRecord:
         _require_text(self.evidence_id, "evidence_id")
         _require_text(self.reference, "reference")
         if not isinstance(self.verified, bool):
-            raise OutcomeGateError(
-                "EVIDENCE_INVALID", "verified must be a boolean"
-            )
+            raise OutcomeGateError("EVIDENCE_INVALID", "verified must be a boolean")
 
 
 @dataclass(frozen=True, slots=True)

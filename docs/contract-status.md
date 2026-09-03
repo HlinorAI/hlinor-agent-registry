@@ -22,6 +22,7 @@ pipeline. For most of them it does not.
 | Schema | Status | CLI command |
 | :--- | :--- | :--- |
 | `agent.yaml` | enforced + compile-validated | `validate-agent`, `validate` |
+| `agent-contract.yaml` | command-validated | `validate-agent-contract` |
 | `policy.yaml` | enforced + compile-validated | `validate-policy` |
 | `capability.yaml` | compile-validated | `validate-capability-registration` |
 | `action-preflight.yaml` | command-validated | `validate-action-preflight` |
@@ -47,7 +48,7 @@ pipeline. For most of them it does not.
 | `runtime-policy-session-binding.yaml` | reference-only | — |
 | `task-workspace.yaml` | reference-only | — |
 
-Two of twenty-five are enforced. Three reach `compile`. One is runtime-emitted
+Two of twenty-six are enforced. Three reach `compile`. One is runtime-emitted
 by the binding API with runtime shape validation, but no compile or standalone
 CLI loading. Six have no command at all.
 

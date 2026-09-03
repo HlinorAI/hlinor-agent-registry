@@ -227,9 +227,7 @@ services_restarted: false
 
     errors = validate_lifecycle_receipt(path)
 
-    assert (
-        "lifecycle_receipt: completed stop_reason requires SUCCESS outcome" in errors
-    )
+    assert "lifecycle_receipt: completed stop_reason requires SUCCESS outcome" in errors
 
 
 def test_validate_lifecycle_map_cli_command(capsys, monkeypatch):

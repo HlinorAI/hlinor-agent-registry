@@ -1,5 +1,16 @@
 from ._version import __version__
 from .action_request import ActionRequest
+from .agent_contract import (
+    AGENT_CONTRACT_SCHEMA_VERSION,
+    AgentContractCompatibilityReport,
+    AgentContractFinding,
+    AgentContractInputError,
+    check_agent_contract_files,
+    compare_agent_contract_compatibility,
+    load_agent_contract,
+    validate_agent_contract,
+    validate_agent_contract_data,
+)
 from .bundle_cache import BundleCacheInfo, PolicyBundleCache
 from .circuit_breaker import (
     BreakerSnapshot,
@@ -132,6 +143,7 @@ from .tool_export import (
 )
 
 __all__ = [
+    "AGENT_CONTRACT_SCHEMA_VERSION",
     "APPROVAL_SCHEMA_VERSION",
     "DELEGATION_SCHEMA_VERSION",
     "DELEGATION_SIGNATURE_ALGORITHM",
@@ -143,6 +155,9 @@ __all__ = [
     "TOOL_CONTRACT_SCHEMA_VERSION",
     "AcceptanceCriterion",
     "ActionRequest",
+    "AgentContractCompatibilityReport",
+    "AgentContractFinding",
+    "AgentContractInputError",
     "ApprovalVerificationError",
     "ArgumentValidationError",
     "BoundTool",
@@ -219,12 +234,15 @@ __all__ = [
     "__version__",
     "bind_tool",
     "canonical_json_bytes",
+    "check_agent_contract_files",
     "check_contract_drift_files",
     "compare_agent_contract",
+    "compare_agent_contract_compatibility",
     "compare_tool_contracts",
     "compute_arguments_digest",
     "compute_tool_contract_digest",
     "diff_tool_contract_files",
+    "load_agent_contract",
     "load_policy_test_suite",
     "load_tool_contract",
     "reserve_delegation_child",
@@ -234,6 +252,8 @@ __all__ = [
     "sign_delegation_transport",
     "sign_scoped_message",
     "tool_contract_schema",
+    "validate_agent_contract",
+    "validate_agent_contract_data",
     "validate_tool_contract",
     "verify_approval_token",
     "verify_delegation_chain",

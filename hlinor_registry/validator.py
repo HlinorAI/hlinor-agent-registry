@@ -4,6 +4,7 @@ import yaml
 
 from ._limits import MAX_SOURCE_BYTES, read_text_capped
 from ._matching import pattern_errors
+from .agent_contract import validate_agent_contract
 from .policies import policy_definition_errors
 from .tool_contract import validate_tool_contract
 
@@ -723,6 +724,7 @@ def validate_pre_dispatch_authorization_check(data: dict) -> list[str]:
 def validate_registry_file(entity_type: str, path: str | Path) -> list[str]:
     validators = {
         "agent": validate_agent,
+        "agent-contract": validate_agent_contract,
         "tool-contract": validate_tool_contract,
         "execution-context": validate_execution_context,
         "department": validate_department,
@@ -1119,9 +1121,7 @@ def _validate_outcome_fields(data: dict) -> list[str]:
     criteria = data.get("acceptance_criteria")
     criterion_ids: list[str] = []
     if not isinstance(criteria, list) or not criteria:
-        errors.append(
-            "lifecycle_receipt: acceptance_criteria must be a non-empty list"
-        )
+        errors.append("lifecycle_receipt: acceptance_criteria must be a non-empty list")
     else:
         for index, criterion in enumerate(criteria):
             prefix = f"lifecycle_receipt: acceptance_criteria[{index}]"
@@ -1135,9 +1135,7 @@ def _validate_outcome_fields(data: dict) -> list[str]:
                 criterion_ids.append(criterion_id)
             required_evidence = criterion.get("required_evidence")
             if not isinstance(required_evidence, list) or not required_evidence:
-                errors.append(
-                    f"{prefix}: required_evidence must be a non-empty list"
-                )
+                errors.append(f"{prefix}: required_evidence must be a non-empty list")
             elif any(
                 not isinstance(reference, str) or not reference.strip()
                 for reference in required_evidence

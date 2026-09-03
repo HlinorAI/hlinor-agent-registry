@@ -56,6 +56,11 @@ The authoritative OSS/commercial split is documented in
   verified evidence. It never treats completion, partial execution, or a
   caller claim as proof of successful work; its receipt fields extend the
   existing lifecycle receipt format.
+- The portable `Agent Contract` validator makes owner, goals, authority
+  levels, approvals, forbidden actions, stop conditions, data access, tool
+  permissions, policy links, audit requirements, versioning, and failure mode
+  explicit. Its compatibility check is comparison-only and does not store
+  authority or runtime state.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
   fixture and verified against canonical UTF-8 bytes and SHA-256 digests by
   Python and an independent Node.js implementation.
@@ -83,7 +88,10 @@ The authoritative OSS/commercial split is documented in
    switch, and runtime isolation — the local outcome gate, rate/concurrency
    admission, and SQLite kill switch are experimental; cost accounting and
    broader runtime isolation remain open.
-7. Commercial control-plane capabilities are outside this repository and must
+7. Portable Agent Contracts and conformance fixtures — the stateless Agent
+   Contract validator and agent/Tool Contract compatibility check are complete;
+   governance coverage and adversarial conformance remain open.
+8. Commercial control-plane capabilities are outside this repository and must
    not be implemented here; only public contracts or local reference clients
    may be added after runtime pilots validate demand.
 
@@ -92,7 +100,8 @@ The authoritative OSS/commercial split is documented in
 The public repository has reached the current OSS runtime-hardening boundary.
 Signed approval, durable replay/revocation, receipt, checkpoint,
 circuit-breaker, scope, AutoGen, and identity-bound delegation/message
-transport primitives are experimental and framework-neutral. Further public
+transport primitives are experimental and framework-neutral. The public Agent
+Contract is now a stateless declaration and comparison layer. Further public
 work is limited to maintenance, security fixes, documentation, portable
 contracts, and conformance tests. Hosted control-plane, managed identity,
 network message delivery, independent audit collection, fleet analytics, and

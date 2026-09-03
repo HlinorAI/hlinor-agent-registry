@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a stateless, portable Agent Contract format and validator covering
+  ownership, goals, authority levels, approvals, forbidden actions, stop
+  conditions, data access, tool permissions, policy links, audit requirements,
+  versioning, and fail-closed behavior. Added a compatibility command that
+  cross-checks agent and Tool Contract declarations without storing authority.
 - Added the public, stateless `OutcomeAcceptanceGate` and lifecycle-receipt
   fields for evidence-backed task outcomes. Missing evidence, timeout,
   interruption, approval-pending, blocked, and partial execution states cannot
