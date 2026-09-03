@@ -922,6 +922,33 @@ LIFECYCLE_RECEIPT_STOP_REASONS = {
     "handed_off",
 }
 
+OUTCOME_STATUSES = {
+    "SUCCESS",
+    "FAILED",
+    "BLOCKED",
+    "AWAITING_APPROVAL",
+    "PARTIAL",
+}
+
+EXECUTION_STATES = {
+    "completed",
+    "failed",
+    "blocked",
+    "awaiting_approval",
+    "partial",
+    "timed_out",
+    "interrupted",
+}
+
+OUTCOME_REASONS = {
+    "ACCEPTANCE_VERIFIED",
+    "ACCEPTANCE_EVIDENCE_MISSING",
+    "EXECUTION_FAILED",
+    "EXECUTION_BLOCKED",
+    "APPROVAL_PENDING",
+    "EXECUTION_PARTIAL",
+}
+
 REQUIRED_LIFECYCLE_SCHEMA_FIELDS = [
     "$schema",
     "title",
@@ -1058,6 +1085,126 @@ def validate_lifecycle_receipt(path: str | Path) -> list[str]:
     ]:
         if bool_field in data and not isinstance(data[bool_field], bool):
             errors.append(f"lifecycle_receipt: Field must be a boolean: {bool_field}")
+
+    errors.extend(_validate_outcome_fields(data))
+
+    return errors
+
+
+def _validate_outcome_fields(data: dict) -> list[str]:
+    """Validate optional runtime outcome fields when a receipt includes them."""
+    if "outcome_status" not in data:
+        return []
+
+    errors: list[str] = []
+    required = [
+        "execution_state",
+        "acceptance_criteria",
+        "satisfied_criterion_ids",
+        "verified_evidence_refs",
+        "missing_evidence_refs",
+        "outcome_reason",
+    ]
+    errors.extend(
+        _validate_required_fields(data, required, "lifecycle_receipt.outcome")
+    )
+
+    if data.get("outcome_status") not in OUTCOME_STATUSES:
+        errors.append("lifecycle_receipt: Invalid outcome_status")
+    if data.get("execution_state") not in EXECUTION_STATES:
+        errors.append("lifecycle_receipt: Invalid execution_state")
+    if data.get("outcome_reason") not in OUTCOME_REASONS:
+        errors.append("lifecycle_receipt: Invalid outcome_reason")
+
+    criteria = data.get("acceptance_criteria")
+    criterion_ids: list[str] = []
+    if not isinstance(criteria, list) or not criteria:
+        errors.append(
+            "lifecycle_receipt: acceptance_criteria must be a non-empty list"
+        )
+    else:
+        for index, criterion in enumerate(criteria):
+            prefix = f"lifecycle_receipt: acceptance_criteria[{index}]"
+            if not isinstance(criterion, dict):
+                errors.append(f"{prefix} must be an object")
+                continue
+            criterion_id = criterion.get("criterion_id")
+            if not isinstance(criterion_id, str) or not criterion_id.strip():
+                errors.append(f"{prefix}: criterion_id must be a non-empty string")
+            else:
+                criterion_ids.append(criterion_id)
+            required_evidence = criterion.get("required_evidence")
+            if not isinstance(required_evidence, list) or not required_evidence:
+                errors.append(
+                    f"{prefix}: required_evidence must be a non-empty list"
+                )
+            elif any(
+                not isinstance(reference, str) or not reference.strip()
+                for reference in required_evidence
+            ):
+                errors.append(
+                    f"{prefix}: required_evidence must contain non-empty strings"
+                )
+            elif len(set(required_evidence)) != len(required_evidence):
+                errors.append(f"{prefix}: required_evidence must be unique")
+
+    if len(set(criterion_ids)) != len(criterion_ids):
+        errors.append("lifecycle_receipt: acceptance criterion IDs must be unique")
+
+    list_fields = [
+        "satisfied_criterion_ids",
+        "verified_evidence_refs",
+        "missing_evidence_refs",
+    ]
+    for field in list_fields:
+        value = data.get(field)
+        if not isinstance(value, list) or any(
+            not isinstance(item, str) or not item.strip() for item in value
+        ):
+            errors.append(
+                f"lifecycle_receipt: {field} must be a list of non-empty strings"
+            )
+
+    satisfied = data.get("satisfied_criterion_ids")
+    if isinstance(satisfied, list) and criterion_ids:
+        unknown = sorted(set(satisfied).difference(criterion_ids))
+        if unknown:
+            errors.append(
+                "lifecycle_receipt: satisfied_criterion_ids contains unknown IDs: "
+                + ", ".join(unknown)
+            )
+
+    verified = data.get("verified_evidence_refs")
+    missing = data.get("missing_evidence_refs")
+    if isinstance(verified, list) and isinstance(missing, list):
+        overlap = sorted(set(verified).intersection(missing))
+        if overlap:
+            errors.append(
+                "lifecycle_receipt: evidence cannot be both verified and missing: "
+                + ", ".join(overlap)
+            )
+
+    if data.get("outcome_status") == "SUCCESS":
+        if data.get("execution_state") != "completed":
+            errors.append(
+                "lifecycle_receipt: SUCCESS requires execution_state completed"
+            )
+        if data.get("stop_reason") != "completed":
+            errors.append("lifecycle_receipt: SUCCESS requires stop_reason completed")
+        if data.get("missing_evidence_refs") != []:
+            errors.append("lifecycle_receipt: SUCCESS cannot have missing evidence")
+        if isinstance(satisfied, list) and set(satisfied) != set(criterion_ids):
+            errors.append(
+                "lifecycle_receipt: SUCCESS requires every criterion to be satisfied"
+            )
+
+    if (
+        data.get("stop_reason") == "completed"
+        and data.get("outcome_status") != "SUCCESS"
+    ):
+        errors.append(
+            "lifecycle_receipt: completed stop_reason requires SUCCESS outcome"
+        )
 
     return errors
 

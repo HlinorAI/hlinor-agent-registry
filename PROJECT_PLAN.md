@@ -52,6 +52,10 @@ The authoritative OSS/commercial split is documented in
 - The experimental signed message transport binds sender key, recipient,
   project/workspace scope, body, freshness, and nonce; receivers require
   durable replay protection when operating across workers.
+- The local `OutcomeAcceptanceGate` evaluates explicit acceptance criteria and
+  verified evidence. It never treats completion, partial execution, or a
+  caller claim as proof of successful work; its receipt fields extend the
+  existing lifecycle receipt format.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
   fixture and verified against canonical UTF-8 bytes and SHA-256 digests by
   Python and an independent Node.js implementation.
@@ -75,9 +79,10 @@ The authoritative OSS/commercial split is documented in
    delegation, identity-bound transport, and bounded fan-out primitives are
    experimental; production gateways and external workload attestation are
    outside this repository.
-6. Stateful circuit breakers, budgets, kill switch, and runtime isolation —
-   rate/concurrency admission and the SQLite kill switch are experimental;
-   cost accounting and broader runtime isolation remain open.
+6. Outcome/acceptance enforcement, stateful circuit breakers, budgets, kill
+   switch, and runtime isolation — the local outcome gate, rate/concurrency
+   admission, and SQLite kill switch are experimental; cost accounting and
+   broader runtime isolation remain open.
 7. Commercial control-plane capabilities are outside this repository and must
    not be implemented here; only public contracts or local reference clients
    may be added after runtime pilots validate demand.

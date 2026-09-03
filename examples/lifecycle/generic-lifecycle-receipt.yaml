@@ -26,6 +26,19 @@ risks_detected:
 next_recommended_mode: sweeper
 stop_reason: completed
 
+outcome_status: SUCCESS
+execution_state: completed
+acceptance_criteria:
+  - criterion_id: implementation_smoke_check_passed
+    required_evidence:
+      - smoke_check_result
+satisfied_criterion_ids:
+  - implementation_smoke_check_passed
+verified_evidence_refs:
+  - smoke_check_result
+missing_evidence_refs: []
+outcome_reason: ACCEPTANCE_VERIFIED
+
 secrets_touched: false
 production_behavior_changed: false
 external_messages_sent: false

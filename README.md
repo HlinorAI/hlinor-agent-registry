@@ -853,6 +853,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Execution model](docs/execution-model.md)
 - [Approval model](docs/approval-model.md)
 - [Runtime bindings and execution receipts](docs/runtime-receipts.md)
+- [Outcome and acceptance gate](docs/outcome-acceptance.md)
 - [Signed request-bound approvals](docs/approval-tokens.md)
 - [Trusted runtime binding MVP](docs/runtime-binding.md)
 - [Scoped workspace state and messages](docs/scoped-state.md)

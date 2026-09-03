@@ -193,6 +193,45 @@ services_restarted: false
     assert "lifecycle_receipt: Invalid lifecycle_mode: wrong" in errors
 
 
+def test_completed_lifecycle_receipt_with_non_success_outcome_is_rejected(tmp_path):
+    path = tmp_path / "inconsistent-receipt.yaml"
+    path.write_text(
+        """\
+task_id: test-task
+lifecycle_mode: builder
+input_refs: []
+output_refs: []
+changed_files: []
+checks_run: []
+risks_detected: []
+next_recommended_mode: sweeper
+stop_reason: completed
+outcome_status: BLOCKED
+execution_state: completed
+acceptance_criteria:
+  - criterion_id: checked
+    required_evidence:
+      - check-result
+satisfied_criterion_ids: []
+verified_evidence_refs: []
+missing_evidence_refs:
+  - check-result
+outcome_reason: ACCEPTANCE_EVIDENCE_MISSING
+secrets_touched: false
+production_behavior_changed: false
+external_messages_sent: false
+services_restarted: false
+""",
+        encoding="utf-8",
+    )
+
+    errors = validate_lifecycle_receipt(path)
+
+    assert (
+        "lifecycle_receipt: completed stop_reason requires SUCCESS outcome" in errors
+    )
+
+
 def test_validate_lifecycle_map_cli_command(capsys, monkeypatch):
     monkeypatch.setattr(
         sys,

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the public, stateless `OutcomeAcceptanceGate` and lifecycle-receipt
+  fields for evidence-backed task outcomes. Missing evidence, timeout,
+  interruption, approval-pending, blocked, and partial execution states cannot
+  be reported as `SUCCESS`.
 - Added language-neutral RFC 8785 JCS golden vectors covering key ordering,
   number normalization, Unicode escaping, arrays, canonical UTF-8, and
   SHA-256 digests.
