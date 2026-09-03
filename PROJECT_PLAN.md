@@ -61,6 +61,10 @@ The authoritative OSS/commercial split is documented in
   permissions, policy links, audit requirements, versioning, and failure mode
   explicit. Its compatibility check is comparison-only and does not store
   authority or runtime state.
+- The governance coverage checker validates an explicit inventory of known
+  sensitive source symbols against `@governed`, `GovernanceGate`, or exact
+  `bind_tool(target=...)` syntax. It is a bounded static check, not
+  whole-program or hosted-control-plane proof.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
   fixture and verified against canonical UTF-8 bytes and SHA-256 digests by
   Python and an independent Node.js implementation.
@@ -90,7 +94,7 @@ The authoritative OSS/commercial split is documented in
    broader runtime isolation remain open.
 7. Portable Agent Contracts and conformance fixtures — the stateless Agent
    Contract validator and agent/Tool Contract compatibility check are complete;
-   governance coverage and adversarial conformance remain open.
+   governance coverage is complete; adversarial conformance remains open.
 8. Commercial control-plane capabilities are outside this repository and must
    not be implemented here; only public contracts or local reference clients
    may be added after runtime pilots validate demand.

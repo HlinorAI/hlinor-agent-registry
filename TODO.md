@@ -52,8 +52,9 @@
   forbidden actions, action levels, approvals, stop conditions, data access,
   and failure mode. Its stateless compatibility check cross-checks policy and
   Tool Contract declarations without becoming an authority store.
-- [ ] Add a governance coverage checker and CI failure for known sensitive
-  tool paths that bypass `BoundTool` or the shared governance gate.
+- [x] Add a governance coverage checker and CI failure for known sensitive
+  tool paths that bypass `BoundTool` or the shared governance gate. Keep the
+  source inventory explicit and fail closed on missing or ambiguous evidence.
 - [ ] Add an adversarial conformance suite for spoofing, poisoned messages,
   authority conveyed by filenames/tool output, receipt tampering, delegation
   fan-out, runaway retries, and partial execution after interruption.

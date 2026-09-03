@@ -454,7 +454,7 @@ The registry makes the constraint visible, versionable, and reviewable instead o
 
 ## ⚖️ What is enforced at runtime
 
-The repository ships 26 schemas and a set of governance patterns. Most of them
+The repository ships 27 schemas and a set of governance patterns. Most of them
 are **authoring contracts**: they give reviewers a shared vocabulary, and they
 are not evaluated when an agent asks to do something.
 
@@ -462,7 +462,7 @@ Be precise about where they are checked, because "a schema exists" is not the
 same claim as "something checks it". `compile` reads only the files your
 manifest names, and it accepts three entity types: `agent`, `policy` and
 `capability`. Every other schema is checked only if you run its `validate-*`
-command yourself, and six have no command at all. Two of the twenty-six reach a
+command yourself, and six have no command at all. Two of the twenty-seven reach a
 runtime decision. [`docs/contract-status.md`](docs/contract-status.md) gives the
 status of each one; read this table before you rely on any of it.
 
@@ -818,6 +818,8 @@ hlinor-registry compile --manifest registry.yaml --output dist/policy-bundle.jso
 # Validate a registry file
 hlinor-registry validate-agent examples/search-agent.yaml
 hlinor-registry validate-agent-contract examples/agent-contract.yaml
+hlinor-registry validate-governance-coverage \
+  examples/governance-coverage/coverage.yaml
 
 # Validate runtime governance contracts
 hlinor-registry validate-execution-context <path>
@@ -845,6 +847,10 @@ hlinor-registry contract diff \
   --expected tool-contract.yaml \
   --observed exported-tool-contract.yaml
 
+# Check known sensitive source paths for a governance boundary
+hlinor-registry coverage check \
+  --manifest examples/governance-coverage/coverage.yaml
+
 # Inspect a YAML file without changing it
 hlinor-registry inspect <path>
 ```
@@ -862,6 +868,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Runtime bindings and execution receipts](docs/runtime-receipts.md)
 - [Outcome and acceptance gate](docs/outcome-acceptance.md)
 - [Agent Contracts](docs/agent-contracts.md)
+- [Governance coverage](docs/governance-coverage.md)
 - [Signed request-bound approvals](docs/approval-tokens.md)
 - [Trusted runtime binding MVP](docs/runtime-binding.md)
 - [Scoped workspace state and messages](docs/scoped-state.md)

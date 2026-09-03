@@ -132,6 +132,15 @@ jobs:
             --expected examples/tool-contracts/customer-support-tools.yaml \
             --observed examples/tool-contracts/customer-support-tools.yaml
 
+      - name: Enforce governance coverage inventory
+        run: |
+          set -euo pipefail
+          hlinor-registry validate-governance-coverage \
+            examples/governance-coverage/coverage.yaml
+          hlinor-registry coverage check \
+            --manifest examples/governance-coverage/coverage.yaml \
+            --format json
+
       - name: Smoke test custom Python Tool Contract export
         run: |
           cd "${RUNNER_TEMP}"

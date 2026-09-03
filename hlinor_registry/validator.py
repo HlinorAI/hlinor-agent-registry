@@ -5,6 +5,7 @@ import yaml
 from ._limits import MAX_SOURCE_BYTES, read_text_capped
 from ._matching import pattern_errors
 from .agent_contract import validate_agent_contract
+from .governance_coverage import validate_governance_coverage
 from .policies import policy_definition_errors
 from .tool_contract import validate_tool_contract
 
@@ -725,6 +726,7 @@ def validate_registry_file(entity_type: str, path: str | Path) -> list[str]:
     validators = {
         "agent": validate_agent,
         "agent-contract": validate_agent_contract,
+        "governance-coverage": validate_governance_coverage,
         "tool-contract": validate_tool_contract,
         "execution-context": validate_execution_context,
         "department": validate_department,

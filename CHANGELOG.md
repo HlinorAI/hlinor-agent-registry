@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a bounded governance coverage inventory and CLI checker for known
+  sensitive Python tool paths. It fails closed on missing symbols, source
+  escapes, parse errors, malformed entries, and absent `@governed`,
+  `GovernanceGate`, or exact `bind_tool` boundaries, with a CI fixture.
 - Added a stateless, portable Agent Contract format and validator covering
   ownership, goals, authority levels, approvals, forbidden actions, stop
   conditions, data access, tool permissions, policy links, audit requirements,

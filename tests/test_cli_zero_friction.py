@@ -440,6 +440,7 @@ EVERYDAY_COMMANDS = {
     "contract",
     "verify-bundle",
     "inspect",
+    "coverage",
 }
 
 
@@ -458,11 +459,11 @@ def _listed_subcommands(help_text: str) -> set[str]:
 def test_help_lists_the_everyday_commands_and_not_the_schema_validators(
     capsys: pytest.CaptureFixture,
 ):
-    """Twenty-eight subcommands in one alphabetical list answers no question.
+    """The everyday commands stay visible while validators stay discoverable.
 
-    Nineteen of them validate a single file against a schema. Someone arriving
-    from the README wants to know which command to run first, and the listing
-    used to bury the nine that answer that among the nineteen that do not.
+    Single-file validators are listed by --list-validators. Someone arriving
+    from the README wants to know which command to run first, without an
+    alphabetical validator list burying the commands that do the work.
     """
     from hlinor_registry.cli import VALIDATION_COMMANDS
 
