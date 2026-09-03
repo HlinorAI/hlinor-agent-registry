@@ -51,14 +51,9 @@
 - [ ] Evaluate an OSS A2A contract/conformance fixture only after the public/
   commercial boundary is reviewed.
 
-## Commercial/private roadmap (not implemented here)
+## Commercial/private scope
 
-- [ ] Build hosted multi-tenant control plane, UI, RBAC/SSO, approvals, and
-  billing in a separate private product repository.
-- [ ] Build independently operated receipt collection/checkpointing with a
-  deployment-specific availability policy.
-- [ ] Build managed key lifecycle, workload/deployment attestation, network
-  message delivery, external audit collection, retention, and SIEM integrations.
-- [ ] Add cost accounting and deployment-wide quotas across all agent paths.
-- [ ] Build fleet-wide drift/risk/cost analytics, deployment
-  operations, and enterprise connectors.
+Commercial capabilities are developed in the private control-plane repository
+and are intentionally omitted from this public roadmap. Public work may add
+portable contracts, local reference implementations, and conformance fixtures
+for those boundaries, but not the managed product itself.

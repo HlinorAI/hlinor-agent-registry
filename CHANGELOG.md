@@ -46,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Reduced public roadmap detail for commercial/private capabilities; their
+  implementation remains confined to the private control-plane repository.
 - Established the OSS/commercial boundary in
   `docs/open-core-boundary.md`: this repository remains a portable policy,
   verification, and reference-runtime core; hosted control-plane, managed
