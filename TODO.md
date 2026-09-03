@@ -55,7 +55,7 @@
 - [x] Add a governance coverage checker and CI failure for known sensitive
   tool paths that bypass `BoundTool` or the shared governance gate. Keep the
   source inventory explicit and fail closed on missing or ambiguous evidence.
-- [ ] Add an adversarial conformance suite for spoofing, poisoned messages,
+- [x] Add an adversarial conformance suite for spoofing, poisoned messages,
   authority conveyed by filenames/tool output, receipt tampering, delegation
   fan-out, runaway retries, and partial execution after interruption.
 - [ ] Define a protocol-neutral MCP `tools/call` contract/conformance fixture;

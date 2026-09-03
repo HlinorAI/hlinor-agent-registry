@@ -869,6 +869,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Outcome and acceptance gate](docs/outcome-acceptance.md)
 - [Agent Contracts](docs/agent-contracts.md)
 - [Governance coverage](docs/governance-coverage.md)
+- [Adversarial conformance suite](docs/adversarial-conformance.md)
 - [Signed request-bound approvals](docs/approval-tokens.md)
 - [Trusted runtime binding MVP](docs/runtime-binding.md)
 - [Scoped workspace state and messages](docs/scoped-state.md)

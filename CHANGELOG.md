@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a public adversarial conformance suite covering spoofed and poisoned
+  messages, non-authoritative filenames/tool output, receipt tampering,
+  bounded delegation fan-out, runaway retries, and interrupted partial work.
 - Added a bounded governance coverage inventory and CLI checker for known
   sensitive Python tool paths. It fails closed on missing symbols, source
   escapes, parse errors, malformed entries, and absent `@governed`,

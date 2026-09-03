@@ -65,6 +65,10 @@ The authoritative OSS/commercial split is documented in
   sensitive source symbols against `@governed`, `GovernanceGate`, or exact
   `bind_tool(target=...)` syntax. It is a bounded static check, not
   whole-program or hosted-control-plane proof.
+- The adversarial conformance profile exercises spoofing, poisoned messages,
+  untrusted filename/tool output, receipt tampering, delegation fan-out,
+  retry storms, and interruption/partial-execution outcomes using synthetic
+  public primitives.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
   fixture and verified against canonical UTF-8 bytes and SHA-256 digests by
   Python and an independent Node.js implementation.
@@ -93,8 +97,8 @@ The authoritative OSS/commercial split is documented in
    admission, and SQLite kill switch are experimental; cost accounting and
    broader runtime isolation remain open.
 7. Portable Agent Contracts and conformance fixtures — the stateless Agent
-   Contract validator and agent/Tool Contract compatibility check are complete;
-   governance coverage is complete; adversarial conformance remains open.
+   Contract validator, governance coverage check, and adversarial conformance
+   profile are complete; protocol-specific fixtures remain open.
 8. Commercial control-plane capabilities are outside this repository and must
    not be implemented here; only public contracts or local reference clients
    may be added after runtime pilots validate demand.

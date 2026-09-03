@@ -100,6 +100,9 @@ jobs:
       - name: Run unit tests
         run: python -m pytest tests/ -v
 
+      - name: Run adversarial conformance suite
+        run: python -m pytest tests/test_adversarial_conformance.py -q
+
       - name: Enforce coverage baseline
         if: matrix.python-version == '3.11'
         run: python -m pytest tests/ --cov=hlinor_registry --cov-report=term-missing
