@@ -58,7 +58,7 @@
 - [x] Add an adversarial conformance suite for spoofing, poisoned messages,
   authority conveyed by filenames/tool output, receipt tampering, delegation
   fan-out, runaway retries, and partial execution after interruption.
-- [ ] Define a protocol-neutral MCP `tools/call` contract/conformance fixture;
+- [x] Define a protocol-neutral MCP `tools/call` contract/conformance fixture;
   production gateway, credentials, and tenant routing stay outside this repo.
 - [ ] Add portable OpenTelemetry correlation hooks; hosted collection and
   fleet analytics stay outside this repo.

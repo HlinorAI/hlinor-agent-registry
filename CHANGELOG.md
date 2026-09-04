@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a protocol-neutral MCP `tools/call` contract fixture and fail-closed
+  validator for JSON-RPC request/response shape, argument schemas, response
+  correlation, tool errors, and protocol-level errors; no MCP SDK or transport
+  is included.
 - Added a public adversarial conformance suite covering spoofed and poisoned
   messages, non-authoritative filenames/tool output, receipt tampering,
   bounded delegation fan-out, runaway retries, and interrupted partial work.

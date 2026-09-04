@@ -69,6 +69,10 @@ The authoritative OSS/commercial split is documented in
   untrusted filename/tool output, receipt tampering, delegation fan-out,
   retry storms, and interruption/partial-execution outcomes using synthetic
   public primitives.
+- The protocol-neutral MCP `tools/call` fixture validates request/response
+  shape, argument schema, response correlation, and the separation between
+  tool errors and JSON-RPC protocol errors without implementing transport or
+  a server.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
   fixture and verified against canonical UTF-8 bytes and SHA-256 digests by
   Python and an independent Node.js implementation.
@@ -89,9 +93,9 @@ The authoritative OSS/commercial split is documented in
 4. Signed request-bound approvals and authenticated execution receipts — first
    primitives complete; independent collection remains deployment work.
 5. Protocol contracts and portable identity/delegation primitives — signed
-   delegation, identity-bound transport, and bounded fan-out primitives are
-   experimental; production gateways and external workload attestation are
-   outside this repository.
+   delegation, identity-bound transport, bounded fan-out, and the narrow MCP
+   `tools/call` fixture are experimental; production gateways and external
+   workload attestation are outside this repository.
 6. Outcome/acceptance enforcement, stateful circuit breakers, budgets, kill
    switch, and runtime isolation — the local outcome gate, rate/concurrency
    admission, and SQLite kill switch are experimental; cost accounting and

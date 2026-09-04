@@ -24,6 +24,7 @@ pipeline. For most of them it does not.
 | `agent.yaml` | enforced + compile-validated | `validate-agent`, `validate` |
 | `agent-contract.yaml` | command-validated | `validate-agent-contract` |
 | `governance-coverage.yaml` | command-validated | `validate-governance-coverage` |
+| `mcp-tools-call.yaml` | reference-only | — |
 | `policy.yaml` | enforced + compile-validated | `validate-policy` |
 | `capability.yaml` | compile-validated | `validate-capability-registration` |
 | `action-preflight.yaml` | command-validated | `validate-action-preflight` |
@@ -49,9 +50,9 @@ pipeline. For most of them it does not.
 | `runtime-policy-session-binding.yaml` | reference-only | — |
 | `task-workspace.yaml` | reference-only | — |
 
-Two of twenty-seven are enforced. Three reach `compile`. One is runtime-emitted
+Two of twenty-eight are enforced. Three reach `compile`. One is runtime-emitted
 by the binding API with runtime shape validation, but no compile or standalone
-CLI loading. Six have no command at all.
+CLI loading. Seven have no command at all.
 
 One contract is deliberately absent from this table. The Tool Contract is the
 only one with a packaged JSON Schema — `hlinor_registry/schemas/tool-contract.schema.json`
