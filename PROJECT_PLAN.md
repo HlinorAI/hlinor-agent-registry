@@ -73,6 +73,9 @@ The authoritative OSS/commercial split is documented in
   shape, argument schema, response correlation, and the separation between
   tool errors and JSON-RPC protocol errors without implementing transport or
   a server.
+- Portable correlation hooks carry validated trace/span/run/parent metadata
+  through adapter invocation context and execution receipts without adding an
+  OpenTelemetry SDK, exporter, collector, or hosted telemetry store.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
   fixture and verified against canonical UTF-8 bytes and SHA-256 digests by
   Python and an independent Node.js implementation.
@@ -94,8 +97,9 @@ The authoritative OSS/commercial split is documented in
    primitives complete; independent collection remains deployment work.
 5. Protocol contracts and portable identity/delegation primitives — signed
    delegation, identity-bound transport, bounded fan-out, and the narrow MCP
-   `tools/call` fixture are experimental; production gateways and external
-   workload attestation are outside this repository.
+   `tools/call` fixture and portable correlation hooks are experimental;
+   production gateways, telemetry collection, and external workload
+   attestation are outside this repository.
 6. Outcome/acceptance enforcement, stateful circuit breakers, budgets, kill
    switch, and runtime isolation — the local outcome gate, rate/concurrency
    admission, and SQLite kill switch are experimental; cost accounting and

@@ -106,6 +106,9 @@ jobs:
       - name: Run MCP tools/call conformance suite
         run: python -m pytest tests/test_mcp_conformance.py -q
 
+      - name: Run correlation conformance suite
+        run: python -m pytest tests/test_observability.py -q
+
       - name: Enforce coverage baseline
         if: matrix.python-version == '3.11'
         run: python -m pytest tests/ --cov=hlinor_registry --cov-report=term-missing

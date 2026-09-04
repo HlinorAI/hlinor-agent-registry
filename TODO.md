@@ -60,8 +60,8 @@
   fan-out, runaway retries, and partial execution after interruption.
 - [x] Define a protocol-neutral MCP `tools/call` contract/conformance fixture;
   production gateway, credentials, and tenant routing stay outside this repo.
-- [ ] Add portable OpenTelemetry correlation hooks; hosted collection and
-  fleet analytics stay outside this repo.
+- [x] Add portable OpenTelemetry correlation hooks; hosted collection and fleet
+  analytics stay outside this repo.
 - [ ] Evaluate an OSS A2A contract/conformance fixture only after the public/
   commercial boundary is reviewed.
 

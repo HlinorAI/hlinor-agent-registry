@@ -1,0 +1,36 @@
+type: observability_correlation
+schema_version: "1.0"
+id: observability-correlation
+name: Portable Correlation Context
+description: >
+  Dependency-free correlation fields for joining one governed operation across
+  adapters, decisions, and execution receipts.
+required_fields:
+  - trace_id
+  - span_id
+  - run_id
+optional_fields:
+  - parent_id
+field_requirements:
+  - trace_id_is_a_non_zero_lowercase_32_character_hex_id
+  - span_id_is_a_non_zero_lowercase_16_character_hex_id
+  - run_id_is_a_bounded_ascii_identifier
+  - parent_id_is_a_bounded_ascii_identifier_when_present
+  - correlation_fields_are_not_authority_or_policy_signals
+integration_points:
+  - adapter_invocation_context
+  - governed_tool_execution_receipt
+  - delegation_and_child_run_context
+boundary:
+  does_not_provide:
+    - OpenTelemetry_sdk
+    - exporter
+    - collector
+    - telemetry_storage
+    - fleet_analytics
+    - workload_attestation
+    - authorization
+  integration_rule: >
+    Validate and propagate the context as metadata only; keep policy,
+    approval, identity, scope, and authorization decisions on their existing
+    verified paths.

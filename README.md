@@ -454,7 +454,7 @@ The registry makes the constraint visible, versionable, and reviewable instead o
 
 ## ⚖️ What is enforced at runtime
 
-The repository ships 28 schemas and a set of governance patterns. Most of them
+The repository ships 29 schemas and a set of governance patterns. Most of them
 are **authoring contracts**: they give reviewers a shared vocabulary, and they
 are not evaluated when an agent asks to do something.
 
@@ -462,7 +462,7 @@ Be precise about where they are checked, because "a schema exists" is not the
 same claim as "something checks it". `compile` reads only the files your
 manifest names, and it accepts three entity types: `agent`, `policy` and
 `capability`. Every other schema is checked only if you run its `validate-*`
-command yourself, and seven have no command at all. Two of the twenty-eight reach a
+command yourself, and eight have no command at all. Two of the twenty-nine reach a
 runtime decision. [`docs/contract-status.md`](docs/contract-status.md) gives the
 status of each one; read this table before you rely on any of it.
 
@@ -871,6 +871,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Governance coverage](docs/governance-coverage.md)
 - [Adversarial conformance suite](docs/adversarial-conformance.md)
 - [MCP tools/call contract fixture](docs/mcp-tools-call.md)
+- [Portable correlation hooks](docs/observability-correlation.md)
 - [Signed request-bound approvals](docs/approval-tokens.md)
 - [Trusted runtime binding MVP](docs/runtime-binding.md)
 - [Scoped workspace state and messages](docs/scoped-state.md)
