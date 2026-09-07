@@ -55,6 +55,7 @@ from hlinor_registry.validator import (
     validate_lifecycle_map,
     validate_lifecycle_receipt,
     validate_lifecycle_schema,
+    validate_process_contract,
     validate_policy,
     validate_production_action_boundary_example,
     validate_protected_resource_boundary,
@@ -83,7 +84,7 @@ the usual order:
   verify-bundle   check a bundle's signature and revision floor
   inspect         print one YAML file as the loader reads it
 
-twenty-one single-file schema validators are also available and documented in
+twenty-two single-file schema validators are also available and documented in
 the README; run --list-validators to print them.
 """
 
@@ -107,6 +108,7 @@ VALIDATION_COMMANDS = {
     "validate-lifecycle-map": ("Lifecycle map", validate_lifecycle_map),
     "validate-lifecycle-receipt": ("Lifecycle receipt", validate_lifecycle_receipt),
     "validate-lifecycle-schema": ("Lifecycle schema", validate_lifecycle_schema),
+    "validate-process-contract": ("Process Contract", validate_process_contract),
     "validate": ("Registry file", validate_agent),
     "validate-execution-context": ("Execution context", validate_execution_context),
     "validate-action-preflight": ("Action preflight", validate_action_preflight),

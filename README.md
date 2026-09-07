@@ -818,6 +818,7 @@ hlinor-registry compile --manifest registry.yaml --output dist/policy-bundle.jso
 # Validate a registry file
 hlinor-registry validate-agent examples/search-agent.yaml
 hlinor-registry validate-agent-contract examples/agent-contract.yaml
+hlinor-registry validate-process-contract examples/process-contract.yaml
 hlinor-registry validate-governance-coverage \
   examples/governance-coverage/coverage.yaml
 
@@ -868,6 +869,7 @@ when an input cannot be validated. Add `--format json` for stable CI output.
 - [Runtime bindings and execution receipts](docs/runtime-receipts.md)
 - [Outcome and acceptance gate](docs/outcome-acceptance.md)
 - [Agent Contracts](docs/agent-contracts.md)
+- [Process Contracts](docs/process-contracts.md)
 - [Governance coverage](docs/governance-coverage.md)
 - [Adversarial conformance suite](docs/adversarial-conformance.md)
 - [MCP tools/call contract fixture](docs/mcp-tools-call.md)

@@ -735,6 +735,7 @@ def validate_registry_file(entity_type: str, path: str | Path) -> list[str]:
         "validator": validate_validator,
         "runtime-example": validate_runtime_example,
         "production-action-boundary-example": validate_production_action_boundary_example,
+        "process-contract": validate_process_contract,
     }
 
     validator = validators.get(entity_type)
@@ -959,6 +960,23 @@ REQUIRED_LIFECYCLE_SCHEMA_FIELDS = [
     "type",
     "required",
     "properties",
+]
+
+PROCESS_CONTRACT_SCHEMA_VERSION = "1.0"
+PROCESS_CONTRACT_TYPE = "process_contract"
+REQUIRED_PROCESS_CONTRACT_FIELDS = [
+    "schema_version",
+    "type",
+    "id",
+    "version",
+    "owner",
+    "purpose",
+    "entry_condition",
+    "terminal_outcomes",
+    "stages",
+    "handoffs",
+    "metrics",
+    "forbidden_shortcuts",
 ]
 
 
@@ -1229,4 +1247,91 @@ def validate_lifecycle_schema(path: str | Path) -> list[str]:
         if object_field in data and not isinstance(data[object_field], dict):
             errors.append(f"lifecycle_schema: Field must be an object: {object_field}")
 
+    return errors
+
+
+def validate_process_contract(path: str | Path) -> list[str]:
+    """Validate a portable, business-neutral end-to-end process contract."""
+    data = load_yaml(path)
+    errors = _validate_required_fields(
+        data, REQUIRED_PROCESS_CONTRACT_FIELDS, "process_contract"
+    )
+    if data.get("schema_version") != PROCESS_CONTRACT_SCHEMA_VERSION:
+        errors.append(
+            "process_contract: Unsupported schema_version: "
+            f"{data.get('schema_version')!r}; expected {PROCESS_CONTRACT_SCHEMA_VERSION!r}"
+        )
+    if data.get("type") != PROCESS_CONTRACT_TYPE:
+        errors.append(
+            f"process_contract: Field must equal {PROCESS_CONTRACT_TYPE}: type"
+        )
+    for field in ["id", "version", "owner", "purpose", "entry_condition"]:
+        if field in data and (
+            not isinstance(data[field], str) or not data[field].strip()
+        ):
+            errors.append(
+                f"process_contract: Field must be a non-empty string: {field}"
+            )
+    for field in ["terminal_outcomes", "handoffs", "metrics", "forbidden_shortcuts"]:
+        value = data.get(field)
+        if not isinstance(value, list) or not value or any(
+            not isinstance(item, str) or not item.strip() for item in value
+        ):
+            errors.append(
+                f"process_contract: Field must be a non-empty string list: {field}"
+            )
+
+    stages = data.get("stages")
+    stage_ids: set[str] = set()
+    if not isinstance(stages, list) or not stages:
+        errors.append("process_contract: Field must be a non-empty list: stages")
+    else:
+        for index, stage in enumerate(stages):
+            prefix = f"process_contract.stages[{index}]"
+            if not isinstance(stage, dict):
+                errors.append(f"{prefix}: Stage must be an object")
+                continue
+            for field in [
+                "id",
+                "name",
+                "purpose",
+                "required_evidence",
+                "outputs",
+                "next_stages",
+            ]:
+                if field not in stage:
+                    errors.append(f"{prefix}: Missing required field: {field}")
+            stage_id = stage.get("id")
+            if not isinstance(stage_id, str) or not stage_id.strip():
+                errors.append(f"{prefix}: id must be a non-empty string")
+            elif stage_id in stage_ids:
+                errors.append(f"{prefix}: Duplicate stage id: {stage_id}")
+            else:
+                stage_ids.add(stage_id)
+            for field in ["name", "purpose"]:
+                if field in stage and (
+                    not isinstance(stage[field], str) or not stage[field].strip()
+                ):
+                    errors.append(
+                        f"{prefix}: {field} must be a non-empty string"
+                    )
+            for field in ["required_evidence", "outputs", "next_stages"]:
+                value = stage.get(field)
+                if not isinstance(value, list) or any(
+                    not isinstance(item, str) or not item.strip() for item in value
+                ):
+                    errors.append(f"{prefix}: {field} must be a string list")
+        for index, stage in enumerate(stages):
+            if not isinstance(stage, dict):
+                continue
+            targets = (
+                stage.get("next_stages", [])
+                if isinstance(stage.get("next_stages"), list)
+                else []
+            )
+            for target in targets:
+                if target not in stage_ids:
+                    errors.append(
+                        f"process_contract.stages[{index}]: Unknown next stage: {target}"
+                    )
     return errors

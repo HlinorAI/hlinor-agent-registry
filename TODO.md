@@ -67,6 +67,10 @@
 
 ## Commercial/private scope
 
+- [x] Add a public, business-neutral Process Contract format and validator for
+  end-to-end stages, handoffs, evidence, outcomes, metrics, and forbidden
+  shortcuts. It remains a portable declaration, not a hosted workflow engine.
+
 Commercial capabilities are developed in the private control-plane repository
 and are intentionally omitted from this public roadmap. Public work may add
 portable contracts, local reference implementations, and conformance fixtures

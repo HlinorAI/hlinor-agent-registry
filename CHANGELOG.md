@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a public, business-neutral Process Contract format, schema, validator,
+  CLI command, and synthetic example for mapping end-to-end stages, handoffs,
+  evidence, terminal outcomes, metrics, and forbidden shortcuts. It does not
+  create a hosted workflow or execution authority.
+
 - Added dependency-free portable correlation hooks with validated trace/span,
   run, and parent identifiers, adapter propagation, receipt fields, and a
   synthetic fixture; OpenTelemetry collection remains outside this package.

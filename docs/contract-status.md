@@ -37,6 +37,7 @@ pipeline. For most of them it does not.
 | `lifecycle-mode.schema.yaml` | command-validated | `validate-lifecycle-schema` |
 | `lifecycle-receipt.schema.yaml` | command-validated | `validate-lifecycle-receipt` |
 | `lifecycle-transition.schema.yaml` | command-validated | `validate-lifecycle-map` |
+| `lifecycle-process-contract.schema.yaml` | command-validated | `validate-process-contract` |
 | `production-action-boundary.yaml` | command-validated | `validate-production-action-boundary-example` |
 | `protected-resource-boundary.yaml` | command-validated | `validate-protected-resource-boundary` |
 | `skill.yaml` | command-validated | `validate-skill` |
@@ -51,9 +52,9 @@ pipeline. For most of them it does not.
 | `runtime-policy-session-binding.yaml` | reference-only | — |
 | `task-workspace.yaml` | reference-only | — |
 
-Two of twenty-nine are enforced. Three reach `compile`. One is runtime-emitted
+Two of thirty are enforced. Three reach `compile`. One is runtime-emitted
 by the binding API with runtime shape validation, but no compile or standalone
-CLI loading. Eight have no command at all.
+CLI loading. Seven have no command at all.
 
 One contract is deliberately absent from this table. The Tool Contract is the
 only one with a packaged JSON Schema — `hlinor_registry/schemas/tool-contract.schema.json`

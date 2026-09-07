@@ -10,6 +10,7 @@ from hlinor_registry.validator import (
     validate_lifecycle_map,
     validate_lifecycle_receipt,
     validate_lifecycle_schema,
+    validate_process_contract,
     validate_policy,
     validate_production_action_boundary_example,
     validate_registry_file,
@@ -100,6 +101,11 @@ def test_validate_registry_file_dispatches_correctly():
     assert errors == []
 
 
+def test_validate_registry_file_dispatches_process_contract():
+    errors = validate_registry_file("process-contract", "examples/process-contract.yaml")
+    assert errors == []
+
+
 def test_validate_registry_file_unsupported_entity_type():
     errors = validate_registry_file("unknown", "registry/schema/department.yaml")
     assert errors == ["Unsupported entity type: unknown"]
@@ -156,6 +162,49 @@ def test_lifecycle_receipt_example_is_valid():
         "examples/lifecycle/generic-lifecycle-receipt.yaml"
     )
     assert errors == []
+
+
+def test_process_contract_example_is_valid():
+    errors = validate_process_contract("examples/process-contract.yaml")
+    assert errors == []
+
+
+def test_process_contract_rejects_unknown_next_stage(tmp_path):
+    path = tmp_path / "process-contract.yaml"
+    path.write_text(
+        """\
+schema_version: '1.0'
+type: process_contract
+id: example-process
+version: '1.0.0'
+owner: Example Team
+purpose: Move a request to a recorded outcome.
+entry_condition: A request exists.
+terminal_outcomes:
+  - completed
+stages:
+  - id: intake
+    name: Intake
+    purpose: Capture the request.
+    required_evidence:
+      - request
+    outputs:
+      - normalized_request
+    next_stages:
+      - missing-stage
+handoffs:
+  - explicit_owner_change
+metrics:
+  - lead_time
+forbidden_shortcuts:
+  - bypass_evidence
+""",
+        encoding="utf-8",
+    )
+
+    errors = validate_process_contract(path)
+
+    assert "process_contract.stages[0]: Unknown next stage: missing-stage" in errors
 
 
 def test_lifecycle_schema_files_are_valid():
