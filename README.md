@@ -11,6 +11,10 @@
 
 Open-source registry layer for auditable AI agent systems. Define what your AI agents may do, validate it before execution, and keep the decision auditable — without replacing the framework that runs your agents.
 
+> **In 30 seconds:** one YAML file defines what your agent may do, what is blocked, what needs approval and what it may spend. Decisions are enforced before the side effect runs and logged for audit. `pip install hlinor-registry`
+>
+> Website: https://hlinor.com/open-source/agent-registry/
+
 Hlinor Agent Registry is a declarative governance layer for agent systems. It turns action boundaries, policies, approvals, and runtime evidence into reviewable YAML contracts that developers and security teams can understand.
 
 This repository is the public OSS core: portable policies, verifiers, local
