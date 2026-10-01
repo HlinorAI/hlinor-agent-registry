@@ -1274,8 +1274,10 @@ def validate_process_contract(path: str | Path) -> list[str]:
             )
     for field in ["terminal_outcomes", "handoffs", "metrics", "forbidden_shortcuts"]:
         value = data.get(field)
-        if not isinstance(value, list) or not value or any(
-            not isinstance(item, str) or not item.strip() for item in value
+        if (
+            not isinstance(value, list)
+            or not value
+            or any(not isinstance(item, str) or not item.strip() for item in value)
         ):
             errors.append(
                 f"process_contract: Field must be a non-empty string list: {field}"
@@ -1312,9 +1314,7 @@ def validate_process_contract(path: str | Path) -> list[str]:
                 if field in stage and (
                     not isinstance(stage[field], str) or not stage[field].strip()
                 ):
-                    errors.append(
-                        f"{prefix}: {field} must be a non-empty string"
-                    )
+                    errors.append(f"{prefix}: {field} must be a non-empty string")
             for field in ["required_evidence", "outputs", "next_stages"]:
                 value = stage.get(field)
                 if not isinstance(value, list) or any(

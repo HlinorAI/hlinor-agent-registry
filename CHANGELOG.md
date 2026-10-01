@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-01
+
+
 ### Added
 
 - Added a public, business-neutral Process Contract format, schema, validator,
@@ -729,7 +732,8 @@ the fixes do; both are marked.
 Public registry release with YAML schemas, CLI validation, runtime governance
 contracts, lifecycle schemas, and audit-friendly examples.
 
-[Unreleased]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.8.0...v0.8.1

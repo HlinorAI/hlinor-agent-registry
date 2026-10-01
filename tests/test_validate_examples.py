@@ -10,8 +10,8 @@ from hlinor_registry.validator import (
     validate_lifecycle_map,
     validate_lifecycle_receipt,
     validate_lifecycle_schema,
-    validate_process_contract,
     validate_policy,
+    validate_process_contract,
     validate_production_action_boundary_example,
     validate_registry_file,
     validate_runtime_example,
@@ -102,7 +102,9 @@ def test_validate_registry_file_dispatches_correctly():
 
 
 def test_validate_registry_file_dispatches_process_contract():
-    errors = validate_registry_file("process-contract", "examples/process-contract.yaml")
+    errors = validate_registry_file(
+        "process-contract", "examples/process-contract.yaml"
+    )
     assert errors == []
 
 
