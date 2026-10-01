@@ -1,0 +1,26 @@
+type: governance_coverage
+schema_version: "1.0"
+id: governance-coverage
+name: Governance Coverage Inventory
+description: >
+  Explicit inventory connecting known sensitive source symbols to a required
+  public governance boundary. This is a bounded static check, not whole-program
+  proof or a hosted scanner.
+required_fields:
+  - schema_version
+  - type
+  - id
+  - entries
+entry_fields:
+  - id
+  - source
+  - symbol
+  - effects
+  - boundary
+boundaries:
+  - governed_decorator
+  - governance_gate
+  - bound_tool_target
+validation:
+  standalone_command: validate-governance-coverage
+  compatibility_command: coverage check

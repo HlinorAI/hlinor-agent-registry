@@ -1,0 +1,12 @@
+schema_version: "1.0"
+type: observability_correlation
+id: synthetic-correlation
+trace_id: 0123456789abcdef0123456789abcdef
+span_id: 0123456789abcdef
+run_id: run:synthetic-1
+parent_id: run:synthetic-parent
+attributes:
+  hlinor.correlation.trace_id: 0123456789abcdef0123456789abcdef
+  hlinor.correlation.span_id: 0123456789abcdef
+  hlinor.correlation.run_id: run:synthetic-1
+  hlinor.correlation.parent_id: run:synthetic-parent

@@ -100,6 +100,15 @@ jobs:
       - name: Run unit tests
         run: python -m pytest tests/ -v
 
+      - name: Run adversarial conformance suite
+        run: python -m pytest tests/test_adversarial_conformance.py -q
+
+      - name: Run MCP tools/call conformance suite
+        run: python -m pytest tests/test_mcp_conformance.py -q
+
+      - name: Run correlation conformance suite
+        run: python -m pytest tests/test_observability.py -q
+
       - name: Enforce coverage baseline
         if: matrix.python-version == '3.11'
         run: python -m pytest tests/ --cov=hlinor_registry --cov-report=term-missing
@@ -131,6 +140,15 @@ jobs:
           hlinor-registry contract diff \
             --expected examples/tool-contracts/customer-support-tools.yaml \
             --observed examples/tool-contracts/customer-support-tools.yaml
+
+      - name: Enforce governance coverage inventory
+        run: |
+          set -euo pipefail
+          hlinor-registry validate-governance-coverage \
+            examples/governance-coverage/coverage.yaml
+          hlinor-registry coverage check \
+            --manifest examples/governance-coverage/coverage.yaml \
+            --format json
 
       - name: Smoke test custom Python Tool Contract export
         run: |

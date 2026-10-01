@@ -77,6 +77,8 @@ negative results. The receipt records:
 - target/resource scope
 - project and workspace scope when supplied
 - approval or lease id
+- optional `trace_id`, `span_id`, `run_id`, and `parent_id` correlation fields;
+  these are metadata only and do not authorize the operation
 
 `BoundTool.invoke()` can emit these records through `HashChainedReceiptSink` or
 the fsync-backed `JsonlReceiptSink`. The sink can additionally sign each

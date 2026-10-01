@@ -1,0 +1,16 @@
+schema_version: "1.0"
+type: governance_coverage
+id: synthetic-sensitive-tool-paths
+entries:
+  - id: governed-report
+    source: examples/governance-coverage/covered_tools.py
+    symbol: governed_send_report
+    effects:
+      - message_send
+    boundary: governed_decorator
+  - id: bound-record-delete
+    source: examples/governance-coverage/covered_tools.py
+    symbol: bound_delete_record
+    effects:
+      - database_write
+    boundary: bound_tool_target

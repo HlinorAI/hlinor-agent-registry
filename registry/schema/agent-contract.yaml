@@ -1,0 +1,36 @@
+type: agent_contract
+schema_version: "1.0"
+id: agent-contract
+name: Agent Contract
+description: >
+  Portable, stateless boundary describing an agent's owner, purpose, goals,
+  authority levels, approvals, stop conditions, data access, tools, policies,
+  audit requirements, versioning, and fail-closed behavior.
+required_fields:
+  - id
+  - version
+  - agent_id
+  - owner
+  - purpose
+  - allowed_goals
+  - out_of_scope
+  - action_levels
+  - autonomous_actions
+  - approval_required
+  - forbidden_actions
+  - stop_conditions
+  - data_access
+  - tool_permissions
+  - policy_ids
+  - audit_requirements
+  - versioning
+  - failure_mode
+action_levels:
+  - READ
+  - DRAFT
+  - EXECUTE
+  - APPROVAL_REQUIRED
+validation:
+  standalone_command: validate-agent-contract
+  compatibility_command: contract verify-agent
+  authority: comparison-only; no identity, approval, or runtime state is stored

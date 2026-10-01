@@ -28,13 +28,11 @@ The following belongs in a separate private repository or hosted product:
 
 | Area | Commercial capability |
 | --- | --- |
-| Control plane | Multi-tenant organizations, projects, agent inventory, policy UI, approvals, RBAC, SSO, billing |
-| Managed identity | Key provisioning and rotation, workload identity, attestation, revocation operations, secret storage |
-| Message fabric | Network delivery, routing, queues, delivery guarantees, cross-deployment identity exchange, retention |
-| Audit operations | Independently operated receipt collector, immutable retention, SIEM/export connectors, alerting, incident workflows |
-| Fleet intelligence | Cross-deployment drift, risk analytics, usage/cost accounting, quotas, dashboards, reports |
-| Enterprise integrations | Managed MCP/A2A gateways, cloud/runtime connectors, organization-specific adapters and compliance packs |
-| Operations | Hosted deployment, upgrades, availability/SLO controls, support tooling, migration and recovery automation |
+| Hosted control plane | Hosted organization, environment, policy lifecycle, approval, and access-management operations |
+| Managed runtime trust | Production identity, key custody, attestation, revocation, and secret-management operations |
+| Hosted delivery and audit | Network delivery, independent audit collection, retention, alerting, and incident operations |
+| Fleet operations | Cross-deployment visibility, drift/risk/cost analysis, quotas, and operational reporting |
+| Enterprise integrations | Managed protocol gateways, cloud/runtime connectors, and organization-specific integrations |
 
 The OSS repository may contain a protocol-neutral interface, a redacted
 conformance fixture, or a local reference client for these areas. It must not

@@ -1,0 +1,52 @@
+schema_version: "1.0"
+type: mcp_tools_call_conformance
+id: synthetic-record-read
+tool_name: records.read
+
+argument_schema:
+  type: object
+  properties:
+    record_id:
+      type: string
+      minLength: 1
+  required:
+    - record_id
+  additionalProperties: false
+
+request:
+  jsonrpc: "2.0"
+  id: call-1
+  method: tools/call
+  params:
+    name: records.read
+    arguments:
+      record_id: "123"
+    _meta:
+      progressToken: synthetic-progress
+
+success_response:
+  jsonrpc: "2.0"
+  id: call-1
+  result:
+    content:
+      - type: text
+        text: synthetic record result
+    structuredContent:
+      record_id: "123"
+      status: available
+
+tool_error_response:
+  jsonrpc: "2.0"
+  id: call-1
+  result:
+    content:
+      - type: text
+        text: synthetic tool failure
+    isError: true
+
+protocol_error_response:
+  jsonrpc: "2.0"
+  id: call-1
+  error:
+    code: -32602
+    message: invalid tool arguments

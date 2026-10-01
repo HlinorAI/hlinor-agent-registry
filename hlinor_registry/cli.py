@@ -17,6 +17,12 @@ from hlinor_registry import __version__
 from hlinor_registry._limits import MAX_SOURCE_BYTES, read_text_capped
 from hlinor_registry._matching import overlapping_allow_patterns
 from hlinor_registry.action_request import ActionRequest
+from hlinor_registry.agent_contract import (
+    AgentContractInputError,
+    check_agent_contract_files,
+    format_agent_contract_text,
+    validate_agent_contract,
+)
 from hlinor_registry.contract_drift import (
     ContractDriftReport,
     check_contract_drift_files,
@@ -24,6 +30,12 @@ from hlinor_registry.contract_drift import (
     format_contract_drift_text,
 )
 from hlinor_registry.enums import ReasonCode
+from hlinor_registry.governance_coverage import (
+    GovernanceCoverageInputError,
+    check_governance_coverage_file,
+    format_governance_coverage_text,
+    validate_governance_coverage,
+)
 from hlinor_registry.policies import POLICY_KINDS
 from hlinor_registry.signing import (
     BundleSignatureError,
@@ -44,6 +56,7 @@ from hlinor_registry.validator import (
     validate_lifecycle_receipt,
     validate_lifecycle_schema,
     validate_policy,
+    validate_process_contract,
     validate_production_action_boundary_example,
     validate_protected_resource_boundary,
     validate_registry_file,
@@ -66,15 +79,22 @@ the usual order:
   lint            find allow and block patterns that contradict each other
   test-policies   run the policy cases declared next to the registry
   contract check  compare a tool contract against the agent boundary
+  contract verify-agent  compare an Agent Contract with agent and tool declarations
+  coverage check  verify known sensitive paths have a governance boundary
   verify-bundle   check a bundle's signature and revision floor
   inspect         print one YAML file as the loader reads it
 
-nineteen single-file schema validators are also available and documented in
+twenty-two single-file schema validators are also available and documented in
 the README; run --list-validators to print them.
 """
 
 VALIDATION_COMMANDS = {
     "validate-agent": ("Agent", validate_agent),
+    "validate-agent-contract": ("Agent Contract", validate_agent_contract),
+    "validate-governance-coverage": (
+        "Governance coverage",
+        validate_governance_coverage,
+    ),
     "validate-department": ("Department", validate_department),
     "validate-policy": ("Policy", validate_policy),
     "validate-skill": ("Skill", validate_skill),
@@ -88,6 +108,7 @@ VALIDATION_COMMANDS = {
     "validate-lifecycle-map": ("Lifecycle map", validate_lifecycle_map),
     "validate-lifecycle-receipt": ("Lifecycle receipt", validate_lifecycle_receipt),
     "validate-lifecycle-schema": ("Lifecycle schema", validate_lifecycle_schema),
+    "validate-process-contract": ("Process Contract", validate_process_contract),
     "validate": ("Registry file", validate_agent),
     "validate-execution-context": ("Execution context", validate_execution_context),
     "validate-action-preflight": ("Action preflight", validate_action_preflight),
@@ -168,6 +189,48 @@ def cmd_contract_diff(args: argparse.Namespace) -> int:
     except (OSError, TypeError, ValueError, yaml.YAMLError) as error:
         return _runtime_error(_compact_error(error))
     return _print_contract_drift(report, args.format)
+
+
+def cmd_agent_contract_check(args: argparse.Namespace) -> int:
+    """Compare a first-class Agent Contract with its declarations."""
+    try:
+        report = check_agent_contract_files(
+            args.contract,
+            args.agent,
+            args.tools,
+        )
+    except (
+        OSError,
+        TypeError,
+        ValueError,
+        yaml.YAMLError,
+        AgentContractInputError,
+    ) as error:
+        return _runtime_error(_compact_error(error))
+    if args.format == "json":
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(format_agent_contract_text(report))
+    return EXIT_DENIED if report.findings else EXIT_ALLOWED
+
+
+def cmd_governance_coverage_check(args: argparse.Namespace) -> int:
+    """Check known sensitive source paths for an explicit boundary."""
+    try:
+        report = check_governance_coverage_file(args.manifest, root=args.root)
+    except (
+        OSError,
+        TypeError,
+        ValueError,
+        yaml.YAMLError,
+        GovernanceCoverageInputError,
+    ) as error:
+        return _runtime_error(_compact_error(error))
+    if args.format == "json":
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(format_governance_coverage_text(report))
+    return EXIT_DENIED if report.findings else EXIT_ALLOWED
 
 
 def _run_validation(label: str, validator, path: str) -> int:
@@ -1383,6 +1446,61 @@ def main(argv: list[str] | None = None) -> int:
         help="Output format",
     )
 
+    agent_contract_check_parser = contract_subparsers.add_parser(
+        "verify-agent",
+        help="Compare an Agent Contract with agent and Tool Contract declarations",
+    )
+    agent_contract_check_parser.add_argument(
+        "--contract",
+        required=True,
+        help="Path to the first-class Agent Contract YAML file",
+    )
+    agent_contract_check_parser.add_argument(
+        "--agent",
+        required=True,
+        help="Path to the agent declaration YAML file",
+    )
+    agent_contract_check_parser.add_argument(
+        "--tools",
+        required=False,
+        help="Path to the Tool Contract YAML or JSON file",
+    )
+    agent_contract_check_parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format",
+    )
+
+    coverage_parser = subparsers.add_parser(
+        "coverage",
+        help="Check known sensitive paths for governance coverage",
+    )
+    coverage_subparsers = coverage_parser.add_subparsers(
+        dest="coverage_command",
+        required=True,
+    )
+    coverage_check_parser = coverage_subparsers.add_parser(
+        "check",
+        help="Check a governance coverage inventory against source files",
+    )
+    coverage_check_parser.add_argument(
+        "--manifest",
+        required=True,
+        help="Path to the governance coverage YAML file",
+    )
+    coverage_check_parser.add_argument(
+        "--root",
+        default=".",
+        help="Source root; manifest source paths are relative to it",
+    )
+    coverage_check_parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format",
+    )
+
     # Register validation commands
 
     # Registered, documented in the README, and kept out of the help listing.
@@ -1468,6 +1586,11 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_contract_check(args)
         if args.contract_command == "diff":
             return cmd_contract_diff(args)
+        if args.contract_command == "verify-agent":
+            return cmd_agent_contract_check(args)
+
+    if args.command == "coverage" and args.coverage_command == "check":
+        return cmd_governance_coverage_check(args)
 
     if args.command == "compile":
         return cmd_compile(args)

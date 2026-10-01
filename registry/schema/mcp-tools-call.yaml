@@ -1,0 +1,42 @@
+type: mcp_tools_call_conformance
+schema_version: "1.0"
+id: mcp-tools-call
+name: MCP tools/call Conformance Fixture
+description: >
+  Protocol-neutral JSON-RPC fixture for checking a governed MCP tools/call
+  boundary without requiring an MCP SDK, network transport, or server.
+required_fields:
+  - schema_version
+  - type
+  - id
+  - tool_name
+  - argument_schema
+  - request
+  - success_response
+  - tool_error_response
+  - protocol_error_response
+request_requirements:
+  - jsonrpc_is_2.0
+  - method_is_tools/call
+  - params_name_is_explicit
+  - arguments_is_an_object_when_present
+  - arguments_match_the_declared_json_schema
+  - optional_meta_and_task_are_opaque_objects
+response_requirements:
+  - response_id_matches_request_id
+  - exactly_one_of_result_or_error
+  - result_contains_content_list
+  - tool_failures_use_result_isError_true
+  - protocol_failures_use_jsonrpc_error_object
+  - result_extensions_are_opaque_and_never_authority
+boundary:
+  does_not_provide:
+    - tool_discovery
+    - transport
+    - authentication
+    - authorization
+    - server_execution
+    - hosted_audit_collection
+  integration_rule: >
+    Validate the envelope, then pass the explicit name and arguments through
+    the deployment's reviewed Tool Contract and governance gate.

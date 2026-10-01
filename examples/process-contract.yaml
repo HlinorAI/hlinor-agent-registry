@@ -1,0 +1,53 @@
+schema_version: '1.0'
+type: process_contract
+id: document-review-process
+version: '1.0.0'
+owner: Example Operations Team
+purpose: Move an evidence-bearing request from intake to a recorded terminal outcome.
+entry_condition: A request and its source evidence are available for review.
+terminal_outcomes:
+  - completed
+  - rejected
+  - blocked
+stages:
+  - id: intake
+    name: Intake
+    purpose: Capture the request and establish its evidence boundary.
+    required_evidence:
+      - request_reference
+      - source_evidence
+    outputs:
+      - normalized_request
+    next_stages:
+      - review
+  - id: review
+    name: Review
+    purpose: Check the request against declared rules and identify missing evidence.
+    required_evidence:
+      - normalized_request
+    outputs:
+      - review_findings
+      - review_decision
+    next_stages:
+      - decision
+  - id: decision
+    name: Decision
+    purpose: Record the accountable decision and its terminal outcome.
+    required_evidence:
+      - review_decision
+    outputs:
+      - terminal_outcome
+    next_stages: []
+handoffs:
+  - explicit_owner_change
+  - approval_record
+  - outcome_receipt
+metrics:
+  - lead_time
+  - waiting_time
+  - handoff_count
+  - rework_rate
+forbidden_shortcuts:
+  - bypass_missing_evidence
+  - treat_draft_as_approval
+  - close_without_outcome_evidence

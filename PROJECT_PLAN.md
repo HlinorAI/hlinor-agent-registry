@@ -52,6 +52,30 @@ The authoritative OSS/commercial split is documented in
 - The experimental signed message transport binds sender key, recipient,
   project/workspace scope, body, freshness, and nonce; receivers require
   durable replay protection when operating across workers.
+- The local `OutcomeAcceptanceGate` evaluates explicit acceptance criteria and
+  verified evidence. It never treats completion, partial execution, or a
+  caller claim as proof of successful work; its receipt fields extend the
+  existing lifecycle receipt format.
+- The portable `Agent Contract` validator makes owner, goals, authority
+  levels, approvals, forbidden actions, stop conditions, data access, tool
+  permissions, policy links, audit requirements, versioning, and failure mode
+  explicit. Its compatibility check is comparison-only and does not store
+  authority or runtime state.
+- The governance coverage checker validates an explicit inventory of known
+  sensitive source symbols against `@governed`, `GovernanceGate`, or exact
+  `bind_tool(target=...)` syntax. It is a bounded static check, not
+  whole-program or hosted-control-plane proof.
+- The adversarial conformance profile exercises spoofing, poisoned messages,
+  untrusted filename/tool output, receipt tampering, delegation fan-out,
+  retry storms, and interruption/partial-execution outcomes using synthetic
+  public primitives.
+- The protocol-neutral MCP `tools/call` fixture validates request/response
+  shape, argument schema, response correlation, and the separation between
+  tool errors and JSON-RPC protocol errors without implementing transport or
+  a server.
+- Portable correlation hooks carry validated trace/span/run/parent metadata
+  through adapter invocation context and execution receipts without adding an
+  OpenTelemetry SDK, exporter, collector, or hosted telemetry store.
 - RFC 8785 interoperability vectors are published as a language-neutral JSON
   fixture and verified against canonical UTF-8 bytes and SHA-256 digests by
   Python and an independent Node.js implementation.
@@ -72,13 +96,18 @@ The authoritative OSS/commercial split is documented in
 4. Signed request-bound approvals and authenticated execution receipts — first
    primitives complete; independent collection remains deployment work.
 5. Protocol contracts and portable identity/delegation primitives — signed
-   delegation, identity-bound transport, and bounded fan-out primitives are
-   experimental; production gateways and external workload attestation are
-   outside this repository.
-6. Stateful circuit breakers, budgets, kill switch, and runtime isolation —
-   rate/concurrency admission and the SQLite kill switch are experimental;
-   cost accounting and broader runtime isolation remain open.
-7. Commercial control-plane capabilities are outside this repository and must
+   delegation, identity-bound transport, bounded fan-out, and the narrow MCP
+   `tools/call` fixture and portable correlation hooks are experimental;
+   production gateways, telemetry collection, and external workload
+   attestation are outside this repository.
+6. Outcome/acceptance enforcement, stateful circuit breakers, budgets, kill
+   switch, and runtime isolation — the local outcome gate, rate/concurrency
+   admission, and SQLite kill switch are experimental; cost accounting and
+   broader runtime isolation remain open.
+7. Portable Agent Contracts and conformance fixtures — the stateless Agent
+   Contract validator, governance coverage check, and adversarial conformance
+   profile are complete; protocol-specific fixtures remain open.
+8. Commercial control-plane capabilities are outside this repository and must
    not be implemented here; only public contracts or local reference clients
    may be added after runtime pilots validate demand.
 
@@ -87,7 +116,8 @@ The authoritative OSS/commercial split is documented in
 The public repository has reached the current OSS runtime-hardening boundary.
 Signed approval, durable replay/revocation, receipt, checkpoint,
 circuit-breaker, scope, AutoGen, and identity-bound delegation/message
-transport primitives are experimental and framework-neutral. Further public
+transport primitives are experimental and framework-neutral. The public Agent
+Contract is now a stateless declaration and comparison layer. Further public
 work is limited to maintenance, security fixes, documentation, portable
 contracts, and conformance tests. Hosted control-plane, managed identity,
 network message delivery, independent audit collection, fleet analytics, and

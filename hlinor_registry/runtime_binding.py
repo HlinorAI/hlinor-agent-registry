@@ -44,6 +44,11 @@ from .execution_receipts import (
 )
 from .execution_scope import ExecutionScope, ExecutionScopeError
 from .integrations._gate import DecisionSink, GovernanceGate
+from .observability import (
+    CorrelationContext,
+    attach_correlation_fields,
+    validate_correlation_context,
+)
 from .policy_checker import PolicyChecker
 from .runtime_limits import (
     RuntimeBudgetGuard,
@@ -295,6 +300,7 @@ class BoundTool:
         replay_guard: ReplayGuard | None = None,
         binding_id: str | None = None,
         request_id: str | None = None,
+        correlation: CorrelationContext | None = None,
         session_id: str | None = None,
         tenant_id: str | None = None,
         execution_scope: ExecutionScope | None = None,
@@ -345,6 +351,8 @@ class BoundTool:
                 "EXECUTION_SCOPE_INVALID",
                 "execution_scope must be an ExecutionScope instance",
             )
+        if correlation is not None:
+            validate_correlation_context(correlation)
 
         def emit_receipt(
             *,
@@ -361,70 +369,67 @@ class BoundTool:
             if receipt_sink is None:
                 return
             receipt_attempted = True
-            receipt_sink.append(
-                {
-                    "schema_version": "1.0",
-                    "receipt_id": str(uuid.uuid4()),
-                    "check_id": f"check:{invocation_id}",
-                    "phase": phase,
-                    "session_id": session_id or "unspecified",
-                    "binding_id": effective_binding_id,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "actor": actor_id or agent_id,
-                    "agent_id": agent_id,
-                    "project_id": (
-                        execution_scope.project_id if execution_scope else None
-                    ),
-                    "workspace_id": (
-                        execution_scope.workspace_id if execution_scope else None
-                    ),
-                    "requested_tool_name": self.tool_id,
-                    "tool_id": self.tool_id,
-                    "authorization_result": authorization_result,
-                    "side_effect_state": side_effect_state,
-                    "matched_approved_binding": verified_approval is not None,
-                    "registry_version": getattr(checker, "bundle_revision", 0),
-                    "policy_bundle_digest": getattr(checker, "bundle_digest", ""),
-                    "tool_descriptor_digest": self.contract_digest,
-                    "normalized_argument_digest": arguments_digest or "",
-                    "target_resource_scope": (
-                        {"resource": resource} if resource is not None else {}
-                    ),
-                    "approval_id_or_lease_id": (
-                        verified_approval.token_id if verified_approval else ""
-                    ),
-                    "request_id": request.request_id if request else invocation_id,
-                    "decision_id": getattr(decision, "decision_id", ""),
-                    "reason": reason,
-                    "output_digest": output_digest,
-                    "error_code": error_code,
-                    "failure_fingerprint": (
-                        effective_failure_fingerprint if circuit_breaker else None
-                    ),
-                    "breaker_state": breaker.state if breaker else None,
-                    "breaker_count": breaker.current_count if breaker else None,
-                    "delegation_id": (
-                        verified_delegation.delegation_id
-                        if verified_delegation
-                        else None
-                    ),
-                    "delegation_depth": (
-                        verified_delegation.delegation_depth
-                        if verified_delegation
-                        else None
-                    ),
-                    "budget_scope": budget_snapshot.scope if budget_snapshot else None,
-                    "budget_lease_id": budget_snapshot.lease_id
-                    if budget_snapshot
-                    else None,
-                    "budget_active_leases": (
-                        budget_snapshot.active_leases if budget_snapshot else None
-                    ),
-                    "budget_rate_events": (
-                        budget_snapshot.rate_events if budget_snapshot else None
-                    ),
-                }
-            )
+            receipt = {
+                "schema_version": "1.0",
+                "receipt_id": str(uuid.uuid4()),
+                "check_id": f"check:{invocation_id}",
+                "phase": phase,
+                "session_id": session_id or "unspecified",
+                "binding_id": effective_binding_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "actor": actor_id or agent_id,
+                "agent_id": agent_id,
+                "project_id": (execution_scope.project_id if execution_scope else None),
+                "workspace_id": (
+                    execution_scope.workspace_id if execution_scope else None
+                ),
+                "requested_tool_name": self.tool_id,
+                "tool_id": self.tool_id,
+                "authorization_result": authorization_result,
+                "side_effect_state": side_effect_state,
+                "matched_approved_binding": verified_approval is not None,
+                "registry_version": getattr(checker, "bundle_revision", 0),
+                "policy_bundle_digest": getattr(checker, "bundle_digest", ""),
+                "tool_descriptor_digest": self.contract_digest,
+                "normalized_argument_digest": arguments_digest or "",
+                "target_resource_scope": (
+                    {"resource": resource} if resource is not None else {}
+                ),
+                "approval_id_or_lease_id": (
+                    verified_approval.token_id if verified_approval else ""
+                ),
+                "request_id": request.request_id if request else invocation_id,
+                "decision_id": getattr(decision, "decision_id", ""),
+                "reason": reason,
+                "output_digest": output_digest,
+                "error_code": error_code,
+                "failure_fingerprint": (
+                    effective_failure_fingerprint if circuit_breaker else None
+                ),
+                "breaker_state": breaker.state if breaker else None,
+                "breaker_count": breaker.current_count if breaker else None,
+                "delegation_id": (
+                    verified_delegation.delegation_id if verified_delegation else None
+                ),
+                "delegation_depth": (
+                    verified_delegation.delegation_depth
+                    if verified_delegation
+                    else None
+                ),
+                "budget_scope": budget_snapshot.scope if budget_snapshot else None,
+                "budget_lease_id": budget_snapshot.lease_id
+                if budget_snapshot
+                else None,
+                "budget_active_leases": (
+                    budget_snapshot.active_leases if budget_snapshot else None
+                ),
+                "budget_rate_events": (
+                    budget_snapshot.rate_events if budget_snapshot else None
+                ),
+            }
+            if correlation is not None:
+                receipt = attach_correlation_fields(receipt, correlation)
+            receipt_sink.append(receipt)
 
         def release_budget() -> None:
             nonlocal budget_lease_id
@@ -619,7 +624,7 @@ class BoundTool:
                 decision_sink=decision_sink,
                 request_factory=request_factory,
             )
-            decision = gate.authorize((), normalized)
+            decision = gate.authorize((), normalized, correlation=correlation)
             if circuit_breaker is not None:
                 if failure_threshold is None:
                     raise RuntimeBindingError(

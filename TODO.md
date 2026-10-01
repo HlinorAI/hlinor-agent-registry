@@ -44,21 +44,34 @@
   protection; sender metadata in the scoped store remains non-authenticating.
 - [x] Add an AutoGen execution wrapper over the public `BaseTool` path and
   verify scope propagation and deny-before-dispatch in the compatibility job.
-- [ ] Define a protocol-neutral MCP `tools/call` contract/conformance fixture;
+- [x] Add the local `OutcomeAcceptanceGate`: a task may reach `SUCCESS` only
+  when every declared acceptance criterion has verified evidence; timeout,
+  interruption, blocked, approval-pending, and partial states remain
+  non-success outcomes.
+- [x] Add a first-class public Agent Contract validator for owner, goals,
+  forbidden actions, action levels, approvals, stop conditions, data access,
+  and failure mode. Its stateless compatibility check cross-checks policy and
+  Tool Contract declarations without becoming an authority store.
+- [x] Add a governance coverage checker and CI failure for known sensitive
+  tool paths that bypass `BoundTool` or the shared governance gate. Keep the
+  source inventory explicit and fail closed on missing or ambiguous evidence.
+- [x] Add an adversarial conformance suite for spoofing, poisoned messages,
+  authority conveyed by filenames/tool output, receipt tampering, delegation
+  fan-out, runaway retries, and partial execution after interruption.
+- [x] Define a protocol-neutral MCP `tools/call` contract/conformance fixture;
   production gateway, credentials, and tenant routing stay outside this repo.
-- [ ] Add portable OpenTelemetry correlation hooks; hosted collection and
-  fleet analytics stay outside this repo.
+- [x] Add portable OpenTelemetry correlation hooks; hosted collection and fleet
+  analytics stay outside this repo.
 - [ ] Evaluate an OSS A2A contract/conformance fixture only after the public/
   commercial boundary is reviewed.
 
-## Commercial/private roadmap (not implemented here)
+## Commercial/private scope
 
-- [ ] Build hosted multi-tenant control plane, UI, RBAC/SSO, approvals, and
-  billing in a separate private product repository.
-- [ ] Build independently operated receipt collection/checkpointing with a
-  deployment-specific availability policy.
-- [ ] Build managed key lifecycle, workload/deployment attestation, network
-  message delivery, external audit collection, retention, and SIEM integrations.
-- [ ] Add cost accounting and deployment-wide quotas across all agent paths.
-- [ ] Build fleet-wide drift/risk/cost analytics, deployment
-  operations, and enterprise connectors.
+- [x] Add a public, business-neutral Process Contract format and validator for
+  end-to-end stages, handoffs, evidence, outcomes, metrics, and forbidden
+  shortcuts. It remains a portable declaration, not a hosted workflow engine.
+
+Commercial capabilities are developed in the private control-plane repository
+and are intentionally omitted from this public roadmap. Public work may add
+portable contracts, local reference implementations, and conformance fixtures
+for those boundaries, but not the managed product itself.

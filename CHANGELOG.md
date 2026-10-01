@@ -7,8 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-01
+
+
 ### Added
 
+- Added a public, business-neutral Process Contract format, schema, validator,
+  CLI command, and synthetic example for mapping end-to-end stages, handoffs,
+  evidence, terminal outcomes, metrics, and forbidden shortcuts. It does not
+  create a hosted workflow or execution authority.
+
+- Added dependency-free portable correlation hooks with validated trace/span,
+  run, and parent identifiers, adapter propagation, receipt fields, and a
+  synthetic fixture; OpenTelemetry collection remains outside this package.
+- Added a protocol-neutral MCP `tools/call` contract fixture and fail-closed
+  validator for JSON-RPC request/response shape, argument schemas, response
+  correlation, tool errors, and protocol-level errors; no MCP SDK or transport
+  is included.
+- Added a public adversarial conformance suite covering spoofed and poisoned
+  messages, non-authoritative filenames/tool output, receipt tampering,
+  bounded delegation fan-out, runaway retries, and interrupted partial work.
+- Added a bounded governance coverage inventory and CLI checker for known
+  sensitive Python tool paths. It fails closed on missing symbols, source
+  escapes, parse errors, malformed entries, and absent `@governed`,
+  `GovernanceGate`, or exact `bind_tool` boundaries, with a CI fixture.
+- Added a stateless, portable Agent Contract format and validator covering
+  ownership, goals, authority levels, approvals, forbidden actions, stop
+  conditions, data access, tool permissions, policy links, audit requirements,
+  versioning, and fail-closed behavior. Added a compatibility command that
+  cross-checks agent and Tool Contract declarations without storing authority.
+- Added the public, stateless `OutcomeAcceptanceGate` and lifecycle-receipt
+  fields for evidence-backed task outcomes. Missing evidence, timeout,
+  interruption, approval-pending, blocked, and partial execution states cannot
+  be reported as `SUCCESS`.
 - Added language-neutral RFC 8785 JCS golden vectors covering key ordering,
   number normalization, Unicode escaping, arrays, canonical UTF-8, and
   SHA-256 digests.
@@ -46,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Reduced public roadmap detail for commercial/private capabilities; their
+  implementation remains confined to the private control-plane repository.
 - Established the OSS/commercial boundary in
   `docs/open-core-boundary.md`: this repository remains a portable policy,
   verification, and reference-runtime core; hosted control-plane, managed
@@ -699,7 +732,8 @@ the fixes do; both are marked.
 Public registry release with YAML schemas, CLI validation, runtime governance
 contracts, lifecycle schemas, and audit-friendly examples.
 
-[Unreleased]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.8.0...v0.8.1

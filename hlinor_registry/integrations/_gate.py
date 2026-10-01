@@ -12,6 +12,7 @@ from typing import Any
 from ..action_request import ActionRequest
 from ..decision import GovernanceDeniedError, PolicyDecision
 from ..execution_scope import ExecutionScope, ExecutionScopeError
+from ..observability import CorrelationContext, validate_correlation_context
 from ..policy_checker import PolicyChecker
 
 DecisionSink = Callable[[PolicyDecision], None]
@@ -27,6 +28,7 @@ class InvocationContext:
     environment: str
     args: tuple[Any, ...]
     kwargs: Mapping[str, Any]
+    correlation: CorrelationContext | None = None
 
 
 RequestFactory = Callable[[InvocationContext], ActionRequest]
@@ -117,8 +119,12 @@ class GovernanceGate:
         self,
         args: tuple[Any, ...] = (),
         kwargs: Mapping[str, Any] | None = None,
+        *,
+        correlation: CorrelationContext | None = None,
     ) -> PolicyDecision:
         """Evaluate and emit one decision, raising on denial."""
+        if correlation is not None:
+            validate_correlation_context(correlation)
         frozen_kwargs = MappingProxyType(dict(kwargs or {}))
 
         with self._lock:
@@ -132,6 +138,7 @@ class GovernanceGate:
                     environment=checker.environment,
                     args=tuple(args),
                     kwargs=frozen_kwargs,
+                    correlation=correlation,
                 )
                 execution_scope = _resolve(self._execution_scope, context)
                 if execution_scope is not None and not isinstance(
