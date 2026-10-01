@@ -12,7 +12,7 @@
     <link rel="canonical" href="https://registry.hlinor.com/" />
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2315120f'/%3E%3Cpath d='M7 8h8v8h6M7 24h8v-8h10' fill='none' stroke='%23d2ad68' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20fill='%2315120f'/%3E%3Cpath%20d='M7%208h8v8h6M7%2024h8v-8h10'%20fill='none'%20stroke='%23d2ad68'%20stroke-linecap='round'%20stroke-linejoin='round'%20stroke-width='2'/%3E%3C/svg%3E"
     />
 
     <meta property="og:type" content="website" />
@@ -392,7 +392,7 @@
 
             <div class="mt-20 grid max-w-4xl grid-cols-1 gap-6 border-t border-white/10 pt-6 text-sm text-[#9f9688] sm:grid-cols-3 sm:gap-8">
               <div>
-                <p class="mb-1 text-2xl font-semibold tracking-[-0.04em] text-[#f2ede2]">31+</p>
+                <p class="mb-1 text-2xl font-semibold tracking-[-0.04em] text-[#f2ede2]">446</p>
                 <p>automated tests</p>
               </div>
               <div>
@@ -423,25 +423,26 @@
             <div class="grid overflow-hidden border border-white/10 lg:grid-cols-2">
               <div class="min-w-0 border-b border-white/10 lg:border-b-0 lg:border-r">
                 <div class="flex items-center justify-between border-b border-white/10 px-5 py-4 text-xs text-[#9f9688]">
-                  <span class="font-mono">examples/agent.yaml</span>
-                  <span>YAML / registry</span>
+                  <span class="font-mono">my_agent.yaml</span>
+                  <span>YAML / from hlinor-registry init</span>
                 </div>
-                <pre class="prism-code"><code class="language-yaml">id: web-research-agent
-name: Web Research Agent
-department: marketing
-skills:
-  - web_search
-  - summarize_text
-policies:
-  - max_10_searches_per_hour
-  - require_budget_check
+                <pre class="prism-code"><code class="language-yaml">id: my-agent
+type: agent
+name: My First Agent
+department: engineering
+
 allowed_actions:
-  - search
-  - read_public_url
-  - extract_keywords
+  - read_database
+  - read_database:reports/*
+  - refund_payment:order/*
+
 blocked_actions:
-  - login_to_website
-  - call_premium_paid_api</code></pre>
+  - send_external_email
+
+policies:
+  - refund-needs-approval
+
+enforcement_mode: strict</code></pre>
               </div>
 
               <div class="min-w-0 bg-[#14110e]">
@@ -451,17 +452,22 @@ blocked_actions:
                 </div>
                 <div class="space-y-8 p-6 font-mono text-sm leading-7 sm:p-8">
                   <div>
-                    <div class="mb-2 text-[#81796c]">$ hlinor-registry check web-research-agent search</div>
-                    <div class="flex gap-3 text-[#b8c89d]"><span>OK</span><span>Action allowed</span></div>
-                    <div class="pl-8 text-[#81796c]">allowlist: search</div>
+                    <div class="mb-2 text-[#81796c]">$ hlinor-registry compile --manifest registry.yaml --output bundle.json</div>
+                    <div class="pl-8 text-[#81796c]">Successfully compiled 2 entries to bundle.json</div>
+                    <div class="pl-8 text-[#81796c]">Agent 'my-agent' enforces: refund-needs-approval</div>
                   </div>
                   <div>
-                    <div class="mb-2 text-[#81796c]">$ hlinor-registry check web-research-agent call_premium_paid_api</div>
-                    <div class="flex gap-3 text-[#e0a07d]"><span>DENY</span><span>Action blocked by policy</span></div>
-                    <div class="pl-8 text-[#81796c]">blocked_actions: call_premium_paid_api</div>
+                    <div class="mb-2 text-[#81796c]">$ hlinor-registry check --bundle bundle.json --agent my-agent --action read_database</div>
+                    <div class="flex gap-3 text-[#b8c89d]"><span>ALLOWED</span><span>EXPLICITLY_ALLOWED</span></div>
+                    <div class="pl-8 text-[#81796c]">action is on the agent allowlist</div>
+                  </div>
+                  <div>
+                    <div class="mb-2 text-[#81796c]">$ hlinor-registry check --bundle bundle.json --agent my-agent --action send_external_email</div>
+                    <div class="flex gap-3 text-[#e0a07d]"><span>DENIED</span><span>ACTION_BLOCKLISTED</span></div>
+                    <div class="pl-8 text-[#81796c]">blocked always wins over allowed</div>
                   </div>
                   <div class="border-t border-white/10 pt-5 text-[#aaa091]">
-                    <span class="text-[#d2ad68]">receipt</span> decision recorded before execution
+                    <span class="text-[#d2ad68]">receipt</span> every check emits a Decision ID and timestamp
                   </div>
                 </div>
               </div>
