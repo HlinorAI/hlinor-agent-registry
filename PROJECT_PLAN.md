@@ -142,3 +142,7 @@ production MCP/A2A gateways are commercial/private work.
   external workload attestation, and independent audit collection.
 - The public/private product boundary must be reviewed before accepting new
   runtime capabilities; see `docs/open-core-boundary.md`.
+
+## Reference integration documentation
+
+The [Mail Hub case study](docs/case-studies/mail-hub.md) documents an independently deployed consumer and includes synthetic policy cases. Private runtime logic and raw operational evidence stay outside this public repository. Controlled Send is excluded.

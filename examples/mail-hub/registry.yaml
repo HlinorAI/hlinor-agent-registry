@@ -1,0 +1,7 @@
+version: '1.0'
+policies:
+  - path: agent.yaml
+  - path: approval.yaml
+metadata:
+  environment: test
+  compiled_by: reference-fixture

@@ -952,3 +952,9 @@ Contributions are welcome. Start with an issue or pull request that explains the
 
 
 ---
+
+## Production integration
+
+Hlinor Mail Hub uses Registry as a policy enforcement layer for scoped internal mail-agent operations.
+
+→ [Case study: governing a production MCP mail agent](docs/case-studies/mail-hub.md)
