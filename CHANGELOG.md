@@ -746,3 +746,9 @@ contracts, lifecycle schemas, and audit-friendly examples.
 [0.4.0]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/HlinorAI/hlinor-agent-registry/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/HlinorAI/hlinor-agent-registry/releases/tag/v0.3.0
+
+## 2026-10-04
+
+### Added
+
+- Mail Hub production consumer case study with explicit policy/approval/audit boundaries and runnable synthetic policy examples.

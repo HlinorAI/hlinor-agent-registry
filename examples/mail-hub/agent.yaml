@@ -1,0 +1,13 @@
+id: agent_mail_reader
+name: Synthetic mail work agent
+department: examples
+description: Minimal reference policy, not a production policy bundle.
+skills: [internal-mail-work]
+validators: [mailbox-scope]
+enforcement_mode: strict
+allowed_actions:
+  - update_draft:mailbox/1/*
+  - mark_resolved:mailbox/1/*
+  - send_external_email:mailbox/1/*
+blocked_actions: [approve_draft]
+policies: [mail-send-approval]

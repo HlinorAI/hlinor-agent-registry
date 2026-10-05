@@ -75,3 +75,8 @@ Commercial capabilities are developed in the private control-plane repository
 and are intentionally omitted from this public roadmap. Public work may add
 portable contracts, local reference implementations, and conformance fixtures
 for those boundaries, but not the managed product itself.
+
+## Mail Hub case study
+
+- [x] Verify case study, seven synthetic policy cases, full suite, links and sanitized evidence.
+- [ ] Owner review of local branch; publication/merge requires a separate decision.

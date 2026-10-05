@@ -1,0 +1,79 @@
+schema_version: '1.0'
+fixed_time: '2026-10-04T12:00:00Z'
+cases:
+- id: update-in-scope
+  request:
+    agent_id: agent_mail_reader
+    action: update_draft
+    resource: mailbox/1/thread/thread_example/draft/draft_example
+    signals: {}
+  expect:
+    result: allowed
+    reason_code: EXPLICITLY_ALLOWED
+    matched_policy_ids: []
+- id: resolve-in-scope
+  request:
+    agent_id: agent_mail_reader
+    action: mark_resolved
+    resource: mailbox/1/thread/thread_example/draft/new
+    signals: {}
+  expect:
+    result: allowed
+    reason_code: EXPLICITLY_ALLOWED
+    matched_policy_ids: []
+- id: unknown-action
+  request:
+    agent_id: agent_mail_reader
+    action: unknown_operation
+    resource: mailbox/1/thread/thread_example/draft/new
+    signals: {}
+  expect:
+    result: denied
+    reason_code: ACTION_NOT_ALLOWLISTED
+    matched_policy_ids: []
+- id: protected-owner-action
+  request:
+    agent_id: agent_mail_reader
+    action: approve_draft
+    resource: mailbox/1/thread/thread_example/draft/draft_example
+    signals: {}
+  expect:
+    result: denied
+    reason_code: ACTION_BLOCKLISTED
+    matched_policy_ids: []
+- id: cross-mailbox-denied
+  request:
+    agent_id: agent_mail_reader
+    action: update_draft
+    resource: mailbox/2/thread/thread_example/draft/draft_example
+    signals: {}
+  expect:
+    result: denied
+    reason_code: ACTION_NOT_ALLOWLISTED
+    matched_policy_ids: []
+- id: send-without-approval
+  request:
+    agent_id: agent_mail_reader
+    action: send_external_email
+    resource: mailbox/1/thread/thread_example/draft/draft_example
+    signals: {}
+  expect:
+    result: denied
+    reason_code: POLICY_SIGNAL_MISSING
+    matched_policy_ids:
+    - mail-send-approval
+- id: wrong-resource-approval
+  request:
+    agent_id: agent_mail_reader
+    action: send_external_email
+    resource: mailbox/1/thread/thread_example/draft/draft_example
+    signals:
+      approval:
+        approver_role: owner
+        granted_for: send_external_email:mailbox/2/thread/thread_example/draft/draft_example
+        granted_at: '2026-10-04T11:55:00Z'
+  expect:
+    result: denied
+    reason_code: APPROVAL_REQUIRED
+    matched_policy_ids:
+    - mail-send-approval

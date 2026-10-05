@@ -1,0 +1,11 @@
+type: policy
+id: mail-send-approval
+name: Synthetic owner approval requirement
+description: Caller signals are test inputs, never a production proof.
+enforcement: Deny without a fresh request-bound owner approval.
+kind: requires_approval
+trigger: ['send_external_email:*']
+requires:
+  approver_role: owner
+  bind_to_request: true
+  max_age_seconds: 1800
