@@ -113,6 +113,34 @@ attachments. Analysis findings do not grant execution authority.
 
 See the independent [ScopeGuard project](https://github.com/HlinorAI/scopeguard).
 The same policy boundary is intended to govern higher-risk operations such as
-external message delivery. Controlled Send is not part of this case study yet.
-Local signed-approval/transport tests are not proof of production SMTP/Sent
-acceptance. Sending remains disabled in the reviewed acceptance snapshot.
+external message delivery. Its production acceptance is described below.
+
+## Controlled Send: production acceptance
+
+The two-level proof for this component now extends from public reproducibility
+to production evidence. The same policy boundary governs outbound delivery,
+which is enabled for exactly one mailbox and remains gated end-to-end:
+
+- an agent can draft and request, but cannot approve: the approval tool is
+  absent from the agent-facing tool catalog, the service gate requires the
+  separate owner principal, and the Registry policy does not list approval
+  actions for the work agent;
+- an owner approval is bound to one draft revision and its content digest, is
+  single-use, expires, and is consumed atomically with a durable dispatch
+  claim;
+- the send path re-checks mailbox capability before any SMTP contact, so a
+  globally enabled switch never widens per-mailbox authority;
+- replaying the same request returns the recorded outcome and never performs a
+  second SMTP submission.
+
+Two production verification messages were sent under explicit per-draft owner
+authorization — plain text, no customer data. Production verification exposed
+a Sent-folder reconciliation edge case before rollout was expanded: the system
+preserved exactly-once delivery throughout, the issue was fixed with dedicated
+regression tests, and the revalidation passed the full cycle — SMTP accepted,
+provider-managed Sent copy present exactly once, reconciliation clean, approval
+consumed, replay a no-op.
+
+Per-decision Registry provenance (decision id, bundle digest, reason code,
+approval-signal digest) is persisted alongside the action audit trail, so both
+allow and deny decisions remain reconstructable.
